@@ -1,7 +1,7 @@
 import type { PluginOptions } from 'claude-code'
 
 import type { ClipboardBackend } from './clipboard'
-import { PRESET_NAMES, PRESETS } from './presets'
+import { PRESET_NAMES, PRESETS, SYNTAX } from './presets'
 import type { Shape, Terminal } from './rtl'
 import { TERMINALS } from './rtl'
 
@@ -16,6 +16,7 @@ export type Clock = 'off' | '24h' | '12h'
 
 export type Style = {
   theme: Theme
+  syntax?: Record<string, keyof Theme>
   headingStyle: 'bold' | 'underline' | 'uppercase' | 'banner'
   tableStyle: 'box' | 'rules' | 'grid' | 'minimal'
   taskStyle: 'checks' | 'ticks' | 'box' | 'progress'
@@ -63,6 +64,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
 
   return {
     theme: { ...base, ...fromFields },
+    syntax: (SYNTAX as Record<string, Record<string, keyof Theme> | undefined>)[String(options.theme)],
     headingStyle: pick(options.headingStyle, ['bold', 'underline', 'uppercase', 'banner'] as const, 'banner'),
     tableStyle: pick(options.tableStyle, ['box', 'rules', 'grid', 'minimal'] as const, 'box'),
     taskStyle: pick(options.taskStyle, ['checks', 'ticks', 'box', 'progress'] as const, 'checks'),

@@ -353,3 +353,24 @@ test('two code blocks that differ only in where lines break fold on their own', 
   expect((await ui.find({ key: 'fold2' }))?.props.label).toBe('+11 more lines')
   await ui.unmount()
 })
+
+const TS_CODE = '```ts\nclass Item extends Base {}\nconsole.log("a", true, 3)\n```'
+
+test('one-dark-pro colors code like VS Code One Dark Pro', { options: { theme: 'one-dark-pro' } }, async $ => {
+  const t = PRESETS['one-dark-pro']
+  const ui = await $.ui.mount({ ...draw(TS_CODE), surface: 'terminal' })
+  const color = async (text: RegExp) => (await ui.find({ type: 'Text', text }))?.props.color
+  expect(await color(/^class$/)).toBe(t.accent)
+  expect(await color(/^Item$/)).toBe(t.heading)
+  expect(await color(/^console$/)).toBe(t.inlineCode)
+  expect(await color(/^"a"$/)).toBe(t.codeString)
+  expect(await color(/^true$/)).toBe(t.number)
+  await ui.unmount()
+})
+
+test('other themes keep the shared token mapping', { options: { theme: 'dracula' } }, async $ => {
+  const t = PRESETS.dracula
+  const ui = await $.ui.mount({ ...draw(TS_CODE), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^class$/ }))?.props.color).toBe(t.codeFlag)
+  await ui.unmount()
+})

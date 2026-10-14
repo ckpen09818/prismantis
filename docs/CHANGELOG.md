@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added
 
 - A `one-dark-pro` theme, from Binaryify's One Dark Pro (MIT), for `/prismantis theme one-dark-pro` and the `theme` option. It joins the random dark pool.
+- `one-dark-pro` colors code like VS Code One Dark Pro: keywords purple, class names yellow, builtins and operators cyan, properties, tags and variables red, attribute names orange. Other themes keep the shared token mapping.
 
 ## [0.18.3] - 2026-10-13
 

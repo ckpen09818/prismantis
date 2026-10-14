@@ -145,7 +145,7 @@ const flatten = (tokens: PrismToken[], style: Style, color?: string, italic = fa
   tokens.flatMap(token => {
     if (typeof token === 'string') return [{ text: token, color, italic }]
     const names = [token.type, ...(Array.isArray(token.alias) ? token.alias : token.alias ? [token.alias] : [])]
-    const slot = names.map(n => PRISM_COLORS[n]).find(Boolean)
+    const slot = names.map(n => style.syntax?.[n] ?? PRISM_COLORS[n]).find(Boolean)
     const inner = Array.isArray(token.content) ? token.content : [token.type === 'comment' && typeof token.content === 'string' && style.reorder ? commentVisual(token.content, style.shape) : token.content]
     return flatten(inner, style, slot ? style.theme[slot] : color, italic || token.type === 'comment')
   })
