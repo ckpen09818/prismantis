@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- A `one-dark-pro` theme, from Binaryify's One Dark Pro (MIT), for `/prismantis theme one-dark-pro` and the `theme` option. It joins the random dark pool.
+
 ## [0.18.3] - 2026-10-13
 
 ### Changed

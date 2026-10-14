@@ -60,7 +60,7 @@ For LaTeX math, install RaTeX's renderer and set `latex` to `true`; see [LaTeX m
 
 | Feature | What you get |
 | --- | --- |
-| [Themes](#themes) | `/prismantis theme <name>` switches on the spot. 16 themes and 20 color slots you can override |
+| [Themes](#themes) | `/prismantis theme <name>` switches on the spot. 17 themes and 20 color slots you can override |
 | [Tables](#tables) | colored headers, rules, column alignment, colored numbers, sized to the terminal |
 | [Code](#code) | a language header and copy button, Prism highlighting in two dozen languages, shell lines colored like a prompt |
 | [Diagrams and charts](#diagrams-and-charts) | flowcharts, sequence, state, class and ER diagrams, bar and line charts, one color per box, participant and bar |
@@ -80,11 +80,11 @@ For LaTeX math, install RaTeX's renderer and set `latex` to `true`; see [LaTeX m
 
 ### Themes
 
-![The same reply in all 15 color themes, ten dark and five light: a tip box, a task list, a flowchart and a bar chart](docs/themes.png)
+![The same reply in all 16 color themes, eleven dark and five light: a tip box, a task list, a flowchart and a bar chart](docs/themes.png)
 
 ![Random theme: plain Claude Code on the left, prismantis with theme random on the right](docs/compare/random-theme.png)
 
-Dark: `catppuccin-mocha` (default), `dracula`, `nord`, `tokyo-night`, `gruvbox-dark`, `rose-pine`, `everforest`, `github-dark`, `one-dark`, `solarized-dark`.
+Dark: `catppuccin-mocha` (default), `dracula`, `nord`, `tokyo-night`, `gruvbox-dark`, `rose-pine`, `everforest`, `github-dark`, `one-dark`, `one-dark-pro`, `solarized-dark`.
 
 Light: `catppuccin-latte`, `gruvbox-light`, `rose-pine-dawn`, `github-light`, `solarized-light`.
 

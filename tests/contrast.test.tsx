@@ -16,6 +16,7 @@ const BACKGROUNDS: Record<string, string> = {
   'github-dark': '#0d1117',
   'github-light': '#ffffff',
   'one-dark': '#282c34',
+  'one-dark-pro': '#282c34',
   'solarized-dark': '#002b36',
   'solarized-light': '#fdf6e3',
 }

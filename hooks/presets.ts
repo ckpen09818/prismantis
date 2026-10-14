@@ -79,6 +79,12 @@ export const PRESETS = {
     codeComment: '#5c6370', link: '#61afef', path: '#56b6c2', number: '#d19a66', quote: '#828997',
     rule: '#3a3f4b', tableRule: '#5c6370', bullet: '#c678dd', diagram: '#61afef', diagramText: '#abb2bf',
   },
+  'one-dark-pro': {
+    accent: '#c162de', heading: '#d18f52', tableHeader: '#d18f52', strong: '#e6e6e6', emphasis: '#de73ff',
+    inlineCode: '#42b3c2', codeText: '#abb2bf', codeCommand: '#4aa5f0', codeFlag: '#e05561', codeString: '#8cc265',
+    codeComment: '#7f848e', link: '#4aa5f0', path: '#42b3c2', number: '#8cc265', quote: '#5c6370',
+    rule: '#3e4452', tableRule: '#4f5666', bullet: '#c162de', diagram: '#4aa5f0', diagramText: '#abb2bf',
+  },
   'solarized-dark': {
     accent: '#6c71c4', heading: '#b58900', tableHeader: '#b58900', strong: '#eee8d5', emphasis: '#d33682',
     inlineCode: '#2aa198', codeText: '#93a1a1', codeCommand: '#268bd2', codeFlag: '#cb4b16', codeString: '#859900',

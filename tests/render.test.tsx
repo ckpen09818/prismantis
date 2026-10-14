@@ -120,6 +120,7 @@ test('every preset defines every token with a valid color', async () => {
 
 test('picks a named theme and falls back on unknown names', async () => {
   expect(resolveStyle({ theme: 'dracula' }).theme.tableHeader).toBe('#f1fa8c')
+  expect(resolveStyle({ theme: 'one-dark-pro' }).theme.tableHeader).toBe('#d18f52')
   expect(resolveStyle({ theme: 'nope' }).theme.tableHeader).toBe(PRESETS['catppuccin-mocha'].tableHeader)
 })
 

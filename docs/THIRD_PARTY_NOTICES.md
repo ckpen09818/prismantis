@@ -60,4 +60,5 @@ Each preset in `hooks/presets.ts` maps a published palette onto prismantis token
 | `everforest` | [sainnhe/everforest](https://github.com/sainnhe/everforest) | Copyright (c) 2019 sainnhe |
 | `github-dark`, `github-light` | [primer/primitives](https://github.com/primer/primitives) 7.10.0 via [primer/github-vscode-theme](https://github.com/primer/github-vscode-theme) | Copyright (c) 2018 GitHub Inc. |
 | `one-dark` | [atom/one-dark-syntax](https://github.com/atom/one-dark-syntax) | Copyright (c) 2016 GitHub Inc. |
+| `one-dark-pro` | [Binaryify/OneDark-Pro](https://github.com/Binaryify/OneDark-Pro) | Copyright (c) 2013-2022 Binaryify |
 | `solarized-dark`, `solarized-light` | [altercation/solarized](https://github.com/altercation/solarized) | Copyright (c) 2011 Ethan Schoonover |
