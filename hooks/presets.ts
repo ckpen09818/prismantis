@@ -102,8 +102,6 @@ export const PRESETS = {
 
 export type PresetName = keyof typeof PRESETS
 
-// Prism token → theme slot overrides, so a preset can match its editor original where the shared mapping in render.tsx differs.
-// one-dark-pro follows VS Code One Dark Pro: keyword purple, type yellow, builtin and operator cyan, property and variable red, attribute orange.
 export const SYNTAX: Partial<Record<PresetName, Record<string, keyof Theme>>> = {
   'one-dark-pro': {
     keyword: 'accent', 'class-name': 'heading', builtin: 'inlineCode', operator: 'inlineCode',
