@@ -1,6 +1,6 @@
 {
   "name": "prismantis",
-  "version": "0.18.3",
+  "version": "0.36.0",
   "description": "Colorful, themeable rendering for Claude Code replies: tables, headings, code, numbers, paths and links.",
   "author": {
     "name": "Nahum Litvin",
@@ -47,6 +47,7 @@
         "one-dark-pro",
         "solarized-dark",
         "solarized-light",
+        "neon",
         "mono",
         "random"
       ]
@@ -78,9 +79,9 @@
     "promptStyle": {
       "type": "string",
       "title": "Your prompt style",
-      "description": "How the prompts you type draw in the transcript. bubble: a rounded box in the accent color. bar: an accent bar on the left. chevron: a bold accent › before the text. off: Claude Code's own look.",
+      "description": "How the prompts you type draw in the transcript. bubble: a rounded box in the accent color. wide: the same box across the full width, a divider between turns. bar: an accent bar on the left. chevron: a bold accent › before the text. off: Claude Code's own look.",
       "default": "bubble",
-      "options": ["bubble", "bar", "chevron", "off"]
+      "options": ["bubble", "wide", "bar", "chevron", "off"]
     },
     "clock": {
       "type": "string",
@@ -266,7 +267,7 @@
     "ruleColor": {
       "type": "string",
       "title": "Rules",
-      "description": "Color for horizontal rules and heading banners. Hex, rgb(), ansi256() or a name. Empty uses the theme.",
+      "description": "Color for horizontal rules, diff card borders and chart gridlines. Hex, rgb(), ansi256() or a name. Empty uses the theme.",
       "default": ""
     },
     "bulletColor": {
@@ -274,6 +275,32 @@
       "title": "Bullets",
       "description": "Color for list bullets and numbers. Hex, rgb(), ansi256() or a name. Empty uses the theme.",
       "default": ""
+    },
+    "diffAddedColor": {
+      "type": "string",
+      "title": "Diff added",
+      "description": "Color for added diff lines: their + marks and count, and in hex the tint behind them, mixed into black or white so code text stays at 4.5:1. Hex, rgb(), ansi256() or a name. Empty uses the theme's green.",
+      "default": ""
+    },
+    "diffRemovedColor": {
+      "type": "string",
+      "title": "Diff removed",
+      "description": "Color for removed diff lines: their - marks and count, and in hex the tint behind them, mixed into black or white so code text stays at 4.5:1. Hex, rgb(), ansi256() or a name. Empty uses the theme's red.",
+      "default": ""
+    },
+    "diffStyle": {
+      "type": "string",
+      "title": "Diff style",
+      "description": "How edit and shell edit diffs draw. card: a rounded box with tinted lines. full: no box, each changed line tinted across the width. marks: no box and no tint, only the +/- marks in the theme's diff colors. bar: no box and no tint, a colored ▌ before each changed line. Every style highlights the code and marks the changed words.",
+      "default": "card",
+      "options": ["card", "full", "marks", "bar"]
+    },
+    "pieStyle": {
+      "type": "string",
+      "title": "Pie style",
+      "description": "How mermaid pie charts draw. round: a circle with a legend, falling back to bars in ascii mode, with more slices than the theme has distinct colors (mono always) or in a narrow terminal. bars: one bar per slice, largest first, with its share.",
+      "default": "round",
+      "options": ["round", "bars"]
     },
     "mermaid": {
       "type": "boolean",
@@ -285,6 +312,19 @@
       "type": "boolean",
       "title": "Copy buttons",
       "description": "Put a copy button on code blocks, tables, diagrams, lists and quotes. Reach them with ctrl+x tab then Enter, or click where the terminal passes clicks through.",
+      "default": true
+    },
+    "copyButtonStyle": {
+      "type": "string",
+      "title": "Copy button style",
+      "description": "inline: buttons beside or above each block, always shown. hover: each block shows a dim ⧉ beside its first row, and the reply one in its bottom-right corner; the pointer on a ⧉ draws its buttons over it, so they take no line; ctrl+x tab does not reach them, and the mobile app, which has no pointer, shows them inline. Needs copyButtons on.",
+      "default": "inline",
+      "options": ["inline", "hover"]
+    },
+    "issueHint": {
+      "type": "boolean",
+      "title": "Issue hint",
+      "description": "On your first prompt and every tenth after it, tell the model it can offer, after asking you, to open a minimal repro issue on prismantis when you say something drew wrong. About 35 tokens each time.",
       "default": true
     },
     "diagramHints": {

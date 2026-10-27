@@ -3,24 +3,27 @@ export type Inline =
   | { kind: 'strong'; children: Inline[] }
   | { kind: 'emphasis'; children: Inline[] }
   | { kind: 'strike'; children: Inline[] }
-  | { kind: 'code'; text: string }
+  | { kind: 'code'; text: string; href?: string }
   | { kind: 'math'; text: string }
   | { kind: 'link'; text: string; href: string }
+  | { kind: 'image'; text: string; src: string }
   | { kind: 'number'; text: string }
-  | { kind: 'path'; text: string }
+  | { kind: 'path'; text: string; href?: string }
   | { kind: 'dim'; text: string }
-  | { kind: 'footnote'; text: string }
+  | { kind: 'footnote'; text: string; note?: number }
+
+export type Note = { mark: string; inline: Inline[]; note: number }
 
 export type Block = { raw: string } & (
   | { kind: 'heading'; level: number; inline: Inline[] }
   | { kind: 'paragraph'; inline: Inline[] }
   | { kind: 'list'; ordered: boolean; items: ListItem[] }
   | { kind: 'code'; lang: string; lines: string[]; isOpen?: true }
-  | { kind: 'quote'; inline: Inline[] }
-  | { kind: 'alert'; level: AlertLevel; inline: Inline[] }
+  | { kind: 'quote'; blocks: Block[] }
+  | { kind: 'alert'; level: AlertLevel; blocks: Block[] }
   | { kind: 'rule' }
   | { kind: 'table'; header: Inline[][]; align: ('left' | 'right' | 'center')[]; rows: Inline[][][] }
-  | { kind: 'notes'; notes: { mark: string; inline: Inline[] }[] }
+  | { kind: 'notes'; notes: Note[] }
 )
 
 export type ListItem = { marker: string; depth: number; task?: boolean; inline: Inline[]; blocks?: Block[] }
@@ -32,11 +35,18 @@ const ALERT = /^\[!(note|tip|important|warning|caution)\]\s*(.*)$/i
 
 export type Highlight = { numbers: boolean; paths: boolean }
 
+export const FIGURE_ROLES = ['accent', 'warn', 'ok', 'note', 'dim', 'strong'] as const
+
+const ROLE_MARKUP = new RegExp(`\\{(?:${FIGURE_ROLES.join('|')}):([^{}]*)\\}`, 'g')
+
 const MAX_INLINE = 4000
+const MAX_QUOTE_DEPTH = 8
+const QUOTE = /^\s*>/
 const TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/
 const LIST_ITEM = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/
 const FENCE = /^\s*(`{3,}|~{3,})\s*([\w+-]*)/
 const NOTE_DEF = /^\[\^([^\]\s]+)\]:\s*(.*)$/
+const TAG_LINE = /^\s*<\/?[a-z][\w-]*>\s*$/i
 const SUPERSCRIPT = '⁰¹²³⁴⁵⁶⁷⁸⁹'
 
 const splitRow = (line: string): string[] => {
@@ -59,11 +69,25 @@ const splitRow = (line: string): string[] => {
   return cells
 }
 
-const INLINE = /(`+)(?!`)(.+?)(?<!`)\1(?!`)|\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)|\*\*(?!\s)((?:[^*]|\*[^*\s][^*]*?(?<!\s)\*)+?)(?<!\s)\*\*|(?<![\w_])__(?!\s)([^_]+?)(?<!\s)__(?![\w_])|~~([^~]+?)~~|(?<![\w*])\*([^*\s][^*]*?)(?<!\s)\*(?!\w)|(?<![\w_])_([^_\s][^_]*?)(?<!\s)_(?!\w)|(https?:\/\/(?:[^\s<>()]|\([^\s<>()]*\))*(?:[^\s<>().,;:!?'"]|\([^\s<>()]*\)))|(?<![\\$\w])\$(?=\S)((?:\\.|[^$\n\\])+?)(?<=\S)\$(?![\w$])|\[\^([^\]\s]+)\]/g
+const CELL_BREAK = /(`+)(?!`).+?(?<!`)\1(?!`)|<br\s*\/?>/gi
+
+const parseCell = (text: string, hl: Highlight): Inline[] => {
+  const out: Inline[] = []
+  let at = 0
+  for (const m of text.matchAll(CELL_BREAK)) {
+    if (m[1] !== undefined) continue
+    out.push(...parseInline(text.slice(at, m.index).trim(), hl), { kind: 'text', text: '\n' })
+    at = m.index + m[0].length
+  }
+  return at ? [...out, ...parseInline(text.slice(at).trim(), hl)] : parseInline(text, hl)
+}
+
+const INLINE = /(`+)(?!`)(.+?)(?<!`)\1(?!`)|\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)|\*\*(?!\s)((?:[^*]|\*[^*\s][^*]*?(?<!\s)\*)+?)(?<!\s)\*\*|(?<![\w_])__(?!\s)([^_]+?)(?<!\s)__(?![\w_])|~~([^~]+?)~~|(?<![\w*])\*([^*\s][^*]*?)(?<!\s)\*(?!\w)|(?<![\w_])_([^_\s][^_]*?)(?<!\s)_(?!\w)|(https?:\/\/(?:[^\s<>()]|\([^\s<>()]*\))*(?:[^\s<>().,;:!?'"]|\([^\s<>()]*\)))|(?<![\\$\w])\$(?=\S)((?:\\.|[^$\n\\])+?)(?<=\S)\$(?![\w$])|\[\^([^\]\s]+)\]|!\[([^\]]*)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g
 const NUMBER = /(?<![\w.#/-])(v?\d+(?:[.,:]\d+)*(?:%|ms|s|m|h|d|Gi|Mi|GB|MB|KB|x)?)(?![\w/])/g
 const PATH = /(?<![\w/.:])((?:~|\.{1,2})?\/[\w.@+-]+(?:\/[\w.@+-]*)*)/g
 
-const decorate = (text: string, hl: Highlight): Inline[] => {
+const decorate = (raw: string, hl: Highlight): Inline[] => {
+  const text = raw.replace(ROLE_MARKUP, '$1')
   if (!hl.numbers && !hl.paths) return [{ kind: 'text', text }]
   const marks: { start: number; end: number; kind: 'number' | 'path' }[] = []
   if (hl.paths) for (const m of text.matchAll(PATH)) marks.push({ start: m.index, end: m.index + m[0].length, kind: 'path' })
@@ -101,6 +125,7 @@ export const parseInline = (text: string, hl: Highlight): Inline[] => {
     else if (m[10] !== undefined) out.push({ kind: 'link', text: m[10], href: m[10] })
     else if (m[11] !== undefined) out.push(...(isTex(m[11]) ? [{ kind: 'math' as const, text: texText(m[11]) }] : decorate(m[0], hl)))
     else if (m[12] !== undefined) out.push({ kind: 'footnote', text: m[12] })
+    else if (m[14] !== undefined) out.push({ kind: 'image', text: m[13] || 'image', src: m[14] })
     at = m.index + m[0].length
   }
   if (at < text.length) out.push(...decorate(text.slice(at), hl))
@@ -233,21 +258,22 @@ const numberNotes = (blocks: Block[], defs: Map<string, string>, hl: Highlight):
     else if ('children' in n) seen(n.children)
   })
   const fix = (nodes: Inline[]): Inline[] => nodes.map(n =>
-    n.kind === 'footnote' ? (order.has(n.text) ? { kind: 'footnote', text: markOf(order.get(n.text)!) } : { kind: 'text', text: `[^${n.text}]` })
+    n.kind === 'footnote' ? (order.has(n.text) ? { kind: 'footnote', text: markOf(order.get(n.text)!), note: order.get(n.text)! } : { kind: 'text', text: `[^${n.text}]` })
     : 'children' in n ? { ...n, children: fix(n.children) } : n)
   const mapInlines = (b: Block, f: (nodes: Inline[]) => Inline[]): Block =>
     'inline' in b ? { ...b, inline: f(b.inline) }
     : b.kind === 'list' ? { ...b, items: b.items.map(it => ({ ...it, inline: f(it.inline), ...(it.blocks ? { blocks: it.blocks.map(c => mapInlines(c, f)) } : {}) })) }
     : b.kind === 'table' ? { ...b, header: b.header.map(f), rows: b.rows.map(r => r.map(f)) }
+    : b.kind === 'quote' || b.kind === 'alert' ? { ...b, blocks: b.blocks.map(c => mapInlines(c, f)) }
     : b
   blocks.forEach(b => mapInlines(b, nodes => (seen(nodes), nodes)))
   for (const label of defs.keys()) if (!order.has(label)) order.set(label, order.size + 1)
   const out = blocks.map(b => mapInlines(b, fix))
-  const notes = [...defs].sort(([a], [b]) => order.get(a)! - order.get(b)!).map(([label, text]) => ({ mark: markOf(order.get(label)!), inline: fix(parseInline(text, hl)) }))
+  const notes = [...defs].sort(([a], [b]) => order.get(a)! - order.get(b)!).map(([label, text]) => ({ mark: markOf(order.get(label)!), inline: fix(parseInline(text, hl)), note: order.get(label)! }))
   return defs.size ? [...out, { kind: 'notes', notes, raw: '' }] : out
 }
 
-const CONTROL = /\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)?|\u001b\[[0-?]*[ -/]*[@-~]|\u001b[@-_]?|[\u0000-\u0008\u000b-\u001f\u007f]/g
+export const CONTROL = /\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)?|\u001b\[[0-?]*[ -/]*[@-~]|\u001b[@-_]?|[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g
 
 export const parse = (raw: string, hl: Highlight): Block[] => {
   const source = raw.replace(CONTROL, '')
@@ -255,12 +281,20 @@ export const parse = (raw: string, hl: Highlight): Block[] => {
   return source.includes('[^') ? numberNotes(blocks, notesOf(source), hl) : blocks
 }
 
-const notesOf = (source: string): Map<string, string> => {
-  const defs = new Map<string, string>()
+const notesOf = (source: string, defs = new Map<string, string>(), depth = 0): Map<string, string> => {
   const lines = source.replace(/\r\n?/g, '\n').split('\n')
   let closer: RegExp | undefined
   let last: string | undefined
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    if (!closer && depth < MAX_QUOTE_DEPTH && QUOTE.test(line)) {
+      const body: string[] = []
+      while (i < lines.length && QUOTE.test(lines[i]!)) body.push(lines[i++]!.replace(/^\s*>\s?/, ''))
+      i--
+      notesOf(body.join('\n'), defs, depth + 1)
+      last = undefined
+      continue
+    }
     const run = FENCE.exec(line)?.[1]
     const fenced = closer !== undefined || run !== undefined
     if (closer?.test(line)) closer = undefined
@@ -278,7 +312,18 @@ const notesOf = (source: string): Map<string, string> => {
 const indentOf = (line: string): number => (line.match(/^\s*/)?.[0] ?? '').replace(/\t/g, '  ').length
 const closerOf = (run: string) => new RegExp(`^\\s*\\${run[0]}{${run.length},}\\s*$`)
 
-const parseBlocks = (source: string, hl: Highlight): Block[] => {
+export const nestedBlocks = (blocks: Block[]): Block[] =>
+  blocks.flatMap(b => [b, ...nestedBlocks(b.kind === 'list' ? b.items.flatMap(it => it.blocks ?? []) : b.kind === 'quote' || b.kind === 'alert' ? b.blocks : [])])
+
+const tableRows = (lines: string[], width: number, hl: Highlight): Inline[][][] => {
+  const end = lines.findIndex(l => !l.includes('|') || l.trim() === '')
+  return lines.slice(0, end < 0 ? lines.length : end).map(l => {
+    const cells = splitRow(l)
+    return Array.from({ length: width }, (_, c) => parseCell(cells[c] ?? '', hl))
+  })
+}
+
+const parseBlocks = (source: string, hl: Highlight, depth = 0): Block[] => {
   const lines = source.replace(/\r\n?/g, '\n').split('\n')
   const at = (n: number) => lines[n] ?? ''
   const blocks: Block[] = []
@@ -321,6 +366,11 @@ const parseBlocks = (source: string, hl: Highlight): Block[] => {
       while (/^\s{2,}\S/.test(at(i + 1))) i++
       continue
     }
+    if (TAG_LINE.test(line)) {
+      flush(i)
+      add({ kind: 'paragraph', inline: [{ kind: 'dim', text: line.trim() }] }, i, i + 1)
+      continue
+    }
     const heading = /^(#{1,6})\s+(.*?)(?:\s+#+)?\s*$/.exec(line)
     if (heading) {
       flush(i)
@@ -339,24 +389,24 @@ const parseBlocks = (source: string, hl: Highlight): Block[] => {
       const align = splitRow(at(i + 1)).map(c =>
         c.startsWith(':') && c.endsWith(':') ? 'center' : c.endsWith(':') ? 'right' : 'left',
       )
-      i += 2
-      const rows: Inline[][][] = []
-      while (i < lines.length && at(i).includes('|') && at(i).trim() !== '') {
-        const cells = splitRow(at(i++))
-        rows.push(header.map((_, c) => parseInline(cells[c] ?? '', hl)))
-      }
-      add({ kind: 'table', header: header.map(c => parseInline(c, { numbers: false, paths: false })), align, rows }, start, i)
+      const rows = tableRows(lines.slice(i + 2), header.length, hl)
+      i += 2 + rows.length
+      add({ kind: 'table', header: header.map(c => parseCell(c, { numbers: false, paths: false })), align, rows }, start, i)
       i--
       continue
     }
-    if (/^\s*>/.test(line)) {
+    if (depth < MAX_QUOTE_DEPTH && QUOTE.test(line)) {
       flush(i)
       const start = i
       const body: string[] = []
-      while (i < lines.length && /^\s*>/.test(at(i))) body.push(at(i++).replace(/^\s*>\s?/, ''))
+      while (i < lines.length && QUOTE.test(at(i))) body.push(at(i++).replace(/^\s*>\s?/, ''))
       const alert = ALERT.exec(body[0] ?? '')
-      if (alert) add({ kind: 'alert', level: alert[1]!.toLowerCase() as AlertLevel, inline: parseInline([alert[2]!, ...body.slice(1)].join(' ').trim(), hl) }, start, i)
-      else add({ kind: 'quote', inline: parseInline(body.join(' '), hl) }, start, i)
+      const inner = (rows: string[]) => parseBlocks(rows.join('\n'), hl, depth + 1)
+      if (alert) add({ kind: 'alert', level: alert[1]!.toLowerCase() as AlertLevel, blocks: inner([alert[2]!, ...body.slice(1)]) }, start, i)
+      else {
+        const quoted = inner(body)
+        if (quoted.length) add({ kind: 'quote', blocks: quoted }, start, i)
+      }
       i--
       continue
     }

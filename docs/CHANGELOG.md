@@ -9,6 +9,295 @@ All notable changes to this project are documented here. The format follows [Kee
 - A `one-dark-pro` theme, from Binaryify's One Dark Pro (MIT), for `/prismantis theme one-dark-pro` and the `theme` option. It joins the random dark pool.
 - `one-dark-pro` colors code like VS Code One Dark Pro: keywords purple, class names yellow, builtins and operators cyan, properties, tags and variables red, attribute names orange. Other themes keep the shared token mapping.
 
+## [0.36.0] - 2026-10-26
+
+### Added
+
+- A `▣ png` button next to `⧉ art` on tables, diagrams and figures copies a picture of the drawn art, in the theme's text and background colors. It shows in a local macOS or Windows terminal and needs nothing installed; Linux hides it. Hebrew cells read in drawn order, wide letters stay in their box, and bars and box sides have no gaps between rows. If the helper fails, it copies the text and the toast says why ([#276](https://github.com/NahumLitvin/prismantis/pull/276)).
+- Links that open a file in Cursor, Windsurf or Zed (`cursor://file/…`, `windsurf://file/…`, `zed://file/…`, with an optional `:line` or `:line:column`) are clickable from Claude Code 2.1.294 on, like `vscode://file/…`. Other links of these editors stay text ([#304](https://github.com/NahumLitvin/prismantis/pull/304)).
+
+### Fixed
+
+- In a figure, a Hebrew label with English words in it, like `נעלם מ-Saved Tabs` or `(נמצא ב-Recent Sessions)`, reads in one piece with its brackets the right way round, on every terminal ([#291](https://github.com/NahumLitvin/prismantis/pull/291)).
+
+## [0.35.2] - 2026-10-26
+
+### Fixed
+
+- On iTerm, the last rows of a long expanded Bash output no longer end in a broken letter, and a cantillated or emoji line that fits is drawn whole ([#299](https://github.com/NahumLitvin/prismantis/pull/299)).
+
+## [0.35.1] - 2026-10-24
+
+### Fixed
+
+- On iTerm, Hebrew lines in an edit's diff card, a new file's card and a code block stay inside the card, next to their line numbers, instead of jumping to the right edge ([#288](https://github.com/NahumLitvin/prismantis/pull/288)).
+- On iTerm, Hebrew lines in Bash output stay next to their gutter instead of jumping to the right edge: with `toolOutput: quiet`, in an expanded Bash call (long lines included, command and output) and in a failed tool's reason. A shell code block with a line that opens with Hebrew keeps its colors again ([#289](https://github.com/NahumLitvin/prismantis/pull/289)).
+
+## [0.35.0] - 2026-10-23
+
+### Added
+
+- Paths written without `./` link to their file when it exists in the session folder: `docs/guide/`, `src/app.ts:42` (the `:42` stays out of the URL), `` `src/app.ts` `` in inline code and a bare `notes.md`. Windows paths like `C:\work\notes\plan.md` link too, and a file Claude creates links the next time it is named. Words with slashes like `and/or` and paths that don't exist draw as before ([#275](https://github.com/NahumLitvin/prismantis/pull/275)).
+- In Orca, paths link without `FORCE_HYPERLINK` ([#275](https://github.com/NahumLitvin/prismantis/pull/275)).
+- A `<br>` in a table cell, also written `<br/>` or `<BR>`, starts a new line in the cell instead of printing as written. `⧉ art` and `⧉ html` keep the break, and inside a code span `<br>` stays literal ([#283](https://github.com/NahumLitvin/prismantis/pull/283)).
+- New dark color preset `neon`, from neon-hud: `/prismantis theme neon`, the `theme` picker in `/config`, and `theme random` ([#277](https://github.com/NahumLitvin/prismantis/pull/277)).
+
+### Fixed
+
+- In Hebrew replies, clickable links show only their name, like in English replies, and a link named after a path, a PR number like `#181` or a percentage reads as written ([#285](https://github.com/NahumLitvin/prismantis/pull/285)).
+- On iTerm, table cells that mix Hebrew and English keep a number next to its unit (`3m`, `3.5m`), and inline code or a path in a mostly Hebrew cell keeps its written order ([#281](https://github.com/NahumLitvin/prismantis/pull/281)).
+- On Windows Terminal, a number stays next to its word in Hebrew tables, paragraphs and lists ([#282](https://github.com/NahumLitvin/prismantis/pull/282)).
+- A Hebrew sentence that ends with a path and a period reads in order on every terminal: the period sits after the path ([#284](https://github.com/NahumLitvin/prismantis/pull/284)).
+- In the Claude desktop app, the rule under a level 2 heading is as wide as the heading instead of about twice as wide ([#280](https://github.com/NahumLitvin/prismantis/pull/280)).
+- The quote bar beside a quoted table reaches the bottom of the table when its cells hold `<br>` lines ([#283](https://github.com/NahumLitvin/prismantis/pull/283)).
+
+## [0.34.0] - 2026-10-22
+
+### Added
+
+- `promptStyle: wide` draws your prompt in the rounded accent bubble across the full width, so each prompt marks a clear break between turns when you scroll back ([#272](https://github.com/NahumLitvin/prismantis/pull/272)).
+
+### Fixed
+
+- On Warp, Ghostty, WezTerm, VS Code and Alacritty, a shell command with a Hebrew argument keeps the command first, also when most of its words are Hebrew ([#271](https://github.com/NahumLitvin/prismantis/pull/271)).
+
+## [0.33.1] - 2026-10-21
+
+### Added
+
+- `/prismantis demo-rtl` shows a `text` code block in Hebrew ([#264](https://github.com/NahumLitvin/prismantis/pull/264)).
+
+### Fixed
+
+- On Warp, Ghostty, WezTerm, VS Code and Alacritty, Hebrew in plain text and shell code blocks, and Hebrew strings in highlighted code, read right to left while the code around them stays where it is. A Hebrew line wider than the block wraps first, so its first row opens the sentence ([#264](https://github.com/NahumLitvin/prismantis/pull/264)).
+- On iTerm, inline code and paths in a Hebrew reply draw exactly as written, also when they start or end with `/`, `~`, `.` or `-` ([#265](https://github.com/NahumLitvin/prismantis/pull/265)).
+- A Hebrew list with an English item reads as one list on the right, and an English list with one Hebrew item stays on the left ([#266](https://github.com/NahumLitvin/prismantis/pull/266)).
+
+## [0.33.0] - 2026-10-21
+
+### Added
+
+- `/prismantis setup` has steps for headings, copy buttons, times and diffs, each drawn in every look, and in a short terminal the arrows move the focus instead of scrolling ([#253](https://github.com/NahumLitvin/prismantis/pull/253)).
+- A paste of 4 lines or more in your prompt draws in a double frame of its own, folded to one `pasted text · N lines` button that opens it as highlighted code, instead of Claude Code's raw `<pasted_content>` tags and every pasted line ([#260](https://github.com/NahumLitvin/prismantis/pull/260)).
+
+### Changed
+
+- With `copyButtonStyle` set to `hover`, each block keeps one dim ⧉ beside it and its buttons appear only while the pointer is on that ⧉, so moving across a reply no longer flashes buttons over the text. Blocks lay out two columns narrower in this mode to make room ([#254](https://github.com/NahumLitvin/prismantis/pull/254)).
+- A path that starts with `/` links only when another name follows, so slash commands like `/config` and top folders like `/tmp` stay path-colored text with no hyperlink ([#242](https://github.com/NahumLitvin/prismantis/pull/242)).
+
+### Fixed
+
+- On iTerm, a mostly English table with some Hebrew cells stays one table, every row left to right with its columns lined up ([#255](https://github.com/NahumLitvin/prismantis/pull/255)).
+- Copying a table with `art` keeps its borders in line when cells carry bidi marks, as Hebrew replies often do ([#256](https://github.com/NahumLitvin/prismantis/pull/256)).
+- A shell command's diff card with file links on no longer vanishes into a `ui.render call rejected` line ([#260](https://github.com/NahumLitvin/prismantis/pull/260)).
+
+## [0.32.1] - 2026-10-20
+
+### Fixed
+
+- A `{role:text}` tag outside a figure, in a table cell or a sentence, draws as its text instead of printing raw. Inline code, unknown roles like `{err:x}` and look-alikes like `{id:42}` stay as written. The figure hint now says roles are for figures only ([#248](https://github.com/NahumLitvin/prismantis/pull/248)).
+
+## [0.32.0] - 2026-10-20
+
+### Added
+
+- On Claude Code 2.1.289 and later, in a terminal that draws hyperlinks and not over SSH, paths in replies (`/`, `~/`, `./`, `../`), the files in tool rows and `file://` links open their file or folder on click. Under WSL they open through `wsl.localhost`. The look is unchanged ([#238](https://github.com/NahumLitvin/prismantis/pull/238)).
+- Diff cards highlight code in the file's language and mark the words that changed on a deeper tint, as Claude Code's own diffs do. Removed lines stay plain, unchanged lines are no longer dimmed, `marks` keeps diff colors on the `+` and `−` only, and wrapped lines repeat their mark and tint ([#234](https://github.com/NahumLitvin/prismantis/pull/234)).
+- New, deleted and moved files draw as files instead of long green or red diffs: `Created <path> (N lines)` over a preview of the first 10 lines, `Deleted <path> (N lines)` that opens to what it held, and `Renamed <old> → <new>`. From 2.1.295 a click anywhere on a long card opens and closes it ([#236](https://github.com/NahumLitvin/prismantis/pull/236)).
+
+### Changed
+
+- A `file://` link stays clickable only when its label shows the path it opens. Other `file://` links draw as `label (target)` text ([#240](https://github.com/NahumLitvin/prismantis/pull/240)).
+- Programs and launchers never open on click: a path or `file://` link ending in an executable or launcher extension (`.exe`, `.app`, `.sh`, `.command`, `.lnk` and 71 more), or inside an `.app` bundle, draws as text ([#240](https://github.com/NahumLitvin/prismantis/pull/240)).
+
+### Fixed
+
+- A box in a figure whose rows slip a few columns off its frame draws closed. Boxes next to it keep their place, or move over in one piece when the box has to grow ([#171](https://github.com/NahumLitvin/prismantis/pull/171)).
+- Box figures come out with straight walls more often, especially with Hebrew rows of mixed length, because the figure hint asks the model to pad box rows to the top border ([#243](https://github.com/NahumLitvin/prismantis/pull/243)).
+
+## [0.31.1] - 2026-10-19
+
+### Fixed
+
+- A line holding only an HTML-like tag (`<tldr>`, `<summary>`) draws dim on its own row instead of joining the next line, and `/tldr` no longer gets the path colour. Inline tags (`a <b>bold</b> word`) are unchanged ([#228](https://github.com/NahumLitvin/prismantis/pull/228)).
+- Gantt bars line up with their real start and end dates more closely, so tasks of similar length no longer draw the same ([#224](https://github.com/NahumLitvin/prismantis/pull/224)).
+
+## [0.31.0] - 2026-10-19
+
+### Added
+
+- xychart series can be named, `line "east" [..]` or `bar east [..]`, and the legend shows the name instead of `Line 1` or `Bar 1`. Series with no name keep the numbered label ([#225](https://github.com/NahumLitvin/prismantis/pull/225)).
+
+### Fixed
+
+- Each line and bar series of a multi-series xychart draws in its own theme color, and its legend swatch matches. Before, every line drew in one color and grouped bars got a color per bar ([#225](https://github.com/NahumLitvin/prismantis/pull/225)).
+- A named xychart series draws instead of vanishing from the chart ([#225](https://github.com/NahumLitvin/prismantis/pull/225)).
+
+## [0.30.0] - 2026-10-19
+
+### Added
+
+- Mermaid `pie` charts draw as a round circle with a legend: each slice in its own theme color, the legend's swatches matching, edges smoothed with quadrant blocks. `pieStyle: bars` in `/config` keeps one bar per slice. Round falls back to bars in ascii mode, in a terminal too narrow for it, and when the theme has fewer distinct colors than slices (Dracula, Nord and Rosé Pine have four, mono none) ([#221](https://github.com/NahumLitvin/prismantis/pull/221)).
+- `/prismantis setup` has a seventh step, Pie charts, drawing both styles ([#221](https://github.com/NahumLitvin/prismantis/pull/221)).
+
+### Fixed
+
+- The Codex README links the fenced-block proof of concept on the Codex fork instead of a closed PR ([#220](https://github.com/NahumLitvin/prismantis/pull/220)).
+
+## [0.29.0] - 2026-10-19
+
+### Added
+
+- `/prismantis setup` typed in a terminal opens a pane. Each step lists its styles as buttons; the arrows or Tab move the focus and the pane draws a sample of the style in focus beside the list. Enter saves the pick and moves to the next step, Esc closes the pane and keeps the picks made so far. Sessions with no terminal, like the desktop app, keep the walk in the transcript. Contributed by @b33eep ([#206](https://github.com/NahumLitvin/prismantis/pull/206)).
+- Lua code blocks are highlighted. Requested by @emrearmagan ([#213](https://github.com/NahumLitvin/prismantis/issues/213), [#216](https://github.com/NahumLitvin/prismantis/pull/216)).
+
+### Changed
+
+- The Korean section of `/prismantis demo` reads more naturally. Contributed by @gobenpark ([#208](https://github.com/NahumLitvin/prismantis/pull/208)).
+
+### Fixed
+
+- Hebrew numbered items draw ".1" and "(1", number first, where prismantis orders the row itself: terminals without bidi, kitty and Windows Terminal. Terminal.app, GNOME, Konsole and iTerm2 are unchanged. Contributed by @tomerbr1 ([#210](https://github.com/NahumLitvin/prismantis/pull/210)).
+- Diagram edges with a Hebrew label keep their lines and arrowhead in place, in box-drawing and ASCII mode alike; before, the arrow could point back at the source. A label like "גרסה+beta" stays whole. Contributed by @tomerbr1 ([#210](https://github.com/NahumLitvin/prismantis/pull/210), [#217](https://github.com/NahumLitvin/prismantis/pull/217)).
+
+## [0.28.0] - 2026-10-17
+
+### Added
+
+- `/prismantis demo` adds a Korean section when `LC_ALL` or `LANG` is Korean: a paragraph, a list, a table, a figure and a flowchart, all in Korean. `/prismantis demo ko` shows it anywhere ([#202](https://github.com/NahumLitvin/prismantis/pull/202)).
+- When you say a reply drew wrong, Claude may offer, after asking, to open a minimal repro issue on prismantis. A one-line note rides your first prompt and every tenth after it; `issueHint: false` turns it off ([#203](https://github.com/NahumLitvin/prismantis/pull/203)).
+
+### Fixed
+
+- Figures draw Korean, Japanese and Chinese text. They refused any two-column letter and fell back to source, so labels in those languages never drew; now each takes two columns and frames line up. Emoji are still refused, since terminals disagree on their width. Reported by @gobenpark ([#192](https://github.com/NahumLitvin/prismantis/issues/192), [#201](https://github.com/NahumLitvin/prismantis/pull/201)).
+
+## [0.27.0] - 2026-10-17
+
+### Added
+
+- `/prismantis setup` has a sixth step, Tool output. It draws `full` and `quiet` with the same two calls, a `git status` and a build that fails, so you can see how much of each call shows before picking. Pick with `/prismantis setup output quiet` or `/prismantis setup output 2`. Contributed by @b33eep ([#198](https://github.com/NahumLitvin/prismantis/pull/198)).
+
+## [0.26.0] - 2026-10-17
+
+### Changed
+
+- Hebrew draws right to left in iTerm2 with bidirectional text on. iTerm2 picks each row's direction from its first letter and ignores invisible marks, so a Hebrew row that opens with English now starts with a dim `׀`, and tables, quotes, alerts and banner headings draw their frame with `׀` walls that move with the text. Hebrew rows in mermaid diagrams and figures stay in place, and mixed labels like "האם יש cache?" read right to left. Contributed by @tomerbr1 ([#181](https://github.com/NahumLitvin/prismantis/pull/181)).
+
+### Fixed
+
+- On terminals without bidi (VS Code, Warp, Ghostty, WezTerm), Hebrew labels in mermaid diagrams and figures read right to left. They came out in typing order, so they read backwards ([#194](https://github.com/NahumLitvin/prismantis/pull/194)).
+- A done task in Hebrew keeps its dim, struck look in every terminal ([#181](https://github.com/NahumLitvin/prismantis/pull/181)).
+- In Windows Terminal, Hebrew code rows keep their order, and text copied from the terminal comes out with plain spaces ([#181](https://github.com/NahumLitvin/prismantis/pull/181)).
+
+## [0.25.2] - 2026-10-17
+
+### Fixed
+
+- A reply holding an 8-bit control character (U+0080 to U+009F, such as the one-byte CSI `\u009b`) now draws with prismantis. Those characters passed the control filter, so Claude Code refused the drawing and showed the reply as plain text; they are now stripped with the other control sequences ([#188](https://github.com/NahumLitvin/prismantis/pull/188)).
+
+## [0.25.1] - 2026-10-16
+
+### Security
+
+- An image source in a reply can no longer point at another machine. `file://` URLs take only an empty host or `localhost`, and paths that start with `//` or `\\` are refused, so on Windows a reply cannot make the mod open an SMB connection, which could leak the login hash. Images load only in kitty and Ghostty, or with `CLAUDE_CODE_FORCE_TERMINAL_IMAGES`, so 0.25.0 was reachable only on Windows with that variable set. Such a source now shows its alt text, and a malformed `%` escape in a `file://` source no longer throws. Reported by @tomerbr1 ([#182](https://github.com/NahumLitvin/prismantis/issues/182), [#185](https://github.com/NahumLitvin/prismantis/pull/185)).
+
+## [0.25.0] - 2026-10-16
+
+### Added
+
+- `/prismantis setup` walks five steps: theme, tables, tasks, your prompts and tool rows. Each step draws every option in its own style. Pick by name or number (`/prismantis setup tables grid` or `/prismantis setup tables 3`), and the pick saves to `/config`, applies right away and shows the next step. Light themes are marked as made for a light terminal ([#178](https://github.com/NahumLitvin/prismantis/pull/178)).
+- Mermaid `pie` and `gantt` blocks draw as colored box art instead of source. A pie draws one bar per slice, largest first, with its share, and the value under `showData`. A gantt draws sections and tasks as bars on a shared date or time axis, with `after`, `until`, durations from `ms` to `w` and milestones. `excludes weekends` and `axisFormat` are not handled yet ([#177](https://github.com/NahumLitvin/prismantis/pull/177)).
+- In kitty and Ghostty, a markdown image on a line of its own draws as a picture when it is a PNG from a local path, `~/`, `file://` or a `data:` URL, up to 20 rows and 2 MiB. Web images are never downloaded and stay links that show the alt text. Other terminals, tmux and images inside a sentence show the alt text in the link color instead of a stray `!` ([#179](https://github.com/NahumLitvin/prismantis/pull/179)).
+
+### Fixed
+
+- On the desktop app, VS Code and mobile, code blocks keep their indentation and alignment. They draw through the app's own code element, in the app's highlight colors, and folding and the copy button work as before ([#176](https://github.com/NahumLitvin/prismantis/pull/176)).
+
+## [0.24.1] - 2026-10-16
+
+### Fixed
+
+- With `copyButtonStyle: hover`, hovering a block no longer blanks the rest of the row its copy buttons appear on. The buttons cover only their own cells on code blocks, tables, lists, quotes, alerts and mermaid diagrams, a block narrower than its buttons widens to fit them, and right-to-left lists, quotes, alerts and tables show their buttons at the left, where their lines end ([#170](https://github.com/NahumLitvin/prismantis/pull/170)).
+
+## [0.24.0] - 2026-10-15
+
+### Added
+
+- Footnote marks are clickable. Click a mark in a sentence, list item, quote, alert or table cell to see its note in a toast, point at a note to light every mark that cites it, or at a mark to light its note. This works in the desktop app and where the terminal passes the mouse through, as fullscreen mode does, on Claude Code 2.1.295 or later; earlier versions draw the marks as before ([#138](https://github.com/NahumLitvin/prismantis/pull/138)).
+
+### Changed
+
+- Blockquotes and GitHub alerts keep their markdown structure. Paragraphs, lists, code blocks, tables and nested quotes inside a quote draw as they do anywhere else, inside the bar or under the alert title. Code blocks and tables inside a quote keep their own copy buttons, `/prismantis copy code` finds a code block inside a quote, and footnotes inside a quote are numbered with the others ([#155](https://github.com/NahumLitvin/prismantis/pull/155)).
+
+### Fixed
+
+- In fullscreen, a boxed table row with a link no longer draws its borders down through the lines after the table once the table scrolls past the top of the screen ([#155](https://github.com/NahumLitvin/prismantis/pull/155)).
+
+## [0.23.0] - 2026-10-15
+
+### Added
+
+- The `⧉ html` table copy works in a local Windows terminal. It puts the table on the clipboard as HTML and tab-separated text through Windows' built-in PowerShell, so pasting into Slack makes a native table, and Word and web editors keep the header row and column alignment. Over SSH the button stays hidden, as on macOS and Linux ([#144](https://github.com/NahumLitvin/prismantis/pull/144)).
+
+## [0.22.0] - 2026-10-15
+
+### Added
+
+- `diffAdded` and `diffRemoved` theme tokens hold each preset's own green and red for diffs, from its upstream palette: Rosé Pine's foam and love, Nord's nord14 and nord11, Dracula's green and red, Everforest's `#a7c080` and `#e67e80`, GitHub's git added and deleted colors. `diffAddedColor` and `diffRemovedColor` set them like any other token ([#152](https://github.com/NahumLitvin/prismantis/issues/152)).
+
+### Changed
+
+- Diff lines tint from the theme's `diffAdded` and `diffRemoved` instead of its number and flag colors, taking the color's hue at full strength before the 30% black or 20% white mix, so they read bolder (`catppuccin-mocha`'s added lines go from `#324430` to `#064d00`). The `+N −M` counts and the `+` and `−` marks take the same two colors. In `rose-pine-dawn`, `everforest`, `gruvbox-light`, `dracula`, `rose-pine` and `nord`, whose number and flag colors are two pinks, purples or blues, added and removed lines were hard to tell apart (ΔE 2.6 to 11.5); every preset now keeps them at least ΔE 26 apart with code text at 4.5:1 or more, checked by a test ([#152](https://github.com/NahumLitvin/prismantis/issues/152)).
+
+### Fixed
+
+- `codex plugin add prismantis@prismantis` installs the plugin. Codex 0.162 skips a marketplace entry whose source is `github`, the form Claude Code uses, and reported "plugin `prismantis` was not found". The repo now also ships `.agents/plugins/marketplace.json`, which Codex reads first, with the same release pinned as a git `url` source. Claude Code still reads its own marketplace and installs as before.
+
+## [0.21.0] - 2026-10-15
+
+### Added
+
+- Codex: installing prismantis in Codex gives it the same model note as Claude Code, plus what Codex's own renderer cannot draw, so replies come back with tables, fenced commands, mermaid sized for Codex and text figures. `$prismantis` shows the demo, and `$prismantis-themes` installs the 16 themes as Codex syntax themes, which color code, inline code, table headers and mermaid boxes; `/theme` picks one. Prose, headings and copy buttons stay Codex's own. Codex asks you to trust the hook once in `/hooks`. Everything in it is generated from the Claude Code side.
+
+## [0.20.0] - 2026-10-14
+
+### Added
+
+- `diffStyle` picks how Edit, Write and shell edit diffs draw: `card` (the default) frames the lines in a rounded box with tinted lines, `full` drops the box and tints each changed line across the width, `marks` drops the tint and draws the changed lines in the number and flag colors, which reads in 256-color terminals and `mono` too, and `bar` drops the tint and puts a `▌` in the line's color before each changed line. Every style keeps the `+N −M` header, line numbers, folding at 20 lines and one block per changed file. Tool output other than diffs is unchanged ([#132](https://github.com/NahumLitvin/prismantis/issues/132)).
+- `copyButtonStyle: hover` shows copy buttons only while the pointer is on their block: a block's buttons float over its top-right corner, or from its left edge on a block narrower than they are, and `⧉ copy reply` over the reply's bottom-right corner, out of the flow, so they reserve no line and nothing moves when they show. `inline`, the default, keeps today's look. ctrl+x tab does not reach a hidden button; `/prismantis copy` still copies without a mouse. The mobile app, which has no pointer, draws them inline.
+
+### Changed
+
+- Diff lines sit on a bolder tint that keeps code text readable: the number or flag color mixed into black on dark themes (30%) or white on light ones (20%), whichever contrasts more with the code text, and less where the text would drop below 4.5:1 (only `solarized-light`, at 17% and 13%). It used to be 20% over the rule color, a gray, which put code text at 3.1:1 in `tokyo-night` and under 4.5:1 in 7 of the 15 color presets; now every one is at 4.5:1 or more ([#132](https://github.com/NahumLitvin/prismantis/issues/132), [#146](https://github.com/NahumLitvin/prismantis/issues/146)).
+
+### Fixed
+
+- Files a shell command changed (`sed -i`, a script) draw as the same diff card as Edit and Write results, in the theme's number and flag colors, instead of Claude Code's own red and green diff. Each changed file gets its own card headed by its path, with `… +K more files` when Claude Code listed more, and each card folds on its own. The command's output still draws above the cards. Dim notes under them say what Claude Code's own diff says: on the first one of a session, that it shows every file that changed while the command ran, by it or anything else; that another command ran in the repository at the same time, when Claude Code saw one; and that a git step in the command (`checkout`, `reset`, `stash`, `pull`, …) can move the working tree. `toolOutput: quiet` keeps these diffs under the command's first lines, where it used to drop them. A failed command, a diff the card cannot read, and `toolRows: false` keep Claude Code's drawing ([#132](https://github.com/NahumLitvin/prismantis/issues/132)).
+- The `ruleColor` description in `/config` no longer says it colors heading banners, which take the heading color. It names what the color draws: horizontal rules, diff card borders and chart gridlines ([#132](https://github.com/NahumLitvin/prismantis/issues/132)).
+
+## [0.19.0] - 2026-10-14
+
+### Changed
+
+- Links that open a file in VS Code, `vscode://file/…` and `vscode-insiders://file/…`, are clickable terminal hyperlinks on Claude Code 2.1.294 and later, so a reply can point at `src/app.ts:42` and a click opens that line. Claude Code 2.1.287 throws out the whole reply for such a link and 2.1.294 is the first release known to accept it, so below 2.1.294, when the version cannot be read, and on the desktop app and other remote surfaces, they draw as plain text, as other unclickable links do. Other `vscode://` links, which reach extensions' URI handlers (`vscode://vscode.git/clone?url=…`), always draw as plain text.
+
+### Fixed
+
+- Bar chart heights line up with the y-axis. A bar used to fill the `0` row as well as its own, and charts could settle on one row per tick, so 400 reached the 500 line and 1200 stopped at 1000. Bars are now drawn to the half cell: each one rises from the middle of the axis line, reaches every gridline at or below its value, stops exactly on a gridline it equals, and never passes its value. A terminal draws `─` and `·` through the middle of a cell, so the line under a bar and a tip that ends mid-cell are half blocks (`▀`, `▄`) in the bar's color. `0` sits on the axis line, a line chart at `0` runs along it, every tick gets the same number of rows, and an axis without a set range ends on a whole tick.
+- Bar charts with negative values. Every bar used to fill the `0` row, so `2` and `-2` drew to the same height, and an all-negative chart ran its bars up past the top of the chart. The `0` line is now drawn solid like the axis line, and bars grow up or down from its middle and stop exactly where their value is, to the half cell. An all-negative chart hangs its bars from a solid line at the top of the axis.
+- Bar values sit at the end of their bar. A value was centered on its tick column, which is right of the middle of an even-width bar, so `1200` hung off its bar's edge. A negative bar's value sat above `0` on the positive side, and the bar at the top of an untitled chart, or any bar in an all-negative chart, lost its value. Values are now centered on their bar, half a cell to the right when they cannot center exactly (`1200` covers a four-wide bar, `800` sits over its last three cells), a negative bar's value sits under it, and a bar that reaches the top of the axis keeps its value on a row above the chart.
+- A line over a bar chart passes behind the bars instead of overwriting their tips, so a bar under the line no longer looks shorter than its value.
+- Footnote marks in a table's header row draw in the footnote color, as they do in paragraphs and body cells. Before, they took the header color and looked like part of the column name.
+
+## [0.18.4] - 2026-10-14
+
+### Fixed
+
+- Named links like `[docs](https://example.com)` keep the link color but no longer draw their own underline, so the terminal's hyperlink style shows (in Windows Terminal, a dashed underline that turns solid on hover). A terminal that styles hyperlinks only on hover shows colored text until then.
+- Bare URLs draw in the link color again, as they did before they became hyperlinks in 0.9.0. Terminals without hyperlinks still show the URL once.
+- Plain `http:` links and bare `http://` URLs are clickable terminal hyperlinks on Claude Code 2.1.289 and later, as in Claude Code without prismantis. They drew in the link color but could not be clicked since 0.13.0, because such a link makes Claude Code 2.1.288 and earlier throw out the whole reply; there, and when the version cannot be read, they draw as plain text, as below. The desktop app and other remote surfaces link only `https:` and `http://localhost`, so there they draw as plain text too.
+- Links that cannot be clicked no longer look clickable. `mailto:` and other links that do not become hyperlinks draw as plain text, the label then the target in parentheses, as Claude Code draws them: `[mail](mailto:someone@example.com)` draws as `mail (someone@example.com)`, and a label that matches its target draws once. This holds in paragraphs, lists, quotes, headings, table cells, right-to-left text and `$.prismantis.markdown`. Copying keeps the markdown as written.
+
 ## [0.18.3] - 2026-10-13
 
 ### Changed

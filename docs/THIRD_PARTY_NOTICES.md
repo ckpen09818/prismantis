@@ -62,3 +62,4 @@ Each preset in `hooks/presets.ts` maps a published palette onto prismantis token
 | `one-dark` | [atom/one-dark-syntax](https://github.com/atom/one-dark-syntax) | Copyright (c) 2016 GitHub Inc. |
 | `one-dark-pro` | [Binaryify/OneDark-Pro](https://github.com/Binaryify/OneDark-Pro) | Copyright (c) 2013-2022 Binaryify |
 | `solarized-dark`, `solarized-light` | [altercation/solarized](https://github.com/altercation/solarized) | Copyright (c) 2011 Ethan Schoonover |
+| `neon` | [wverri/neon-hud](https://github.com/wverri/neon-hud) | Copyright (c) 2026 wverri |
