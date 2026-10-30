@@ -383,7 +383,7 @@ flowchart LR
 
 export const languageShowcase = (lang: string): string => (/^ko/i.test(lang) ? KOREAN_SHOWCASE : '')
 
-export type SetupStep = { name: string; key: 'theme' | 'tableStyle' | 'taskStyle' | 'headingStyle' | 'copyButtonStyle' | 'promptStyle' | 'replyStyle' | 'clock' | 'toolStyle' | 'toolOutput' | 'diffStyle' | 'pieStyle'; title: string; note: string; options: readonly string[]; sample: string }
+export type SetupStep = { name: string; key: 'theme' | 'tableStyle' | 'taskStyle' | 'headingStyle' | 'copyButtonStyle' | 'promptStyle' | 'promptSide' | 'replyStyle' | 'clock' | 'toolStyle' | 'toolOutput' | 'diffStyle' | 'pieStyle'; title: string; note: string; options: readonly string[]; sample: string }
 
 export const setupSteps = (themes: readonly string[]): SetupStep[] => [
   { name: 'theme', key: 'theme', title: 'Theme', note: 'Each theme draws the same line. `random` picks a new dark one each time the mod loads.', options: themes, sample: '**Bold**, `inline code`, 250ms and ~/src/app.ts.' },
@@ -392,6 +392,7 @@ export const setupSteps = (themes: readonly string[]): SetupStep[] => [
   { name: 'headings', key: 'headingStyle', title: 'Headings', note: 'How `#` and `##` headings draw. Terminals have one font size, so headings stand out through style and color.', options: ['banner', 'bold', 'underline', 'uppercase'], sample: '# Release notes\n\n## Fixes\n\nTables keep their width.' },
   { name: 'copy', key: 'copyButtonStyle', title: 'Copy buttons', note: 'Where the copy buttons on tables, code, diagrams and replies sit. `inline` shows them beside or above each block. `hover` puts a dim ⧉ beside each block instead and shows its buttons only while the pointer is on that ⧉, so they take no line; ctrl+x tab does not reach a hidden one, and the mobile app draws them inline. Needs `copyButtons` on.', options: ['inline', 'hover'], sample: '' },
   { name: 'prompts', key: 'promptStyle', title: 'Your prompts', note: 'How what you type draws in the transcript. `bubble` puts it on the right like a chat app, under `You ⬤`, and Claude\'s replies in a bubble of their own. The other styles keep Claude\'s replies as they were. `off` keeps Claude Code\'s own look.', options: ['bubble', 'wide', 'bar', 'chevron', 'off'], sample: '' },
+  { name: 'side', key: 'promptSide', title: 'Your bubble side', note: 'Where your prompt bubble sits when your prompts are a `bubble`. `right` puts it under `You ⬤`, as wide as its longest line. `left` puts it under `⬤ You` across the full width, like Claude\'s reply bubble, with the time beside `⬤ You`. Other prompt styles ignore it.', options: ['right', 'left'], sample: '' },
   { name: 'replies', key: 'replyStyle', title: 'Claude\'s replies', note: 'How Claude\'s replies draw in the transcript. `auto` draws them as `bubble` while your prompts are a `bubble`, so the transcript reads as a chat, and as `off` with any other prompt style. `bubble` puts each one under `⬤ Claude` in a rounded frame of Claude\'s orange on a fill a step off the background, `solid` fills it to the edge with no frame, `framed` keeps the frame with no fill. A reply that calls tools between its sentences draws one bubble per block of text. `off` keeps a dot before the first line.', options: ['auto', 'bubble', 'solid', 'framed', 'off'], sample: '' },
   { name: 'clock', key: 'clock', title: 'Times', note: 'Whether your prompts show when you sent them and the line that closes each turn when it finished. A time from another day gets its date.', options: ['off', '24h', '12h'], sample: '' },
   { name: 'tools', key: 'toolStyle', title: 'Tool rows', note: 'How tool rows sit next to Claude\'s sentences. Sharing sessions as screenshots? `chat` and `tree-dim` draw tool rows in dim gray, the first thing to blur when an image gets resized, so pick `tree-bold` or `classic`.', options: ['chat', 'tree-dim', 'tree-bold', 'classic'], sample: '' },
@@ -406,10 +407,11 @@ export const setupParts = (themes: readonly string[], at: number): SetupParts =>
   const steps = setupSteps(themes)
   const step = steps[at]!
   const next = steps[at + 1]
+  const prev = steps[at - 1]
   return {
     head: `## Setup ${at + 1}/${steps.length}: ${step.title}\n\n${step.note}`,
     options: step.options.map((value, i) => ({ value, text: `### ${i + 1}. ${value}${step.key === 'theme' && value !== 'mono' && !RANDOM_THEMES.includes(value) ? ' (for a light terminal)' : ''}${step.sample ? `\n\n${step.sample}` : ''}` })),
-    tail: `Pick with \`/prismantis setup ${step.name} <number or name>\`${step.key === 'theme' ? ' or `random`' : ''}.${next ? ` Skip with \`/prismantis setup ${next.name}\`.` : ''} Stop any time, \`/prismantis setup\` starts over.`,
+    tail: `Pick with \`/prismantis setup ${step.name} <number or name>\`${step.key === 'theme' ? ' or `random`' : ''}.${next ? ` Skip with \`/prismantis setup ${next.name}\`.` : ''}${prev ? ` Go back with \`/prismantis setup ${prev.name}\`.` : ''} Stop any time, \`/prismantis setup\` starts over.`,
   }
 }
 
@@ -432,7 +434,7 @@ export const THEME_PREVIEW = [
 
 export const SETUP_PANE_OPENED = 'Setup opened in a pane: ↑↓ or Tab moves through the styles with a preview, Enter saves it and shows the next step, Esc closes the pane. `/prismantis setup theme` walks the steps here instead.'
 
-export const SETUP_PANE_KEYS = '↑↓ or Tab moves, Enter saves and shows the next step, Esc closes.'
+export const SETUP_PANE_KEYS = '↑↓ or Tab moves, Enter saves and shows the next step, Back and Skip buttons move between steps without saving, Esc closes.'
 
 export const SETUP_DONE = 'Setup done. Run `/prismantis setup` again any time, and `/config` has every other option.'
 
