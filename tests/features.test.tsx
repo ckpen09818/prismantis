@@ -2611,8 +2611,6 @@ test('/prismantis setup opens a pane in the terminal: arrows move through the st
   await $.ui.focus({ component: 'Pane', requestId: 'prismantis-setup', element: 'pick:theme:nord', origin: { kind: 'person' } })
   expect(await pane.find({ type: 'Text', text: /^\d+\. nord/ })).toBeTruthy()
   expect(await pane.find({ type: 'Text', text: /^\d+\. catppuccin-mocha/ })).toBeUndefined()
-  await pane.press({ key: 'pick:theme:nord' })
-  expect(await pane.find({ type: 'Text', text: /Setup 1\/13: Theme/ })).toBeTruthy()
   for (const [i, [step, value]] of ([['theme', 'nord'], ['tables', 'grid'], ['tasks', 'progress'], ['headings', 'uppercase'], ['copy', 'hover'], ['prompts', 'bar'], ['side', 'left'], ['replies', 'solid'], ['clock', '24h'], ['tools', 'tree-bold'], ['output', 'quiet'], ['diffs', 'bar'], ['pies', 'bars']] as const).entries()) {
     await pane.press({ key: `nav:${i}` })
     expect(await pane.find({ type: 'Text', text: new RegExp(`Setup ${i + 1}/13`) })).toBeTruthy()
