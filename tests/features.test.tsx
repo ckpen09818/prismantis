@@ -878,7 +878,7 @@ const answer = (text: string, isFirstOfReply = true, surface: 'terminal' | 'desk
 
 test('replyStyle auto draws replies as a bubble by default, while your prompts are a bubble', async $ => {
   const ui = await $.ui.mount(answer('The test passes now.'))
-  expect((await ui.find({ type: 'Text', text: /^⬤ {2}Claude$/ }))?.props.color).toBe('claude')
+  expect((await ui.find({ type: 'Text', text: /^⬤ {2}Claude$/ }))?.props.color).toBe(t.accent)
   expect((await ui.findAll({ type: 'Box' })).some(b => b.props.borderStyle === 'round')).toBe(true)
   await ui.unmount()
 })
@@ -903,8 +903,8 @@ test('replyStyle bubble frames each block of a reply in the accent on a fill, un
   expect(fill).toBe('#1d2335')
   for (const surface of ['terminal', 'desktop'] as const) {
     const first = await $.ui.mount(answer('The test passes now.', true, surface))
-    expect((await first.findAll({ type: 'Box' })).find(b => b.props.borderStyle === 'round')?.props).toMatchObject({ borderColor: 'claude', borderDimColor: true, backgroundColor: fill })
-    expect((await first.find({ type: 'Text', text: /^⬤ {2}Claude$/ }))?.props).toMatchObject({ color: 'claude', bold: true })
+    expect((await first.findAll({ type: 'Box' })).find(b => b.props.borderStyle === 'round')?.props).toMatchObject({ borderColor: t.accent, borderDimColor: true, backgroundColor: fill })
+    expect((await first.find({ type: 'Text', text: /^⬤ {2}Claude$/ }))?.props).toMatchObject({ color: t.accent, bold: true })
     expect(await first.find({ type: 'Text', text: /^●$/ })).toBeUndefined()
     await first.unmount()
     const later = await $.ui.mount(answer('Then the build.', false, surface))
@@ -977,7 +977,7 @@ test('a bubble keeps the hover ⧉ gutter inside its frame, so the ⧉ never lan
 test('replyStyle framed draws the frame with no fill', { options: { replyStyle: 'framed' } }, async $ => {
   const ui = await $.ui.mount(answer('The test passes now.'))
   const frame = (await ui.findAll({ type: 'Box' })).find(b => b.props.borderStyle === 'round')
-  expect(frame?.props.borderColor).toBe('claude')
+  expect(frame?.props.borderColor).toBe(t.accent)
   expect(frame?.props.backgroundColor).toBeUndefined()
   await ui.unmount()
 })
@@ -1051,13 +1051,13 @@ test('clock puts the send time before your prompt', { options: { clock: '24h' } 
   await unsent.unmount()
 })
 
-test('clock with promptSide left puts the send time beside ⬤ You, outside the bubble', { options: { clock: '24h', promptSide: 'left' } }, async ($, on) => {
+test('clock with promptSide left puts the send time beside ⬤ You in the link color, outside the bubble', { options: { clock: '24h', promptSide: 'left' } }, async ($, on) => {
   mock.clock(on, { now: local(10, 9, 7, 3) })
   on('prompt.submit', (_, e) => ({ text: e.text, context: e.context }))
   await $.prompt.submit({ text: 'how many frog raids?', wait: false, origin: { kind: 'composer' } })
   const ui = await $.ui.mount({ ...prompt('how many frog raids?'), requestId: 'row-1' })
   expect((await ui.find({ type: 'Text', text: /^⬤ {2}You$/ }))?.props).toMatchObject({ color: t.diffAdded, bold: true })
-  expect((await ui.find({ type: 'Text', text: /^ {2}09:07$/ }))?.props.color).toBe(t.codeComment)
+  expect((await ui.find({ type: 'Text', text: /^ {2}09:07$/ }))?.props.color).toBe(t.link)
   expect(await ui.find({ type: 'Text', text: /^09:07 $/ })).toBeUndefined()
   await ui.unmount()
 })

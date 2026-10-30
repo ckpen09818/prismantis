@@ -2725,7 +2725,7 @@ const chatPrompt = (el: ElementTable, style: Style, content: RenderElement, size
     <el.Box flexDirection="column" width="100%" {...(size === '100%' ? {} : { alignItems: 'flex-end' as const })}>
       {time === undefined
         ? <el.Text color={color} bold>{style.promptSide === 'left' ? YOU_HEAD_LEFT : YOU_HEAD}</el.Text>
-        : <el.Box flexDirection="row"><el.Text color={color} bold>{YOU_HEAD_LEFT}</el.Text><el.Text color={style.theme.codeComment}>{`  ${time}`}</el.Text></el.Box>}
+        : <el.Box flexDirection="row" paddingTop={1}><el.Text color={color} bold>{YOU_HEAD_LEFT}</el.Text><el.Text color={style.theme.link} bold>{`  ${time}`}</el.Text></el.Box>}
       <el.Box borderStyle="round" borderColor={color} backgroundColor={promptFill(style.theme, style.background, color)} paddingX={1} width={size} flexShrink={0}>{content}</el.Box>
     </el.Box>
   )
@@ -2779,7 +2779,7 @@ export const replyRoom = (style: Style): number => ({ off: 0, solid: 0, bubble: 
 
 const solidEdge = (width: number, top: boolean): string => (width < 2 ? (top ? '▄' : '▀').repeat(width) : top ? `▗${'▄'.repeat(width - 2)}▖` : `▝${'▀'.repeat(width - 2)}▘`)
 
-const claudeColor = (theme: Theme): string | undefined => (theme.accent === undefined ? undefined : 'claude')
+const claudeColor = (theme: Theme): string | undefined => theme.accent
 
 const replyFrame = (el: ElementTable, style: Style, body: RenderElement, columns: number): RenderElement => {
   const t = style.theme
