@@ -166,7 +166,7 @@ for (const [kind, cell] of [
   })
 }
 
-test('a link column is sized for the URL it shows', async $ => {
+test('a link column is sized for the URL it shows', { options: { replyStyle: 'off' } }, async $ => {
   const url = 'https://example.com/a/rather/long/path'
   const ui = await $.ui.mount(mount(`| link | n |\n|---|---|\n| [go](${url}) | 1 |`))
   const cells = (await ui.findAll({ type: 'Box' })).filter(b => typeof b.props.width === 'number' && b.props.flexShrink === 0).slice(1)
@@ -190,7 +190,7 @@ test('presets stay intact', async () => {
   expect(PRESETS.dracula.tableHeader).toBe('#f1fa8c')
 })
 
-test('code blocks draw no frame, so a mouse selection copies only the code', async $ => {
+test('code blocks draw no frame, so a mouse selection copies only the code', { options: { replyStyle: 'off' } }, async $ => {
   const ui = await $.ui.mount(mount('```bash\nls -la\n```'))
   expect((await ui.findAll({ type: 'Box' })).some(b => b.props.borderStyle !== undefined)).toBe(false)
   await ui.unmount()
@@ -352,6 +352,8 @@ test('the help screen shows every element prismantis draws', async () => {
   const blocks = parse(showcaseText(Object.keys(PRESETS)), hl)
   expect(showcaseText(Object.keys(PRESETS))).toContain('promptStyle')
   expect(showcaseText(Object.keys(PRESETS))).toContain('`wide`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`replyStyle`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`You ⬤`')
   expect(showcaseText(Object.keys(PRESETS))).toContain('A paste of 4 lines or more')
   expect(showcaseText(Object.keys(PRESETS))).toContain('`clock`')
   expect(showcaseText([])).toContain('⧉ html')
@@ -380,6 +382,9 @@ test('the help screen shows every element prismantis draws', async () => {
   expect(showcaseText([])).toContain('the file each one read or edited opens on click')
   expect(showcaseText([])).toContain('f(*args, **kwargs)')
   expect(showcaseText([])).toContain('Programs and launchers stay plain text')
+  expect(showcaseText([])).toContain('[a note](obsidian://open?vault=notes&file=todo)')
+  expect(showcaseText([])).toContain('[a new note](obsidian://new?vault=notes&name=x&content=y)')
+  expect(showcaseText([])).toContain('[diagnostics](ms-msdt:/id) stay text')
   expect(blocks.some(b => b.kind === 'paragraph' && b.inline.some(n => n.kind === 'path' && n.text.endsWith('.sh')) && b.inline.some(n => n.kind === 'path' && n.text.endsWith('.app')))).toBe(true)
   expect(blocks.some(b => b.kind === 'list' && b.items.some(i => i.task === true) && b.items.some(i => i.task === false) && b.items.some(i => i.depth > 0 && i.task !== undefined))).toBe(true)
   expect(kinds.has('notes')).toBe(true)
@@ -402,6 +407,7 @@ test('the help screen shows every element prismantis draws', async () => {
   expect(showcaseText([])).toContain('Files a shell command changes')
   expect(showcaseText([])).toContain('Set `diffStyle` in `/config` for the look: `card`, `full`, `marks` or `bar`')
   expect(showcaseText([])).toContain('Set `pieStyle` to `bars` in `/config` for one bar per slice')
+  expect(showcaseText([])).toContain('as a smooth picture in kitty and Ghostty')
   expect(showcaseText([])).toContain("A file Write creates shows its first 10 lines as numbered code in the theme's colors with no diff marks")
   expect(showcaseText([])).toContain('A file an Edit or a shell command creates shows its first 10 lines as added lines under `Created`')
   expect(showcaseText([])).toContain('one `Deleted` line that opens to its removed lines on a click')
@@ -658,6 +664,34 @@ for (const [where, surface, base] of [
     expect(await ui.findAll({ type: 'Link' })).toHaveLength(0)
     expect(await ui.find({ type: 'Text', text: /^note \(vscode:\/\/file\/C:\/src\/notes\.md:12\)$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^zed \(zed:\/\/file\/home\/me\/main\.rs:9:2\)$/ })).toBeDefined()
+    await ui.unmount()
+  })
+}
+
+const APP_LINK_SAMPLES = '[note](obsidian://open?vault=notes&file=todo) [path](OBSIDIAN:///notes/todo.md) [search](obsidian://search?query=x) [opener](obsidian://openx) [diagnostics](ms-msdt:/id) [lookalike](obsidianx://open)'
+
+const inline = (text: string) => ({ ...mount(text), viewport: { columns: 120, rows: 40, isFullscreen: false } })
+
+test('Obsidian links that open a note become terminal hyperlinks outside fullscreen from Claude Code 2.1.294', async ($, on) => {
+  claudeAt(on, '2.1.294')
+  if (!(await linksHttp($.ui.mount(mount('[x](vscode://file/C:/x.md)'))))) return
+  const ui = await $.ui.mount(inline(APP_LINK_SAMPLES))
+  expect((await ui.findAll({ type: 'Link' })).map(l => l.props.href)).toEqual(['obsidian://open?vault=notes&file=todo', 'OBSIDIAN:///notes/todo.md'])
+  await ui.unmount()
+})
+
+for (const [where, surface, base, isFullscreen] of [
+  ['on desktop, which links only https', 'desktop', '2.1.294', false],
+  ['on Claude Code 2.1.293', 'terminal', '2.1.293', false],
+  ['when the Claude Code version is unknown', 'terminal', undefined, false],
+  ['in fullscreen, where Claude Code opens only allowlisted schemes', 'terminal', '2.1.294', true],
+  ['when the screen mode is unknown', 'terminal', '2.1.294', undefined],
+] as const) {
+  test(`Obsidian links draw as plain text ${where}`, async ($, on) => {
+    if (base) claudeAt(on, base)
+    const ui = await $.ui.mount({ ...mount(APP_LINK_SAMPLES), surface, viewport: { columns: 120, rows: 40, isFullscreen } })
+    expect(await ui.findAll({ type: 'Link' })).toHaveLength(0)
+    expect(await ui.find({ type: 'Text', text: /^note \(obsidian:\/\/open\?vault=notes&file=todo\)$/ })).toBeDefined()
     await ui.unmount()
   })
 }
@@ -1721,7 +1755,7 @@ test('gantt bars end on an eighth of a cell and start on a half, so close durati
   expect(mermaidText('gantt\n  dateFormat YYYY-MM-DD\n  A :a, 2026-10-01, 2d', true, 80)).not.toMatch(/[▐▏▎▍▌▋▊▉]/)
 })
 
-test('a gantt bar end drawn in part of a cell takes its bar color, while axis ticks keep theirs', async $ => {
+test('a gantt bar end drawn in part of a cell takes its bar color, while axis ticks keep theirs', { options: { replyStyle: 'off' } }, async $ => {
   const ui = await $.ui.mount(mount('```mermaid\n' + FINE_GANTT + '\n```', 80))
   expect(await ui.find({ type: 'Text', text: /^█+[▎▍▌▋▊▉]$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^▐█+$/ })).toBeDefined()
@@ -1989,7 +2023,7 @@ for (const surface of ['terminal', 'desktop'] as const) test(`footnotes number a
   await ui.unmount()
 })
 
-for (const copyButtons of [true, false]) test(`a quote ${copyButtons ? 'beside its copy button' : 'without a copy button'} sizes its bar for the width left`, { options: { copyButtons } }, async $ => {
+for (const copyButtons of [true, false]) test(`a quote ${copyButtons ? 'beside its copy button' : 'without a copy button'} sizes its bar for the width left`, { options: { replyStyle: 'off', copyButtons } }, async $ => {
   const ui = await $.ui.mount(mount(`> ${'word '.repeat(10)}end`, 60))
   expect(Math.max(...(await barLines(ui))) > 1).toBe(copyButtons)
   await ui.unmount()
