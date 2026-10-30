@@ -413,12 +413,11 @@ const saveSetupPick = async ($: EngineInterface, picked: Picked, step: SetupStep
 const SETUP_PANE = 'prismantis-setup'
 
 const SETUP_PICK = 'pick:'
-const SETUP_BACK = 'nav:back'
-const SETUP_SKIP = 'nav:skip'
-const SETUP_LIST_COLUMNS = 30
-const SETUP_HEAD_ROWS = 9
+const SETUP_PAGE = 'nav:'
+const SETUP_LIST_COLUMNS = 52
+const SETUP_HEAD_ROWS = 8
 
-const openPane = ($: EngineInterface) => $.ui.open({ id: SETUP_PANE, title: 'prismantis setup', focus: true, closeOnEscape: true, rows: 40, columns: 90 })
+const openPane = ($: EngineInterface) => $.ui.open({ id: SETUP_PANE, title: 'prismantis setup', focus: true, closeOnEscape: true, rows: 40, columns: 110 })
 
 const openSetupPane = async ($: EngineInterface): Promise<string | undefined> => {
   await update($, setupAt, () => 0)
@@ -443,20 +442,13 @@ const goSetupStep = async ($: EngineInterface, at: number, currentOf: (step: Set
   if (step) await showSetupStep($, at, step, currentOf(step))
 }
 
-const pickInPane = async ($: EngineInterface, picked: Picked, at: number, value: string, currentOf: (step: SetupStep) => string): Promise<void> => {
-  const steps = setupSteps(PRESET_NAMES)
-  const step = steps[at]!
-  const nextStep = steps[at + 1]
+const pickInPane = async ($: EngineInterface, picked: Picked, at: number, value: string): Promise<void> => {
+  const step = setupSteps(PRESET_NAMES)[at]!
   const done = `${step.title} set to ${value}.`
-  if (nextStep) await showSetupStep($, at + 1, nextStep, currentOf(nextStep))
-  else await $.ui.close({ id: SETUP_PANE })
-  $.ui.toast(nextStep ? done : `${done} Setup done.`)
-  const saved = await saveSetupPick($, picked, step, value)
-  if (saved === done) return
-  $.ui.toast(saved)
-  if (!saved.startsWith('Could not')) return
   await showSetupStep($, at, step, value)
-  if (!nextStep) await openPane($)
+  $.ui.toast(done)
+  const saved = await saveSetupPick($, picked, step, value)
+  if (saved !== done) $.ui.toast(saved)
 }
 
 const landSetupFocus = ($: EngineInterface, key: string): void => {
@@ -557,7 +549,7 @@ const diffSample = (el: ReturnType<EngineInterface['ui']['resolve']>, style: Sty
   <el.Box key={`${id}d`} flexDirection="column">{renderDiffCard(el, style, SETUP_EDIT, () => null, id, columns)}</el.Box>,
 ]
 
-type SetupView = { el: ReturnType<EngineInterface['ui']['resolve']>; base: Style; options: PluginOptions; at: number; step: SetupStep; current: string; columns: number; rows: number; pick: (value: string) => void; go: (by: -1 | 1) => void }
+type SetupView = { el: ReturnType<EngineInterface['ui']['resolve']>; base: Style; options: PluginOptions; at: number; step: SetupStep; current: string; columns: number; rows: number; pick: (value: string) => void; go: (to: number) => void }
 
 const setupKeyboardPane = ($: EngineInterface, v: SetupView, focused: string, randomTheme: string): RenderElement => {
   const { el, step } = v
@@ -568,18 +560,14 @@ const setupKeyboardPane = ($: EngineInterface, v: SetupView, focused: string, ra
   const options = parts.options.filter(o => o.value === sampled).map(o => (step.key === 'theme' ? { ...o, text: `${o.text.split('\n\n')[0]}\n\n${THEME_PREVIEW}` } : o))
   const drawn = drawSetup($, el, v.base, v.options, { at: v.at, before: '', parts: { ...parts, options, tail: '' } }, Math.max(40, v.columns - SETUP_LIST_COLUMNS))
   const buttons = choices.map(value => <el.Button key={pickKey(step, value)} label={value === v.current ? `${value} (now)` : value} variant={value === shown ? 'primary' : 'secondary'} autoFocus={value === v.current ? true : undefined} onPress={() => v.pick(value)} />)
-  const last = setupSteps(PRESET_NAMES).length - 1
-  const nav = [
-    ...(v.at > 0 ? [<el.Button key={SETUP_BACK} label="← Back" variant="secondary" onPress={() => v.go(-1)} />] : []),
-    ...(v.at < last ? [<el.Button key={SETUP_SKIP} label="Skip →" variant="secondary" onPress={() => v.go(1)} />] : []),
-  ]
-  const fits = choices.length + SETUP_HEAD_ROWS <= v.rows
+  const pages = setupSteps(PRESET_NAMES).map((page, i) => <el.Button key={`${SETUP_PAGE}${i}`} label={`${i + 1}. ${page.title}`} variant={i === v.at ? 'primary' : 'secondary'} onPress={() => v.go(i)} />)
+  const fits = Math.max(choices.length, pages.length) + SETUP_HEAD_ROWS <= v.rows
   return (
     <el.Box flexDirection="column" rowGap={1} {...(fits ? { height: v.rows, overflow: 'hidden' as const } : {})}>
       <el.Box flexDirection="column" flexShrink={0}>{drawn[0]}</el.Box>
       <el.Box flexShrink={0}><el.Text dimColor>{SETUP_PANE_KEYS}</el.Text></el.Box>
-      <el.Box columnGap={1} flexShrink={0}>{nav}</el.Box>
       <el.Box flexDirection="row" columnGap={4} flexShrink={1} overflow="hidden">
+        <el.Box flexDirection="column" flexShrink={0}>{pages}</el.Box>
         <el.Box flexDirection="column" flexShrink={0}>{buttons}</el.Box>
         <el.Box flexDirection="column" flexGrow={1} overflow="hidden">
           <el.Box flexDirection="column" flexShrink={0}>{drawn.slice(1, -1)}</el.Box>
@@ -786,7 +774,7 @@ export const register: Register = (on, options) => {
       if (land) landSetupFocus($, land)
     }
     const base = { ...forSurface(style, e, await linkReach($, probes, style)), copyButtons: false, pathLinks: false, images: await imagesOn($, probes, e.surface) }
-    const view: SetupView = { el: $.ui.resolve(e), base, options, at, step, current: currentOf(step), columns: e.props.bodyColumns, rows: e.props.scroll.bodyRows, pick: value => void pickInPane($, picked, at, value, currentOf), go: by => void goSetupStep($, at + by, currentOf) }
+    const view: SetupView = { el: $.ui.resolve(e), base, options, at, step, current: currentOf(step), columns: e.props.bodyColumns, rows: e.props.scroll.bodyRows, pick: value => void pickInPane($, picked, at, value), go: to => void goSetupStep($, to, currentOf) }
     return setupKeyboardPane($, view, await read($, setupFocus), picked.theme)
   })
 
