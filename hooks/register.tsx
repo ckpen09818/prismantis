@@ -199,14 +199,20 @@ const pictureOf = async ($: EngineInterface, src: string, home: string): Promise
 const loaded = new Map<string, Promise<Omit<Picture, 'alt'> | null>>()
 const avatars = new Map<string, Promise<Avatar | undefined>>()
 
-const avatarOf = async ($: EngineInterface, cwd: string): Promise<Avatar | undefined> => {
-  if (!agentName(cwd)) return undefined
-  const path = `${cwd.replace(/[\\/]+$/, '')}/avatars/avatar.png`
+const avatarFile = async ($: EngineInterface, path: string): Promise<Avatar | undefined> => {
   const stat = await $.fs.stat(path).catch(() => null)
   if (stat?.kind !== 'file' || stat.size > MAX_IMAGE_BYTES) return undefined
   const png = await $.fs.read(path, { as: 'bytes' }).then(r => r.base64, () => '')
   const size = png ? pngSize(png) : null
   return size && size.width > 0 && size.height > 0 ? { png, ...size } : undefined
+}
+
+const avatarOf = ($: EngineInterface, cwd: string): Promise<Avatar | undefined> =>
+  agentName(cwd) ? avatarFile($, `${cwd.replace(/[\\/]+$/, '')}/avatars/avatar.png`) : Promise.resolve(undefined)
+
+const userAvatarOf = ($: EngineInterface, setting: string, home: string): Promise<Avatar | undefined> => {
+  const path = setting.startsWith('~/') ? (home ? `${home}${setting.slice(1)}` : '') : setting
+  return path ? avatarFile($, path) : Promise.resolve(undefined)
 }
 
 const imagesOn = async ($: EngineInterface, probes: Probes, surface: RenderSurface): Promise<boolean> => surface === 'terminal' && (await (probes.images ??= showsImages($).catch(() => false)))
@@ -836,7 +842,9 @@ export const register: Register = (on, options) => {
         </el.Box>
       )
     }
-    return renderUserPrompt(el, drawn, e.props.text, columns, time, paste)
+    await locate($, style)
+    const avatar = style.userAvatar && (await imagesOn($, probes, e.surface)) ? await remember(avatars, `user:${style.userAvatar}`, () => userAvatarOf($, style.userAvatar, style.home), 10) : undefined
+    return renderUserPrompt(el, drawn, e.props.text, columns, time, paste, avatar)
   })
 
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {

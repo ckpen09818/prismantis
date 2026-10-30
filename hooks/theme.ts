@@ -26,6 +26,7 @@ export type Style = {
   promptSide: 'right' | 'left'
   replyStyle: 'auto' | 'bubble' | 'solid' | 'framed' | 'off'
   clock: Clock
+  userAvatar: string
   toolStyle: 'chat' | 'tree-dim' | 'tree-bold' | 'classic'
   toolOutput: 'full' | 'quiet'
   narration?: boolean
@@ -94,6 +95,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
     promptSide: pick(options.promptSide, ['right', 'left'] as const, 'right'),
     replyStyle: pick(options.replyStyle, ['auto', 'bubble', 'solid', 'framed', 'off'] as const, 'auto'),
     clock: pick(options.clock, ['off', '24h', '12h'] as const, 'off'),
+    userAvatar: typeof options.userAvatar === 'string' ? options.userAvatar.trim() : '',
     toolStyle: pick(options.toolStyle, ['chat', 'tree-dim', 'tree-bold', 'classic'] as const, 'chat'),
     toolOutput: pick(options.toolOutput, ['full', 'quiet'] as const, 'full'),
     diffStyle: pick(options.diffStyle, ['card', 'full', 'marks', 'bar'] as const, 'card'),

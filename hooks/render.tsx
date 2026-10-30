@@ -2729,19 +2729,33 @@ const chatWidth = (lines: readonly string[], room: number, stamp: number, pasted
 const chatSize = (style: Style, hebrew: boolean, lines: readonly string[], columns: number, time: string | undefined, pasted: boolean): number | '100%' =>
   style.promptSide === 'left' || (hebrew && mirrored(style)) ? '100%' : chatWidth(lines, promptRoom(style, columns), time === undefined ? 0 : time.length + 1, pasted)
 
-const chatPrompt = (el: ElementTable, style: Style, content: RenderElement, size: number | '100%', time?: string): RenderElement => {
+const avatarImage = (el: ElementTable, avatar: Avatar): RenderElement | null => {
+  const Image = 'Image' in el ? el.Image : null
+  if (!Image) return null
+  const columns = Math.max(2, Math.min(24, Math.round((AVATAR_ROWS * avatar.width * 2) / avatar.height)))
+  return <Image source={{ png: avatar.png }} columns={columns} rows={AVATAR_ROWS} alt="" />
+}
+
+const youHeading = (el: ElementTable, style: Style, color: string | undefined, left: boolean, avatar?: Avatar): RenderElement => {
+  const picture = avatar ? avatarImage(el, avatar) : null
+  if (!picture) return <el.Text color={color} bold>{left ? YOU_HEAD_LEFT : YOU_HEAD}</el.Text>
+  const you = <el.Text color={color} bold>You</el.Text>
+  return <el.Box flexDirection="row" columnGap={1} alignItems="center">{left ? picture : you}{left ? you : picture}</el.Box>
+}
+
+const chatPrompt = (el: ElementTable, style: Style, content: RenderElement, size: number | '100%', time?: string, avatar?: Avatar): RenderElement => {
   const color = youColor(style.theme)
   return (
     <el.Box flexDirection="column" width="100%" {...(size === '100%' ? {} : { alignItems: 'flex-end' as const })}>
       {time === undefined
-        ? <el.Text color={color} bold>{style.promptSide === 'left' ? YOU_HEAD_LEFT : YOU_HEAD}</el.Text>
-        : <el.Box flexDirection="row" paddingTop={1}><el.Text color={color} bold>{YOU_HEAD_LEFT}</el.Text><el.Text color={style.theme.link} bold>{`  ${time}`}</el.Text></el.Box>}
+        ? youHeading(el, style, color, style.promptSide === 'left', avatar)
+        : <el.Box flexDirection="row" paddingTop={1}>{youHeading(el, style, color, true, avatar)}<el.Text color={style.theme.link} bold>{`  ${time}`}</el.Text></el.Box>}
       <el.Box borderStyle="round" borderColor={color} backgroundColor={promptFill(style.theme, style.background, color)} paddingX={1} width={size} flexShrink={0}>{content}</el.Box>
     </el.Box>
   )
 }
 
-export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, columns: number, time?: string, paste?: DrawPaste): RenderElement => {
+export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, columns: number, time?: string, paste?: DrawPaste, avatar?: Avatar): RenderElement => {
   const { Box, Text } = el
   const pastes: string[] = []
   const text = typed.replace(PASTE, (_, _id, body: string) => `\0${pastes.push(body) - 1}\0`)
@@ -2766,7 +2780,7 @@ export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, 
   )
   const stamp = time === undefined || headed ? null : <Text color={t.codeComment}>{rtl ? ` ${time}` : `${time} `}</Text>
   const content = stamp === null ? body : <Box flexDirection="row">{rtl ? body : stamp}{rtl ? stamp : body}</Box>
-  if (style.promptStyle === 'bubble') return chatPrompt(el, style, content, chatSize(style, hebrew, rows.map(told), columns, time, rows.some(line => own(line) !== undefined)), headed ? time : undefined)
+  if (style.promptStyle === 'bubble') return chatPrompt(el, style, content, chatSize(style, hebrew, rows.map(told), columns, time, rows.some(line => own(line) !== undefined)), headed ? time : undefined, avatar)
   if (style.promptStyle === 'wide') {
     return <Box borderStyle="round" borderColor={t.accent} paddingX={1} alignSelf={rtl ? 'flex-end' : 'flex-start'} width="100%">{content}</Box>
   }
@@ -2813,13 +2827,13 @@ export type Avatar = { png: string; width: number; height: number }
 const AVATAR_ROWS = 3
 
 const replyHeading = (el: ElementTable, style: Style, avatar?: Avatar): RenderElement => {
-  const text = <el.Text color={claudeColor(style.theme)} bold>{replyHead(style.cwd)}</el.Text>
-  const Image = 'Image' in el ? el.Image : null
-  if (!avatar || !Image) return text
-  const columns = Math.max(2, Math.min(24, Math.round((AVATAR_ROWS * avatar.width * 2) / avatar.height)))
+  const picture = avatar ? avatarImage(el, avatar) : null
+  const head = replyHead(style.cwd)
+  const text = <el.Text color={claudeColor(style.theme)} bold>{picture ? head.replace(/^⬤\s+/, '') : head}</el.Text>
+  if (!picture) return text
   return (
     <el.Box flexDirection="row" columnGap={1} alignItems="center">
-      <Image source={{ png: avatar.png }} columns={columns} rows={AVATAR_ROWS} alt="" />
+      {picture}
       {text}
     </el.Box>
   )

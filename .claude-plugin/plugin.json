@@ -104,6 +104,12 @@
       "default": "off",
       "options": ["off", "24h", "12h"]
     },
+    "userAvatar": {
+      "type": "string",
+      "title": "Your avatar",
+      "description": "Path to a PNG (at most 2 MiB) drawn in place of the ⬤ in your prompt heading, in kitty and Ghostty. Accepts an absolute path or one starting with ~/. Empty or unreadable keeps the ⬤.",
+      "default": ""
+    },
     "toolStyle": {
       "type": "string",
       "title": "Tool row style",
