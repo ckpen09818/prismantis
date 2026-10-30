@@ -354,6 +354,7 @@ Options sit under `options`, keyed by the plugin's install name. Project setting
 | `tableStyle` | `box`, `rules`, `grid`, `minimal` | `box` |
 | `taskStyle` | `checks` (`[ ]` `[✓]`, done struck through), `ticks` (`○` `✓`), `box` (`□` `✓`), `progress` (ticks with a done-count bar) | `checks` |
 | `promptStyle` | `bubble`, `wide`, `bar`, `chevron`, `off` | `bubble` |
+| `promptSide` | `right` (as wide as the text, at most three quarters of the window, under `You ⬤`), `left` (across the full width under `⬤ You`, like Claude's reply bubble). Only for `promptStyle: bubble` | `right` |
 | `replyStyle` | `auto` (`bubble` while `promptStyle` is `bubble`, else `off`), `bubble`, `solid`, `framed`, `off` | `auto` |
 | `clock` | `off`, `24h`, `12h` | `off` |
 | `headingStyle` | `banner`, `bold`, `underline`, `uppercase` | `banner` |

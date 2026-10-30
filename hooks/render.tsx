@@ -2677,6 +2677,8 @@ const CHAT_SHARE = 0.75
 
 const YOU_HEAD = 'You  ⬤ '
 
+const YOU_HEAD_LEFT = '⬤  You'
+
 const CLAUDE_HEAD = '⬤  Claude'
 
 const youColor = (theme: Theme): string | undefined => theme.diffAdded ?? theme.accent
@@ -2709,19 +2711,19 @@ const promptInk = (style: Style): string | undefined => {
   return style.promptStyle === 'bubble' ? readableOn(t.heading, promptFill(t, style.background, youColor(t)), t.codeText) : t.heading
 }
 
-const promptRoom = (style: Style, columns: number): number => (style.promptStyle === 'bubble' ? Math.floor(columns * CHAT_SHARE) : columns)
+const promptRoom = (style: Style, columns: number): number => (style.promptStyle === 'bubble' && style.promptSide !== 'left' ? Math.floor(columns * CHAT_SHARE) : columns)
 
 const chatWidth = (lines: readonly string[], room: number, stamp: number, pasted: boolean): number =>
   pasted ? room : Math.min(room, Math.max(...lines.map(width)) + stamp + 4)
 
 const chatSize = (style: Style, hebrew: boolean, lines: readonly string[], columns: number, time: string | undefined, pasted: boolean): number | '100%' =>
-  hebrew && mirrored(style) ? '100%' : chatWidth(lines, promptRoom(style, columns), time === undefined ? 0 : time.length + 1, pasted)
+  style.promptSide === 'left' || (hebrew && mirrored(style)) ? '100%' : chatWidth(lines, promptRoom(style, columns), time === undefined ? 0 : time.length + 1, pasted)
 
 const chatPrompt = (el: ElementTable, style: Style, content: RenderElement, size: number | '100%'): RenderElement => {
   const color = youColor(style.theme)
   return (
     <el.Box flexDirection="column" width="100%" {...(size === '100%' ? {} : { alignItems: 'flex-end' as const })}>
-      <el.Text color={color} bold>{YOU_HEAD}</el.Text>
+      <el.Text color={color} bold>{style.promptSide === 'left' ? YOU_HEAD_LEFT : YOU_HEAD}</el.Text>
       <el.Box borderStyle="round" borderColor={color} backgroundColor={promptFill(style.theme, style.background, color)} paddingX={1} width={size} flexShrink={0}>{content}</el.Box>
     </el.Box>
   )

@@ -83,6 +83,13 @@
       "default": "bubble",
       "options": ["bubble", "wide", "bar", "chevron", "off"]
     },
+    "promptSide": {
+      "type": "string",
+      "title": "Your bubble side",
+      "description": "Where your prompt bubble sits with promptStyle bubble. right: on the right under You ⬤, as wide as its longest line and at most three quarters of the window. left: on the left under ⬤ You, across the full width like Claude's reply bubble. Other prompt styles ignore it.",
+      "default": "right",
+      "options": ["right", "left"]
+    },
     "replyStyle": {
       "type": "string",
       "title": "Claude's reply style",

@@ -861,6 +861,18 @@ test('a long prompt in the bubble wraps at three quarters of the width', async $
   await ui.unmount()
 })
 
+test('promptSide left draws your bubble on the left under ⬤ You, across the full width', { options: { promptSide: 'left' } }, async $ => {
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount(prompt('raid '.repeat(30).trim(), 'composer', surface))
+    const boxes = await ui.findAll({ type: 'Box' })
+    expect(boxes.find(b => b.props.borderStyle === 'round')?.props.width).toBe('100%')
+    expect(boxes.some(b => b.props.alignItems === 'flex-end')).toBe(false)
+    expect((await ui.find({ type: 'Text', text: /^⬤ {2}You$/ }))?.props).toMatchObject({ color: t.diffAdded, bold: true })
+    expect(await ui.find({ type: 'Text', text: /^You {2}⬤ $/ })).toBeUndefined()
+    await ui.unmount()
+  }
+})
+
 const answer = (text: string, isFirstOfReply = true, surface: 'terminal' | 'desktop' = 'terminal') =>
   ({ plugin: 'prismantis', component: 'AssistantMessage' as const, props: { text, isFirstOfReply }, viewport: { columns: 80, rows: 20 }, surface })
 
