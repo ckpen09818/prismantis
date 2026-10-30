@@ -2681,7 +2681,7 @@ const YOU_HEAD_LEFT = '⬤  You'
 
 const CLAUDE_HEAD = '⬤  Claude'
 
-const agentName = (cwd: string): string | undefined => {
+export const agentName = (cwd: string): string | undefined => {
   const name = /^workspace-(.+)$/.exec(cwd.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? '')?.[1]
   return name ? `${name[0]!.toUpperCase()}${name.slice(1)}` : undefined
 }
@@ -2808,7 +2808,24 @@ const replyFrame = (el: ElementTable, style: Style, body: RenderElement, columns
   return <el.Box flexDirection="column" flexGrow={1} paddingX={1} borderStyle="round" borderColor={claudeColor(t)} borderDimColor backgroundColor={fill}>{body}</el.Box>
 }
 
-export const renderReply = (el: ElementTable, style: Style, drawn: RenderElement[], first: boolean, columns: number, corner: boolean): RenderElement => {
+export type Avatar = { png: string; width: number; height: number }
+
+const AVATAR_ROWS = 3
+
+const replyHeading = (el: ElementTable, style: Style, avatar?: Avatar): RenderElement => {
+  const text = <el.Text color={claudeColor(style.theme)} bold>{replyHead(style.cwd)}</el.Text>
+  const Image = 'Image' in el ? el.Image : null
+  if (!avatar || !Image) return text
+  const columns = Math.max(2, Math.min(24, Math.round((AVATAR_ROWS * avatar.width * 2) / avatar.height)))
+  return (
+    <el.Box flexDirection="row" columnGap={1} alignItems="center">
+      <Image source={{ png: avatar.png }} columns={columns} rows={AVATAR_ROWS} alt="" />
+      {text}
+    </el.Box>
+  )
+}
+
+export const renderReply = (el: ElementTable, style: Style, drawn: RenderElement[], first: boolean, columns: number, corner: boolean, avatar?: Avatar): RenderElement => {
   const room = corner ? <el.Box width={MARK} flexShrink={0} /> : null
   const body = <el.Box flexDirection="column" rowGap={1} flexGrow={1}>{drawn}</el.Box>
   if (replyLook(style) === 'off') {
@@ -2824,7 +2841,7 @@ export const renderReply = (el: ElementTable, style: Style, drawn: RenderElement
   }
   return (
     <el.Box key="msg" flexDirection="column">
-      {first ? <el.Text color={claudeColor(style.theme)} bold>{replyHead(style.cwd)}</el.Text> : null}
+      {first ? replyHeading(el, style, avatar) : null}
       {replyFrame(el, style, <el.Box flexDirection="row">{body}{room}</el.Box>, columns)}
     </el.Box>
   )
