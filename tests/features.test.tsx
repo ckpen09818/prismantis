@@ -1051,6 +1051,17 @@ test('clock puts the send time before your prompt', { options: { clock: '24h' } 
   await unsent.unmount()
 })
 
+test('clock with promptSide left puts the send time beside ⬤ You, outside the bubble', { options: { clock: '24h', promptSide: 'left' } }, async ($, on) => {
+  mock.clock(on, { now: local(10, 9, 7, 3) })
+  on('prompt.submit', (_, e) => ({ text: e.text, context: e.context }))
+  await $.prompt.submit({ text: 'how many frog raids?', wait: false, origin: { kind: 'composer' } })
+  const ui = await $.ui.mount({ ...prompt('how many frog raids?'), requestId: 'row-1' })
+  expect((await ui.find({ type: 'Text', text: /^⬤ {2}You$/ }))?.props).toMatchObject({ color: t.diffAdded, bold: true })
+  expect((await ui.find({ type: 'Text', text: /^ {2}09:07$/ }))?.props.color).toBe(t.codeComment)
+  expect(await ui.find({ type: 'Text', text: /^09:07 $/ })).toBeUndefined()
+  await ui.unmount()
+})
+
 test('an old prompt row that redraws after a resume never takes a later send time', { options: { clock: '24h' } }, async ($, on) => {
   const clock = mock.clock(on, { now: local(10, 9, 0) })
   on('prompt.submit', (_, e) => ({ text: e.text, context: e.context }))

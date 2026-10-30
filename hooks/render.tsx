@@ -2719,11 +2719,13 @@ const chatWidth = (lines: readonly string[], room: number, stamp: number, pasted
 const chatSize = (style: Style, hebrew: boolean, lines: readonly string[], columns: number, time: string | undefined, pasted: boolean): number | '100%' =>
   style.promptSide === 'left' || (hebrew && mirrored(style)) ? '100%' : chatWidth(lines, promptRoom(style, columns), time === undefined ? 0 : time.length + 1, pasted)
 
-const chatPrompt = (el: ElementTable, style: Style, content: RenderElement, size: number | '100%'): RenderElement => {
+const chatPrompt = (el: ElementTable, style: Style, content: RenderElement, size: number | '100%', time?: string): RenderElement => {
   const color = youColor(style.theme)
   return (
     <el.Box flexDirection="column" width="100%" {...(size === '100%' ? {} : { alignItems: 'flex-end' as const })}>
-      <el.Text color={color} bold>{style.promptSide === 'left' ? YOU_HEAD_LEFT : YOU_HEAD}</el.Text>
+      {time === undefined
+        ? <el.Text color={color} bold>{style.promptSide === 'left' ? YOU_HEAD_LEFT : YOU_HEAD}</el.Text>
+        : <el.Box flexDirection="row"><el.Text color={color} bold>{YOU_HEAD_LEFT}</el.Text><el.Text color={style.theme.codeComment}>{`  ${time}`}</el.Text></el.Box>}
       <el.Box borderStyle="round" borderColor={color} backgroundColor={promptFill(style.theme, style.background, color)} paddingX={1} width={size} flexShrink={0}>{content}</el.Box>
     </el.Box>
   )
@@ -2737,8 +2739,9 @@ export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, 
   const told = (line: string) => line.replace(/\0(\d+)\0/g, (_, n) => `[Pasted text +${pastes[Number(n)]!.split('\n').length} lines]`)
   const t = style.theme
   const color = promptInk(style)
+  const headed = style.promptStyle === 'bubble' && style.promptSide === 'left' && time !== undefined
   const rows = text.split('\n')
-  const lines = rows.map(line => (own(line) === undefined ? flowOf(style, [{ kind: 'text', text: told(line) }], promptRoom(style, columns) - 4 - (time === undefined ? 0 : time.length + 1)) : null))
+  const lines = rows.map(line => (own(line) === undefined ? flowOf(style, [{ kind: 'text', text: told(line) }], promptRoom(style, columns) - 4 - (time === undefined || headed ? 0 : time.length + 1)) : null))
   const hebrew = lines.some(l => l?.base === 'R')
   const rtl = hebrew && !mirrored(style)
   const body = (
@@ -2751,9 +2754,9 @@ export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, 
       })}
     </Box>
   )
-  const stamp = time === undefined ? null : <Text color={t.codeComment}>{rtl ? ` ${time}` : `${time} `}</Text>
+  const stamp = time === undefined || headed ? null : <Text color={t.codeComment}>{rtl ? ` ${time}` : `${time} `}</Text>
   const content = stamp === null ? body : <Box flexDirection="row">{rtl ? body : stamp}{rtl ? stamp : body}</Box>
-  if (style.promptStyle === 'bubble') return chatPrompt(el, style, content, chatSize(style, hebrew, rows.map(told), columns, time, rows.some(line => own(line) !== undefined)))
+  if (style.promptStyle === 'bubble') return chatPrompt(el, style, content, chatSize(style, hebrew, rows.map(told), columns, time, rows.some(line => own(line) !== undefined)), headed ? time : undefined)
   if (style.promptStyle === 'wide') {
     return <Box borderStyle="round" borderColor={t.accent} paddingX={1} alignSelf={rtl ? 'flex-end' : 'flex-start'} width="100%">{content}</Box>
   }
