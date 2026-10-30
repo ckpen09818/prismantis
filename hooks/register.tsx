@@ -831,6 +831,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
     const blocks = parseCached(e.props.text)
     if (blocks.length === 0) return next(e)
+    await locate($, style)
     const el = $.ui.resolve(e)
     const narration = style.toolStyle === 'tree-bold' && blocks.length === 1 && blocks[0]!.kind === 'paragraph'
     const reach = await linkReach($, probes, style)

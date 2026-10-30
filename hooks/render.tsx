@@ -2681,6 +2681,16 @@ const YOU_HEAD_LEFT = '⬤  You'
 
 const CLAUDE_HEAD = '⬤  Claude'
 
+const agentName = (cwd: string): string | undefined => {
+  const name = /^workspace-(.+)$/.exec(cwd.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? '')?.[1]
+  return name ? `${name[0]!.toUpperCase()}${name.slice(1)}` : undefined
+}
+
+const replyHead = (cwd: string): string => {
+  const name = agentName(cwd)
+  return name ? `⬤  ${name}` : CLAUDE_HEAD
+}
+
 const youColor = (theme: Theme): string | undefined => theme.diffAdded ?? theme.accent
 
 export const BUBBLE_STEP = 1.3
@@ -2814,7 +2824,7 @@ export const renderReply = (el: ElementTable, style: Style, drawn: RenderElement
   }
   return (
     <el.Box key="msg" flexDirection="column">
-      {first ? <el.Text color={claudeColor(style.theme)} bold>{CLAUDE_HEAD}</el.Text> : null}
+      {first ? <el.Text color={claudeColor(style.theme)} bold>{replyHead(style.cwd)}</el.Text> : null}
       {replyFrame(el, style, <el.Box flexDirection="row">{body}{room}</el.Box>, columns)}
     </el.Box>
   )

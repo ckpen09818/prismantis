@@ -2896,3 +2896,14 @@ test('/prismantis demo stays English when LANG names no showcase language', asyn
   mock.env(on, { LANG: 'en_US.UTF-8' })
   expect((await setupRun($, 'demo')).text).not.toContain('한국어')
 })
+
+test('a reply under a workspace-name folder is headed with that name instead of Claude', async ($, on) => {
+  on('session.root', () => ({ value: '/Users/me/.openclaw/workspace-rin' }))
+  const find = async (text: string) => {
+    const ui = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'AssistantMessage', props: { text, isFirstOfReply: true }, viewport: { columns: 100, rows: 40 } })
+    const head = await ui.find({ type: 'Text', text: /^⬤ {2}\S+$/ })
+    await ui.unmount()
+    return head?.text
+  }
+  expect(await find('hello')).toBe('⬤  Rin')
+})
