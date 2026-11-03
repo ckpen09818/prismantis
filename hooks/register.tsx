@@ -241,6 +241,16 @@ const locate = async ($: EngineInterface, style: Style) => {
   style.home ||= (await $.env.get('HOME').catch(() => undefined)) ?? (await $.env.get('USERPROFILE').catch(() => undefined)) ?? ''
 }
 
+const located = new WeakMap<Style, Promise<void>>()
+
+const locateOnce = ($: EngineInterface, style: Style): Promise<void> => {
+  const known = located.get(style)
+  if (known) return known
+  const asked = locate($, style)
+  located.set(style, asked)
+  return asked
+}
+
 const htmlBackend = async ($: EngineInterface): Promise<ClipboardBackend | null> => {
   if (await $.env.get('SSH_CONNECTION') || await $.env.get('SSH_TTY')) return null
   if (await $.env.get('OS') === 'Windows_NT') return 'windows'
@@ -709,11 +719,13 @@ export const register: Register = (on, options) => {
 
   on('tool.call', async (_$, e, next) => {
     const done = await next(e)
+    located.delete(style)
     pathChecks.asked = new Set(pathChecks.found)
     return done
   })
 
   on('session.start', async ($, e, next) => {
+    located.delete(style)
     await probe($, style, probes)
     void latexEngine($, latex)
     const started = await next(e)
@@ -761,6 +773,7 @@ export const register: Register = (on, options) => {
   })
 
   on('prompt.submit', async ($, e, next) => {
+    located.delete(style)
     if (style.clock !== 'off' && (e.origin.kind === 'composer' || e.origin.kind === 'bridge')) {
       const at = await $.clock.now()
       await update($, sent, list => withRecord(list, { text: promptKey(e.text), at }))
@@ -854,7 +867,7 @@ export const register: Register = (on, options) => {
         </el.Box>
       )
     }
-    await locate($, style)
+    await locateOnce($, style)
     const avatar = style.userAvatar && (await imagesOn($, probes, e.surface)) ? await remember(avatars, `user:${style.userAvatar}`, () => userAvatarOf($, style.userAvatar, style.home), 10) : undefined
     return renderUserPrompt(el, drawn, e.props.text, columns, time, paste, avatar)
   })
@@ -863,7 +876,7 @@ export const register: Register = (on, options) => {
     if (e.surface === 'terminal' && e.viewport?.columns) pane = e.viewport.columns
     const blocks = parseCached(e.props.text)
     if (blocks.length === 0) return next(e)
-    await locate($, style)
+    await locateOnce($, style)
     const el = $.ui.resolve(e)
     const narration = style.toolStyle === 'tree-bold' && blocks.length === 1 && blocks[0]!.kind === 'paragraph'
     const reach = await linkReach($, probes, style)

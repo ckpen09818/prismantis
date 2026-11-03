@@ -2961,6 +2961,41 @@ test('a reply under a workspace-name folder is headed with that name instead of 
   expect(await find('hello')).toBe('⬤  Rin')
 })
 
+test('message redraws read the session root once, not on every redraw', async ($, on) => {
+  let reads = 0
+  on('session.root', () => {
+    reads++
+    return { value: '/Users/me/.openclaw/workspace-rin' }
+  })
+  for (let i = 0; i < 4; i++) {
+    const reply = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'AssistantMessage', props: { text: `reply ${i}`, isFirstOfReply: true }, viewport: { columns: 100, rows: 40 } })
+    await reply.unmount()
+    const prompt = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'UserMessage', props: { text: `prompt ${i}`, origin: { kind: 'composer' } as never, isExpanded: true }, viewport: { columns: 100, rows: 40 } })
+    await prompt.unmount()
+  }
+  expect(reads).toBeLessThanOrEqual(1)
+})
+
+test('a reply header follows the session root once a tool ran or a prompt was sent', async ($, on) => {
+  let root = '/Users/me/.openclaw/workspace-rin'
+  on('session.root', () => ({ value: root }))
+  on('tool.call', () => ({ result: 'ok', text: 'ok' }))
+  on('prompt.submit', (_, e) => ({ text: e.text, context: e.context }))
+  const head = async () => {
+    const ui = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'AssistantMessage', props: { text: 'hello', isFirstOfReply: true }, viewport: { columns: 100, rows: 40 } })
+    const found = await ui.find({ type: 'Text', text: /^⬤ {2}\S+$/ })
+    await ui.unmount()
+    return found?.text
+  }
+  expect(await head()).toBe('⬤  Rin')
+  root = '/Users/me/work/app'
+  await $.tool.call({ tool: 'Read', file_path: '/Users/me/work/app/a.ts' })
+  expect(await head()).toBe('⬤  Claude')
+  root = '/Users/me/.openclaw/workspace-rin'
+  await $.prompt.submit({ text: 'next', wait: false, origin: { kind: 'composer' } })
+  expect(await head()).toBe('⬤  Rin')
+})
+
 test('a narrow pane adds its width to the render hint, a wide one does not', async ($, on) => {
   const seen: (readonly string[] | undefined)[] = []
   mock.env(on, {})
