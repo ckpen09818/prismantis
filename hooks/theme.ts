@@ -8,7 +8,7 @@ import { TERMINALS } from './rtl'
 
 export const TOKENS = [
   'accent', 'heading', 'strong', 'emphasis', 'inlineCode', 'codeText', 'codeCommand', 'codeFlag', 'codeString', 'codeComment',
-  'link', 'path', 'number', 'quote', 'rule', 'tableHeader', 'tableRule', 'bullet', 'diagram', 'diagramText', 'diffAdded', 'diffRemoved', 'promptFill', 'replyFill',
+  'link', 'path', 'number', 'quote', 'rule', 'tableHeader', 'tableRule', 'bullet', 'diagram', 'diagramText', 'diffAdded', 'diffRemoved', 'promptFill', 'promptBorder', 'promptText', 'replyFill',
 ] as const
 
 export type Theme = Partial<Record<(typeof TOKENS)[number], string>>
@@ -22,6 +22,7 @@ export type Style = {
   headingStyle: 'bold' | 'underline' | 'uppercase' | 'banner'
   tableStyle: 'box' | 'rules' | 'grid' | 'minimal'
   taskStyle: 'checks' | 'ticks' | 'box' | 'progress'
+  listMarker: 'dots' | 'dash'
   promptStyle: 'bubble' | 'wide' | 'bar' | 'chevron' | 'off'
   promptSide: 'right' | 'left'
   replyStyle: 'auto' | 'bubble' | 'solid' | 'framed' | 'off'
@@ -41,10 +42,12 @@ export type Style = {
   mermaidAscii: boolean
   copyButtons: boolean
   copyButtonStyle: 'inline' | 'hover'
+  textCopyButtons: boolean
   htmlCopy: ClipboardBackend | null
   images: boolean
   nativeCode?: boolean
   gridFace?: boolean
+  monoFace?: boolean
   httpLinks: boolean
   editorLinks: boolean
   obsidianLinks: boolean
@@ -91,6 +94,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
     headingStyle: pick(options.headingStyle, ['bold', 'underline', 'uppercase', 'banner'] as const, 'banner'),
     tableStyle: pick(options.tableStyle, ['box', 'rules', 'grid', 'minimal'] as const, 'box'),
     taskStyle: pick(options.taskStyle, ['checks', 'ticks', 'box', 'progress'] as const, 'checks'),
+    listMarker: pick(options.listMarker, ['dots', 'dash'] as const, 'dots'),
     promptStyle: pick(options.promptStyle, ['bubble', 'wide', 'bar', 'chevron', 'off'] as const, 'bubble'),
     promptSide: pick(options.promptSide, ['right', 'left'] as const, 'right'),
     replyStyle: pick(options.replyStyle, ['auto', 'bubble', 'solid', 'framed', 'off'] as const, 'auto'),
@@ -106,6 +110,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
     mermaidAscii: options.mermaidAscii === true,
     copyButtons: options.copyButtons !== false,
     copyButtonStyle: pick(options.copyButtonStyle, ['inline', 'hover'] as const, 'inline'),
+    textCopyButtons: options.textCopyButtons !== false,
     htmlCopy: null,
     images: false,
     httpLinks: false,

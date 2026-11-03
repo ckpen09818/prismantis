@@ -10,6 +10,47 @@ All notable changes to this project are documented here. The format follows [Kee
 - A `one-dark-pro` theme, from Binaryify's One Dark Pro (MIT), for `/prismantis theme one-dark-pro` and the `theme` option. It joins the random dark pool.
 - `one-dark-pro` colors code like VS Code One Dark Pro: keywords purple, class names yellow, builtins and operators cyan, properties, tags and variables red, attribute names orange. Other themes keep the shared token mapping.
 
+## [0.39.1] - 2026-11-02
+
+### Fixed
+
+- In the Claude desktop app, tables keep the style picked in `/prismantis setup` and no longer break apart or lose text at their right edge: every `tableStyle` draws its lines as thin colored lines, a wide table fits the reply, and long cells wrap inside their column. Banner and `---` rules draw as one line, and a wrapped list item keeps its marker on its first line. Thanks @b33eep ([#333](https://github.com/NahumLitvin/prismantis/pull/333)).
+- In the Claude desktop app from Claude Code 2.1.299, mermaid diagrams and figures draw in the app's monospaced face, so boxes, arrows and axes line up, and they are laid out to the room that face really has, so they no longer run past the right edge. Thanks @CodingJinxx ([#279](https://github.com/NahumLitvin/prismantis/pull/279), [#333](https://github.com/NahumLitvin/prismantis/pull/333)).
+
+## [0.39.0] - 2026-11-01
+
+### Added
+
+- prismantis runs in OpenCode 2.2.5 and later: figure blocks drawn in color from the active theme, 16 themes for code and prose (`/prismantis-themes` installs them), the session note and `/prismantis`. Install steps are in [opencode/README.md](https://github.com/NahumLitvin/prismantis/blob/main/opencode/README.md) ([#334](https://github.com/NahumLitvin/prismantis/pull/334)).
+- New options `promptBorderColor` and `promptTextColor` color the frame, `You ⬤` label and text of your prompt bubble without changing diff or heading colors. Left empty, nothing changes. Thanks @nick4eva ([#331](https://github.com/NahumLitvin/prismantis/pull/331)).
+- New option `textCopyButtons`: set it to `false` to drop the copy buttons on lists, quotes and alerts and keep the ones on code, tables, diagrams and the whole reply. Thanks @nick4eva ([#332](https://github.com/NahumLitvin/prismantis/pull/332)).
+
+### Fixed
+
+- `▣ png` on a figure or diagram pastes it in the theme's colors instead of one gray ([#329](https://github.com/NahumLitvin/prismantis/pull/329)).
+
+## [0.38.2] - 2026-10-30
+
+### Fixed
+
+- In a tiled or split terminal pane narrower than 100 columns, Claude now knows the pane width and writes diagrams that fit it, so they draw instead of falling back to source ([#326](https://github.com/NahumLitvin/prismantis/pull/326)).
+
+## [0.38.1] - 2026-10-30
+
+### Fixed
+
+- Where Claude Code cannot save plugin settings (seen in the VS Code extension over Remote-SSH), `/prismantis theme` and `/prismantis setup` used to fail with "no command.run hook answered it". They now say the save failed and name the key and value to set by hand in `~/.claude/settings.json` ([#323](https://github.com/NahumLitvin/prismantis/pull/323)).
+
+## [0.38.0] - 2026-10-30
+
+### Added
+
+- New option `listMarker`: `dots` (`•` then `◦` nested, the default) or `dash`, which draws `-` at every level so a list you select with the mouse pastes as a markdown list into Slack, GitHub or a doc. Numbered lists keep their numbers, and `/prismantis setup` has a "List bullets" step ([#320](https://github.com/NahumLitvin/prismantis/pull/320)).
+
+### Fixed
+
+- Bold, italic, inline code and links in your own prompt draw as they do in replies with every `promptStyle` but `off`, instead of showing the raw `**` and backticks ([#318](https://github.com/NahumLitvin/prismantis/pull/318)).
+
 ## [0.37.1] - 2026-10-29
 
 ### Fixed

@@ -7,7 +7,8 @@ import { inlineText, parse } from '../hooks/markdown'
 import { tableHtml, tableText } from '../hooks/html'
 import { inlineMarks, mermaidText, shortenEdgeLabels } from '../hooks/mermaid'
 import type { TerminalEnv } from '../hooks/render'
-import { drawsHyperlinks, isReadOnlyCall, renderBashEdits, renderBlocks, tableArt, takesClickableMarks, takesEditorLinks, takesHttpLinks, width } from '../hooks/render'
+import { drawsHyperlinks, isReadOnlyCall, renderBashEdits, renderBlocks, tableArt, takesClickableMarks, takesEditorLinks, takesHttpLinks } from '../hooks/render'
+import { width } from '../hooks/layout'
 import { PRESET_NAMES, PRESETS } from '../hooks/presets'
 import { resolveStyle } from '../hooks/theme'
 import { claudeAt, linksHttp } from './claude-version'
@@ -356,6 +357,7 @@ test('the help screen shows every element prismantis draws', async () => {
   expect(showcaseText(Object.keys(PRESETS))).toContain('`You ⬤`')
   expect(showcaseText(Object.keys(PRESETS))).toContain('A paste of 4 lines or more')
   expect(showcaseText(Object.keys(PRESETS))).toContain('`clock`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`listMarker` to dash in')
   expect(showcaseText([])).toContain('⧉ html')
   expect(showcaseText([])).toContain('`▣ png`')
   expect(showcaseText([])).toContain('src/app.ts:42, and Windows paths like C:\\work\\plan.md')
@@ -394,6 +396,7 @@ test('the help screen shows every element prismantis draws', async () => {
   expect(showcaseText([]).includes("toolStyle")).toBe(true)
   expect(showcaseText([]).includes("toolOutput")).toBe(true)
   expect(showcaseText([])).toContain('copyButtonStyle')
+  expect(showcaseText([])).toContain('textCopyButtons')
   expect(showcaseText([])).toContain('each block shows a dim ⧉ instead: point at it for its buttons')
   expect(showcaseText([])).toContain('+M more lines')
   expect(showcaseText([])).toContain('```figure')
@@ -1996,8 +1999,13 @@ for (const surface of ['terminal', 'desktop'] as const) test(`a code block and a
   if (surface === 'desktop') expect((await ui.find({ type: 'Code' }))?.props.source).toBe('npm test')
   else expect((await ui.find({ type: 'Text', text: /^npm$/ }))?.props.color).toBe(t.codeCommand)
   expect((await ui.find({ type: 'Text', text: /^Check$/ }))?.props.color).toBe(t.tableHeader)
-  const edge = await ui.find({ type: 'Text', text: /^┌[─┬]+┐$/ })
-  expect(width('│ ') + width(edge!.text) + 2 + width('[ ⧉ copy ]') <= 60 - 4).toBe(true)
+  if (surface === 'desktop') {
+    expect(await ui.find({ type: 'Text', text: /[┌└├╞┬┼]/ })).toBeUndefined()
+    expect((await ui.findAll({ type: 'Box' })).filter(b => typeof b.props.width === 'string' && /^\d+%$/.test(b.props.width as string) && /^(Check|Result)$/.test(b.text ?? ''))).toHaveLength(2)
+  } else {
+    const edge = await ui.find({ type: 'Text', text: /^┌[─┬]+┐$/ })
+    expect(width('│ ') + width(edge!.text) + 2 + width('[ ⧉ copy ]') <= 60 - 4).toBe(true)
+  }
   const labels = (await ui.findAll({ type: 'Button' })).map(b => b.props.label)
   expect(labels.filter(l => l === '⧉ copy')).toHaveLength(2)
   expect(labels.filter(l => l === '⧉ md')).toHaveLength(1)
@@ -2260,8 +2268,8 @@ test('a <br> in a table cell parses as a line break, but not inside a code span'
 
 for (const surface of ['terminal', 'desktop'] as const) test(`a <br> in a table cell starts a new row of the cell on ${surface}`, async $ => {
   const ui = await $.ui.mount({ ...mount('| Step | Detail |\n|---|---|\n| Prevent | Then:<br/>• Run `brew install gnu-sed` |'), surface })
-  const cells = (await ui.findAll({ type: 'Box' })).filter(b => typeof b.props.width === 'number' && b.props.flexShrink === 0)
-  expect(cells.map(b => b.text).filter(t => /Detail|Then:|brew/.test(t))).toEqual(['Detail', 'Then:', '• Run brew install gnu-sed'])
+  const cells = (await ui.findAll({ type: 'Box' })).filter(b => b.props.width !== undefined && b.props.backgroundColor === undefined && b.props.overflow !== 'hidden')
+  expect(cells.flatMap(b => (b.text ?? '').split('\n')).filter(t => /Detail|Then:|brew/.test(t))).toEqual(['Detail', 'Then:', '• Run brew install gnu-sed'])
   expect(await ui.find({ type: 'Text', text: /<br/ })).toBeUndefined()
   await ui.unmount()
 })

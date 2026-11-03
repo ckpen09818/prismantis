@@ -1,6 +1,7 @@
 import type { ElementTable, RenderElement } from 'claude-code'
 
-import { cells, graphemes, heldLtr, mirrored, remember, width } from './render'
+import { cells, graphemes, width } from './layout'
+import { artFace, heldLtr, mirrored, remember } from './render'
 import { FIGURE_ROLES } from './markdown'
 import { asIs, hasRtl, holdEngine, holdText, holdVisual, led } from './rtl'
 import type { Style, Theme } from './theme'
@@ -211,7 +212,7 @@ const figureElement = ({ Box, Text }: ElementTable, style: Style, rows: readonly
     {rows.map((row, i) => {
       const runs = heldRuns(style, row)
       return (
-        <Text key={`${key}.${i}`} {...heldLtr(style)}>
+        <Text key={`${key}.${i}`} {...heldLtr(style)} {...artFace(style)}>
           {runs.length
             ? runs.map((run, r) => (
                 <Text key={`r${r}`} color={runColor(style, run.role)} bold={isBold(style, run.role)} dimColor={run.role === 'dim' && !style.theme.codeComment}>
@@ -370,11 +371,12 @@ const decide = (raw: readonly string[]): FigureDecision => {
   return finding ? { note: `figure line ${finding.line}: ${finding.message}` } : drawable(lines)
 }
 
-export const drawFigure = (el: ElementTable, style: Style, block: { lines: readonly string[]; isOpen?: true }, columns: number, key: string): { element?: RenderElement; art?: string; note?: string } | null => {
+export const drawFigure = (el: ElementTable, style: Style, block: { lines: readonly string[]; isOpen?: true }, columns: number, key: string): { element?: RenderElement; art?: string; hues?: () => (string | undefined)[][]; note?: string } | null => {
   if (block.isOpen) return null
   const decision = remember(decisions, block.lines.join('\n'), () => decide(block.lines))
   if ('note' in decision) return decision
   if (decision.rows.length === 0) return null
   if (decision.widest > columns - 2) return { note: `figure is ${decision.widest} cols, terminal is ${columns}` }
-  return { element: figureElement(el, style, decision.rows, key), art: decision.texts.join('\n') }
+  const hues = () => decision.rows.map(row => row.flatMap(run => cells(run.text).map(() => runColor(style, run.role))))
+  return { element: figureElement(el, style, decision.rows, key), art: decision.texts.join('\n'), hues }
 }

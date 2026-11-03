@@ -6,7 +6,8 @@ import { drawFigure, isFigureLang } from './figure'
 import { ratexColor } from './latex'
 import type { Block } from './markdown'
 import type { Drawn } from './render'
-import { cells, graphemes, heldLtr, mirrored, remember, width } from './render'
+import { cells, graphemes, width } from './layout'
+import { artFace, heldLtr, mirrored, remember } from './render'
 import { asIs, hasRtl, holdEngine, holdRow, holdVisual, led } from './rtl'
 import type { Style, Theme } from './theme'
 import { renderMermaidAscii, setChartSize } from './vendor/mermaid-text.js'
@@ -286,7 +287,7 @@ export const boxArt = ({ Box, Text }: ElementTable, style: Style, art: string, k
           parts.push(<Text key={`t${parts.length}`} color={hue} {...mark}>{chars.slice(at, end).join('')}</Text>)
           at = end
         }
-        return <Text key={`${key}.${i}`} {...heldLtr(style)}>{parts.length ? parts : ' '}</Text>
+        return <Text key={`${key}.${i}`} {...heldLtr(style)} {...artFace(style)}>{parts.length ? parts : ' '}</Text>
       })}
     </Box>
   )
@@ -368,7 +369,7 @@ export const drawDiagrams = (el: ElementTable, style: Style, blocks: Block[], co
         const wide = art === null ? Infinity : artWidth(art.text)
         narrowest = Math.min(narrowest, wide)
         if (art === null || wide > columns - 2) continue
-        drawn.set(i, { element: chartElement(el, style, art, block, `b${i}`), art: art.text })
+        drawn.set(i, { element: chartElement(el, style, art, block, `b${i}`), art: art.text, hues: () => painting(style, art.text, art.slices, art.series).colors })
         break
       }
       if (!drawn.has(i) && !block.isOpen) {

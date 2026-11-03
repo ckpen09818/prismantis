@@ -8,8 +8,8 @@
     {
       "name": "prismantis",
       "description": "Colorful, themeable rendering for Claude Code replies: tables, headings, code, numbers, paths and links.",
-      "source": { "source": "github", "repo": "NahumLitvin/prismantis", "ref": "v0.37.1", "sha": "4bdd892ee659e33c56a4ebf08ca17b261c549ecf" },
-      "version": "0.37.1",
+      "source": { "source": "github", "repo": "NahumLitvin/prismantis", "ref": "v0.39.1", "sha": "bc3b219dc82b12e0fad64d7a0afde22db26acaf6" },
+      "version": "0.39.1",
       "category": "appearance",
       "tags": [
         "mod",
