@@ -635,10 +635,22 @@ const drawSetup = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['res
   return [...(found.before ? [md(base, found.before, 'before')] : []), md(base, found.parts.head, 'head'), ...picks, md(base, found.parts.tail, 'tail')]
 }
 
-const hintsFor = (style: Style, latex: LatexSession, nth: number, pane?: number): string[] => [
-  ...(style.diagramHints ? [HINT, FIGURE_HINT, ...(pane !== undefined && pane < NARROW_PANE ? [narrowHint(pane)] : []), ...(latex.ready && !latex.stopped ? [LATEX_HINT] : [])] : []),
-  ...(style.issueHint && nth % 10 === 0 ? [ISSUE_HINT] : []),
-]
+const HINT_EVERY = 10
+
+const hintsFor = (style: Style, latex: LatexSession, nth: number, sent: Map<string, number>, pane?: number): string[] => {
+  const due = (hint: string): boolean => {
+    const last = sent.get(hint)
+    if (last !== undefined && nth - last < HINT_EVERY) return false
+    sent.set(hint, nth)
+    return true
+  }
+  return [
+    ...(style.diagramHints ? [HINT, FIGURE_HINT].filter(due) : []),
+    ...(style.diagramHints && pane !== undefined && pane < NARROW_PANE ? [narrowHint(pane)] : []),
+    ...(style.diagramHints && latex.ready && !latex.stopped ? [LATEX_HINT].filter(due) : []),
+    ...(style.issueHint && nth % 10 === 0 ? [ISSUE_HINT] : []),
+  ]
+}
 
 const localeOf = async ($: EngineInterface, asked?: string): Promise<string> => asked ?? (await $.env.get('LC_ALL').catch(() => undefined)) ?? (await $.env.get('LANG').catch(() => undefined)) ?? ''
 
@@ -651,6 +663,7 @@ export const register: Register = (on, options) => {
   const parseCached = (text: string, cache = parsed, limit?: number) => remember(cache, text, () => parse(text, { numbers: style.highlightNumbers, paths: style.highlightPaths }), limit)
   const shared = new Map<string, ReturnType<typeof parse>>()
   let prompts = 0
+  const hintsSent = new Map<string, number>()
   let pane: number | undefined
   const latex: LatexSession = { style, color: ratexColor(style.theme.diagramText ?? style.theme.codeText ?? '#808080'), pending: new Set(), wanted: new Set(), batch: [], queue: Promise.resolve() }
   const picked: Picked = { theme: firstTheme, options, latex }
@@ -781,7 +794,7 @@ export const register: Register = (on, options) => {
     await probe($, style, probes)
     if (!takesHint(e.origin)) return next(e)
     if (style.diagramHints) void latexEngine($, latex)
-    const hints = hintsFor(style, latex, prompts++, pane)
+    const hints = hintsFor(style, latex, prompts++, hintsSent, pane)
     return hints.length ? next({ ...e, context: [...(e.context ?? []), ...hints] }) : next(e)
   })
 

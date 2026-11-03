@@ -7,7 +7,7 @@ import { FIGURE_HINT } from '../hooks/figure'
 import { parse } from '../hooks/markdown'
 import { PRESET_BACKGROUNDS, PRESET_NAMES, PRESETS, SYNTAX } from '../hooks/presets'
 import { RANDOM_THEMES, pickTheme, resolveStyle } from '../hooks/theme'
-import { ISSUE_HINT, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, setupParts, setupSteps, setupText } from '../hooks/help'
+import { HINT, ISSUE_HINT, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, setupParts, setupSteps, setupText } from '../hooks/help'
 import type { Theme } from '../hooks/theme'
 import { BAND_STEP, BUBBLE_STEP, EDIT_NOTES, PRISM_COLORS, bashEdits, bubbleFill, replyFill, contrast, describeShell, diffLines, diffTint, fullHue, movesTree, onTint, pathLanguage, previewBand, tint, wordTint, errorReason, formatDuration, groupSummary, isReadOnlyCall, programsOf, refusalReason, rememberCall, shortTarget, shortenPaths, withoutBashEdits } from '../hooks/render'
 import { columnWidths } from '../hooks/layout'
@@ -505,7 +505,7 @@ test('your prompts carry the render hint as model-only context', async ($, on) =
   expect(seen[0]).toContain(FIGURE_HINT)
 })
 
-test('prompts another plugin sends carry the render hint, framed or as your own words, notifications do not', async ($, on) => {
+test('a prompt another plugin sends as your own words carries the render hint, a notification does not', async ($, on) => {
   const seen: (readonly string[] | undefined)[] = []
   mock.env(on, {})
   on('prompt.submit', (_, e) => {
@@ -513,12 +513,52 @@ test('prompts another plugin sends carry the render hint, framed or as your own 
     return { text: e.text, context: e.context }
   })
   await $.prompt.submit({ text: 'next step', wait: false, origin: { kind: 'plugin', name: 'some-plugin', asUser: true } })
-  await $.prompt.submit({ text: 'build finished', wait: false, origin: { kind: 'plugin', name: 'some-plugin' } })
   await $.prompt.submit({ text: 'task done', wait: false, origin: { kind: 'task-notification' } })
-  expect(seen).toHaveLength(3)
+  expect(seen).toHaveLength(2)
   expect(seen[0]).toContain(FIGURE_HINT)
-  expect(seen[1]).toContain(FIGURE_HINT)
-  expect(seen[2] ?? []).not.toContain(FIGURE_HINT)
+  expect(seen[1] ?? []).not.toContain(FIGURE_HINT)
+})
+
+test('a prompt another plugin sends framed as its own carries the render hint too', async ($, on) => {
+  const seen: (readonly string[] | undefined)[] = []
+  mock.env(on, {})
+  on('prompt.submit', (_, e) => {
+    seen.push(e.context)
+    return { text: e.text, context: e.context }
+  })
+  await $.prompt.submit({ text: 'build finished', wait: false, origin: { kind: 'plugin', name: 'some-plugin' } })
+  expect(seen[0]).toContain(FIGURE_HINT)
+})
+
+test('the render hint rides the first prompt and every tenth, not every prompt', async ($, on) => {
+  const seen: (readonly string[] | undefined)[] = []
+  mock.env(on, {})
+  on('prompt.submit', (_, e) => {
+    seen.push(e.context)
+    return { text: e.text, context: e.context }
+  })
+  for (let i = 0; i < 12; i++) await $.prompt.submit({ text: `prompt ${i}`, wait: false, origin: { kind: 'composer' } })
+  const rides = [true, false, false, false, false, false, false, false, false, false, true, false]
+  expect(seen.map(c => c?.includes(HINT) ?? false)).toEqual(rides)
+  expect(seen.map(c => c?.includes(FIGURE_HINT) ?? false)).toEqual(rides)
+})
+
+test('a narrow pane keeps adding its width on every prompt, though the render hint rides only some', async ($, on) => {
+  const seen: (readonly string[] | undefined)[] = []
+  mock.env(on, {})
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  on('prompt.submit', (_, e) => {
+    seen.push(e.context)
+    return { text: e.text, context: e.context }
+  })
+  const reply = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'AssistantMessage', props: { text: 'hi', isFirstOfReply: true }, viewport: { columns: 70, rows: 40 } })
+  await reply.unmount()
+  for (let i = 0; i < 3; i++) await $.prompt.submit({ text: `draw it ${i}`, wait: false, origin: { kind: 'composer' } })
+  expect(seen.map(c => c?.some(h => h.includes('70 columns')) ?? false)).toEqual([true, true, true])
+  expect(seen.map(c => c?.includes(HINT) ?? false)).toEqual([true, false, false])
 })
 
 test('no render hint when diagramHints is off', { options: { diagramHints: false } }, async ($, on) => {
@@ -3013,5 +3053,5 @@ test('a narrow pane adds its width to the render hint, a wide one does not', asy
     await $.prompt.submit({ text: 'draw it', wait: false, origin: { kind: 'composer' } })
   }
   expect(seen[0]?.some(c => c.includes('70 columns'))).toBe(true)
-  expect(seen[1]?.some(c => c.includes('columns wide'))).toBe(false)
+  expect(seen[1]?.some(c => c.includes('columns wide')) ?? false).toBe(false)
 })
