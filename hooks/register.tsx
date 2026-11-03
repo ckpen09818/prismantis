@@ -14,6 +14,8 @@ import type { Avatar, CopyButton, DrawPaste, Fold, Hues, TerminalEnv } from './r
 import { MARK, agentName, bashEdits, drawMath, drawsHyperlinks, editNotes, fileRoot, hasShellOutput, instanceKey, isReadOnlyCall, leftToEngine, markerRoom, mirrored, noteTip, pasteLang, pathsToProbe, remember, rememberCall, renderBashEdits, renderBlocks, renderDiffCard, renderExpandedShell, renderFailure, renderReply, renderShellResult, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, replyRoom, replyStyleFor, takesClickableMarks, takesEditorLinks, takesHttpLinks, takesMonoText, withoutBashEdits } from './render'
 import type { SetupStep } from './help'
 import { HINT, ISSUE_HINT, NARROW_PANE, narrowHint, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, THEME_PREVIEW, findSetup, helpText, languageShowcase, rtlShowcaseText, setupParts, setupSteps, setupText, showcaseText } from './help'
+import type { Pasted } from './paste'
+import { DROP_DIR, MAX_USED_DROPS, freshDrops, pairDrops, renderPasteBand, renderZoom, sameTags, surfaceOf, tagsOf, viewerLine, withoutTag } from './paste'
 import { PRESET_NAMES } from './presets'
 import type { Style } from './theme'
 import { RANDOM_THEMES, pickTheme, resolveStyle } from './theme'
@@ -71,6 +73,7 @@ const setupAt = atom({ plugin: 'prismantis', key: 'setupAt' } as const, 0)
 const setupFocus = atom({ plugin: 'prismantis', key: 'setupFocus' } as const, '')
 const setupLand = atom({ plugin: 'prismantis', key: 'setupLand' } as const, '')
 const foundPaths = atom({ plugin: 'prismantis', key: 'foundPaths' } as const, [])
+const pasteTick = atom({ plugin: 'prismantis', key: 'pasteTick' } as const, 0)
 
 const firstDrawn = async ($: EngineInterface, id: string): Promise<number> => {
   const ref = { plugin: 'prismantis', key: 'drawn', id } as const
@@ -652,6 +655,66 @@ const hintsFor = (style: Style, latex: LatexSession, nth: number, sent: Map<stri
   ]
 }
 
+const ZOOM_PANE = 'prismantis-zoom'
+
+type PasteState = { items: Map<string, Pasted>; used: Set<string>; tags: string[]; zoomed: string }
+
+const pastes: PasteState = { items: new Map(), used: new Set(), tags: [], zoomed: '' }
+
+const loadDrop = async ($: EngineInterface, tag: string, name: string, size: number): Promise<Pasted> => {
+  const path = `${DROP_DIR}/${name}`
+  if (size > MAX_IMAGE_BYTES) return { tag, path, width: 0, height: 0 }
+  const png = await $.fs.read(path, { as: 'bytes' }).then(r => r.base64, () => '')
+  const found = png && fitsImage(png) ? pngSize(png) : null
+  return found && found.width > 0 && found.height > 0 ? { tag, path, png, ...found } : { tag, path, width: 0, height: 0 }
+}
+
+const findDrops = async ($: EngineInterface, tags: string[]): Promise<void> => {
+  const now = await $.clock.now()
+  const entries = await $.fs.list(DROP_DIR).catch(() => [])
+  for (const [tag, drop] of pairDrops(tags, freshDrops(entries, pastes.used, now))) {
+    pastes.used.add(drop.name)
+    pastes.items.set(tag, await loadDrop($, tag, drop.name, drop.size))
+  }
+  while (pastes.used.size > MAX_USED_DROPS) pastes.used.delete(pastes.used.values().next().value!)
+}
+
+const syncPastes = async ($: EngineInterface, text: string, lookup: boolean): Promise<void> => {
+  const tags = tagsOf(text)
+  if (tags.length === 0 && pastes.items.size === 0 && pastes.tags.length === 0) return
+  const fresh = lookup ? tags.filter(t => !pastes.items.has(t)) : []
+  const before = pastes.items.size
+  if (fresh.length > 0) await findDrops($, fresh)
+  for (const tag of [...pastes.items.keys()]) if (!tags.includes(tag)) pastes.items.delete(tag)
+  if (sameTags(tags, pastes.tags) && before === pastes.items.size && fresh.length === 0) return
+  pastes.tags = tags
+  await update($, pasteTick, n => n + 1)
+}
+
+const zoomInCmux = async ($: EngineInterface, item: Pasted): Promise<boolean> => {
+  const cli = (await $.env.get('CMUX_SOCKET_PATH')) ? await $.env.get('CMUX_BUNDLED_CLI_PATH') : undefined
+  const line = cli ? viewerLine(`${$.plugin.root}/bin/imgview.py`, item.path) : null
+  if (!cli || !line) return false
+  const split = await $.process.run([cli, '--json', 'new-split', 'right'], { timeoutMs: 5000 }).catch(() => null)
+  const surface = split?.exitCode === 0 ? surfaceOf(split.stdout) : null
+  if (!surface) return false
+  await $.clock.sleep(800)
+  const sent = await $.process.run([cli, 'send', '--surface', surface, line], { timeoutMs: 5000 }).catch(() => null)
+  return sent?.exitCode === 0
+}
+
+const zoomPaste = async ($: EngineInterface, item: Pasted): Promise<void> => {
+  if (await zoomInCmux($, item).catch(() => false)) return
+  pastes.zoomed = item.tag
+  await update($, pasteTick, n => n + 1)
+  await $.ui.open({ id: ZOOM_PANE, title: `${item.tag} ${item.width}×${item.height}（Esc 關閉）`, focus: true, closeOnEscape: true }).catch(() => undefined)
+}
+
+const removePaste = async ($: EngineInterface, item: Pasted): Promise<void> => {
+  const box = await $.prompt.read()
+  if (box.text.includes(item.tag)) await $.prompt.fill({ text: withoutTag(box.text, item.tag), mode: 'replace' })
+}
+
 const localeOf = async ($: EngineInterface, asked?: string): Promise<string> => asked ?? (await $.env.get('LC_ALL').catch(() => undefined)) ?? (await $.env.get('LANG').catch(() => undefined)) ?? ''
 
 export const register: Register = (on, options) => {
@@ -796,6 +859,32 @@ export const register: Register = (on, options) => {
     if (style.diagramHints) void latexEngine($, latex)
     const hints = hintsFor(style, latex, prompts++, hintsSent, pane)
     return hints.length ? next({ ...e, context: [...(e.context ?? []), ...hints] }) : next(e)
+  })
+
+  on('prompt.change', async ($, e, next) => {
+    await syncPastes($, e.text, true).catch(() => undefined)
+    return next(e)
+  })
+
+  on('prompt.edit', async ($, e, next) => {
+    const box = await next(e)
+    if (pastes.items.size > 0 || pastes.tags.length > 0) await syncPastes($, box.text, false).catch(() => undefined)
+    return box
+  })
+
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    await read($, pasteTick)
+    const items = pastes.tags.flatMap(tag => pastes.items.get(tag) ?? [])
+    const el = $.ui.resolve(e)
+    if (items.length === 0 || e.props.hasSurvey || !('Image' in el)) return next(e)
+    return renderPasteBand(el, el.Image, style, items, { zoom: item => void zoomPaste($, item), remove: item => void removePaste($, item) })
+  })
+
+  on('ui.render', { component: 'Pane', requestId: ZOOM_PANE }, async ($, e) => {
+    await read($, pasteTick)
+    const el = $.ui.resolve(e)
+    if (!('Image' in el)) return <el.Text dimColor>這個介面不能畫圖</el.Text>
+    return renderZoom(el, el.Image, pastes.items.get(pastes.zoomed), e.props.bodyColumns, Math.max(4, (e.viewport?.rows ?? 30) - 4))
   })
 
   let landing = ''

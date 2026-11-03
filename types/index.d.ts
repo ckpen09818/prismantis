@@ -24,6 +24,7 @@ declare module 'claude-code' {
       setupLand: string
       foundPaths: string[]
       drawn: StateFamily<number>
+      pasteTick: number
     }
   }
 }
