@@ -23,7 +23,7 @@ for (const [backend, setup] of Object.entries(backends)) test(`${backend} copies
   clipboardEnv(on, setup.platform, setup.env)
   const calls: { argv: readonly string[]; input: string }[] = []
   on('process.run', (_, e) => {
-    calls.push({ argv: e.argv, input: e.init?.stdin ?? '' })
+    if (!e.argv.some(a => a.includes('NSPasteboardNameDrag'))) calls.push({ argv: e.argv, input: e.init?.stdin ?? '' })
     return runResult(0)
   })
   const copies = recordCopies(on)
@@ -48,7 +48,7 @@ test('windows copies HTML and CRLF plain text through PowerShell', async ($, on)
   clipboardEnv(on, 'other', { OS: 'Windows_NT', SystemRoot: 'C:\\Windows' })
   const calls: { argv: readonly string[]; input: string }[] = []
   on('process.run', (_, e) => {
-    calls.push({ argv: e.argv, input: e.init?.stdin ?? '' })
+    if (!e.argv.some(a => a.includes('NSPasteboardNameDrag'))) calls.push({ argv: e.argv, input: e.init?.stdin ?? '' })
     return runResult(0)
   })
   const copies = recordCopies(on)
@@ -240,7 +240,7 @@ for (const surface of ['terminal', 'desktop'] as const) for (const [backend, set
   clipboardEnv(on, setup.platform, setup.env)
   const calls: { argv: readonly string[]; input: string }[] = []
   on('process.run', (_, e) => {
-    calls.push({ argv: e.argv, input: e.init?.stdin ?? '' })
+    if (!e.argv.some(a => a.includes('NSPasteboardNameDrag'))) calls.push({ argv: e.argv, input: e.init?.stdin ?? '' })
     return runResult(0)
   })
   const copies = recordCopies(on)
@@ -293,7 +293,7 @@ test('▣ png keeps the colors the figure and the diagram draw with', async ($, 
   clipboardEnv(on, 'macos')
   const inputs: string[] = []
   on('process.run', (_, e) => {
-    inputs.push(e.init?.stdin ?? '')
+    if (!e.argv.some(a => a.includes('NSPasteboardNameDrag'))) inputs.push(e.init?.stdin ?? '')
     return runResult(0)
   })
   recordToasts(on)

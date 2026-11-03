@@ -15,7 +15,7 @@ import { MARK, agentName, bashEdits, drawMath, drawsHyperlinks, editNotes, fileR
 import type { SetupStep } from './help'
 import { HINT, ISSUE_HINT, NARROW_PANE, narrowHint, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, THEME_PREVIEW, findSetup, helpText, languageShowcase, rtlShowcaseText, setupParts, setupSteps, setupText, showcaseText } from './help'
 import type { Pasted } from './paste'
-import { DROP_DIR, MAX_USED_DROPS, freshDrops, pairDrops, renderPasteBand, renderZoom, sameTags, surfaceOf, tagsOf, viewerLine, withoutTag } from './paste'
+import { DROP_DIR, MAX_USED_DROPS, PICK_SCRIPT, freshDrops, pairDrops, pickedOf, renderPasteBand, renderZoom, sameTags, surfaceOf, tagsOf, viewerLine, withoutTag } from './paste'
 import { PRESET_NAMES } from './presets'
 import type { Style } from './theme'
 import { RANDOM_THEMES, pickTheme, resolveStyle } from './theme'
@@ -264,7 +264,7 @@ const htmlBackend = async ($: EngineInterface): Promise<ClipboardBackend | null>
 
 type LinkReach = { http: boolean; editor: boolean; marks: boolean; monoText: boolean; files: string | null; paths: boolean }
 
-type Probes = { terminal?: Promise<Terminal | null>; htmlCopy?: Promise<ClipboardBackend | null>; links?: Promise<LinkReach>; images?: Promise<boolean> }
+type Probes = { terminal?: Promise<Terminal | null>; htmlCopy?: Promise<ClipboardBackend | null>; links?: Promise<LinkReach>; images?: Promise<boolean>; board?: Promise<Board | null> }
 
 const terminalEnv = async ($: EngineInterface): Promise<TerminalEnv> => ({
   FORCE_HYPERLINK: await $.env.get('FORCE_HYPERLINK'),
@@ -657,9 +657,42 @@ const hintsFor = (style: Style, latex: LatexSession, nth: number, sent: Map<stri
 
 const ZOOM_PANE = 'prismantis-zoom'
 
+type Board = { general: number; drag: number; last?: Omit<Pasted, 'tag'> }
+
 type PasteState = { items: Map<string, Pasted>; used: Set<string>; tags: string[]; zoomed: string }
 
 const pastes: PasteState = { items: new Map(), used: new Set(), tags: [], zoomed: '' }
+
+const OSASCRIPT = '/usr/bin/osascript'
+
+const seenArg = (count: number): string => (count < 0 ? 'none' : String(count))
+
+const pickBoard = async ($: EngineInterface, board: Board, mode = ''): Promise<ReturnType<typeof pickedOf>> => {
+  const run = await $.process.run([OSASCRIPT, '-l', 'JavaScript', '-e', PICK_SCRIPT, seenArg(board.general), seenArg(board.drag), mode || 'pick'], { timeoutMs: 5000 }).catch(() => null)
+  return run?.exitCode === 0 ? pickedOf(run.stdout) : null
+}
+
+const boardOf = ($: EngineInterface, probes: Probes): Promise<Board | null> =>
+  (probes.board ??= (async () => {
+    if (!(await $.session.surfaces().catch((): readonly RenderSurface[] => [])).includes('terminal')) return null
+    if ((await (probes.htmlCopy ??= htmlBackend($)).catch(() => null)) !== 'macos') return null
+    const counts = await pickBoard($, { general: -1, drag: -1 }, 'counts')
+    return counts ? { general: -1, drag: counts.drag } : null
+  })())
+
+const fromBoard = async ($: EngineInterface, probes: Probes, tag: string): Promise<void> => {
+  const board = await boardOf($, probes)
+  if (!board) return
+  const picked = await pickBoard($, board)
+  if (!picked) return
+  const unchanged = picked.general === board.general && picked.drag === board.drag
+  board.general = picked.general
+  board.drag = picked.drag
+  const size = picked.png && fitsImage(picked.png) ? pngSize(picked.png) : null
+  if (size && size.width > 0 && size.height > 0) board.last = { png: picked.png, ...size }
+  else if (!(unchanged && board.last)) return
+  pastes.items.set(tag, { tag, ...board.last! })
+}
 
 const loadDrop = async ($: EngineInterface, tag: string, name: string, size: number): Promise<Pasted> => {
   const path = `${DROP_DIR}/${name}`
@@ -669,37 +702,50 @@ const loadDrop = async ($: EngineInterface, tag: string, name: string, size: num
   return found && found.width > 0 && found.height > 0 ? { tag, path, png, ...found } : { tag, path, width: 0, height: 0 }
 }
 
-const findDrops = async ($: EngineInterface, tags: string[]): Promise<void> => {
-  const now = await $.clock.now()
-  const entries = await $.fs.list(DROP_DIR).catch(() => [])
-  for (const [tag, drop] of pairDrops(tags, freshDrops(entries, pastes.used, now))) {
+const findDrops = async ($: EngineInterface, probes: Probes, tags: string[]): Promise<void> => {
+  const now = await $.clock.now().catch(() => null)
+  const entries = now === null ? [] : await $.fs.list(DROP_DIR).catch(() => [])
+  const pairs = pairDrops(tags, freshDrops(entries, pastes.used, now ?? 0))
+  for (const [tag, drop] of pairs) {
     pastes.used.add(drop.name)
     pastes.items.set(tag, await loadDrop($, tag, drop.name, drop.size))
   }
+  for (const tag of tags) if (!pastes.items.has(tag)) await fromBoard($, probes, tag)
   while (pastes.used.size > MAX_USED_DROPS) pastes.used.delete(pastes.used.values().next().value!)
 }
 
-const syncPastes = async ($: EngineInterface, text: string, lookup: boolean): Promise<void> => {
+const syncPastes = async ($: EngineInterface, probes: Probes, text: string, lookup: boolean): Promise<void> => {
   const tags = tagsOf(text)
   if (tags.length === 0 && pastes.items.size === 0 && pastes.tags.length === 0) return
   const fresh = lookup ? tags.filter(t => !pastes.items.has(t)) : []
   const before = pastes.items.size
-  if (fresh.length > 0) await findDrops($, fresh)
+  if (fresh.length > 0) await findDrops($, probes, fresh)
   for (const tag of [...pastes.items.keys()]) if (!tags.includes(tag)) pastes.items.delete(tag)
   if (sameTags(tags, pastes.tags) && before === pastes.items.size && fresh.length === 0) return
   pastes.tags = tags
   await update($, pasteTick, n => n + 1)
 }
 
+const viewFile = async ($: EngineInterface, item: Pasted): Promise<string | null> => {
+  if (item.path) return item.path
+  if (!item.png) return null
+  const tmp = ((await $.env.get('TMPDIR')) ?? '/tmp').replace(/\/+$/, '')
+  const path = `${tmp}/prismantis-zoom.b64`
+  return $.fs.write(path, item.png).then(() => path, () => null)
+}
+
 const zoomInCmux = async ($: EngineInterface, item: Pasted): Promise<boolean> => {
   const cli = (await $.env.get('CMUX_SOCKET_PATH')) ? await $.env.get('CMUX_BUNDLED_CLI_PATH') : undefined
-  const line = cli ? viewerLine(`${$.plugin.root}/bin/imgview.py`, item.path) : null
+  const path = cli ? await viewFile($, item) : null
+  const line = path ? viewerLine(`${$.plugin.root}/bin/imgview.py`, path) : null
   if (!cli || !line) return false
+  const direct = await $.process.run([cli, 'new-split', 'right', '--command', line], { timeoutMs: 5000 }).catch(() => null)
+  if (direct?.exitCode === 0) return true
   const split = await $.process.run([cli, '--json', 'new-split', 'right'], { timeoutMs: 5000 }).catch(() => null)
   const surface = split?.exitCode === 0 ? surfaceOf(split.stdout) : null
   if (!surface) return false
   await $.clock.sleep(800)
-  const sent = await $.process.run([cli, 'send', '--surface', surface, line], { timeoutMs: 5000 }).catch(() => null)
+  const sent = await $.process.run([cli, 'send', '--surface', surface, `${line}\n`], { timeoutMs: 5000 }).catch(() => null)
   return sent?.exitCode === 0
 }
 
@@ -718,6 +764,8 @@ const removePaste = async ($: EngineInterface, item: Pasted): Promise<void> => {
 const localeOf = async ($: EngineInterface, asked?: string): Promise<string> => asked ?? (await $.env.get('LC_ALL').catch(() => undefined)) ?? (await $.env.get('LANG').catch(() => undefined)) ?? ''
 
 export const register: Register = (on, options) => {
+  pastes.items.clear()
+  pastes.tags = []
   on('engine.create', async (_$, e, next) => ({ ...(await next(e)), prismantis: { markdown: async () => undefined } }))
   if (options.enabled === false) return
   const firstTheme = pickTheme(options.theme)
@@ -804,6 +852,7 @@ export const register: Register = (on, options) => {
     located.delete(style)
     await probe($, style, probes)
     void latexEngine($, latex)
+    void boardOf($, probes).catch(() => null)
     const started = await next(e)
     await $.command
       .register({ name: 'prismantis', description: 'Switch the prismantis theme, pick styles from samples, copy the last reply, or show the demo', argumentHint: '[theme [<name> | random] | setup [<step> [<pick>]] | copy [code] | demo]' })
@@ -862,13 +911,13 @@ export const register: Register = (on, options) => {
   })
 
   on('prompt.change', async ($, e, next) => {
-    await syncPastes($, e.text, true).catch(() => undefined)
+    await syncPastes($, probes, e.text, true).catch(() => undefined)
     return next(e)
   })
 
   on('prompt.edit', async ($, e, next) => {
     const box = await next(e)
-    if (pastes.items.size > 0 || pastes.tags.length > 0) await syncPastes($, box.text, false).catch(() => undefined)
+    if (pastes.items.size > 0 || pastes.tags.length > 0) await syncPastes($, probes, box.text, false).catch(() => undefined)
     return box
   })
 

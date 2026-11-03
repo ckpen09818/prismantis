@@ -1,7 +1,8 @@
 import type { On, PromptChangeInput } from 'claude-code'
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 
-import { fitBox, freshDrops, pairDrops, sameTags, surfaceOf, tagsOf, viewerLine, withoutTag } from '../hooks/paste'
+import { startSession } from './clipboard-env'
+import { fitBox, freshDrops, pairDrops, pickedOf, sameTags, surfaceOf, tagsOf, viewerLine, withoutTag } from '../hooks/paste'
 
 const PNG_160x80 = 'iVBORw0KGgoAAAANSUhEUgAAAKAAAABQAQAAAAC2JkOZAAAAFklEQVR42mNgGAWjYBSMglEwCgYeAAAGkAAB8Q2GVgAAAABJRU5ErkJggg=='
 const DROP = 'cmux-drop-69eb09c8-4964-4660-a0d2-6814cb5d1acf.png'
@@ -59,6 +60,47 @@ test('a pasted tag with no fresh drop file draws nothing of its own', async ($, 
   await ui.unmount()
 })
 
+const board = (on: On, picks: string[]) => {
+  const calls: string[][] = []
+  on('session.surfaces', () => ({ value: ['terminal'] as const }))
+  on('fs.stat', (_, e) => (e.path === '/usr/bin/osascript' ? { value: { kind: 'file', size: 1, mtimeMs: 0, isLink: false } } : { deny: 'no such file' }))
+  on('process.run', (_, e) => {
+    calls.push([...e.argv])
+    const counts = e.argv.at(-1) === 'counts'
+    return { value: { exitCode: 0, stdout: counts ? '{"general":5,"drag":3,"source":"","png":""}' : (picks.shift() ?? '{"general":5,"drag":3,"source":"","png":""}'), stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+  return calls
+}
+
+test('on a local Mac a clipboard image pasted into the prompt shows before sending', async ($, on) => {
+  mock.env(on, { HOME: '/Users/me' })
+  on('fs.list', () => ({ value: [] }))
+  const calls = board(on, [`{"general":6,"drag":3,"source":"clipboard","png":"${PNG_160x80}"}`])
+  const box = composer(on, '[Image #1] what is this')
+  await startSession($, on)
+  await change($, { text: box.text, cursor: 0, origin: { kind: 'engine' } })
+  const ui = await $.ui.mount(band)
+  const image = await ui.find({ type: 'Image' })
+  expect(image?.props.source).toEqual({ png: PNG_160x80 })
+  const picks = calls.filter(c => c[0] === '/usr/bin/osascript' && c.at(-1) !== 'counts')
+  expect(picks).toHaveLength(1)
+  expect(picks[0]!.slice(-3)).toEqual(['none', '3', 'pick'])
+  await ui.unmount()
+})
+
+test('over ssh the Mac pasteboard is never read', async ($, on) => {
+  mock.env(on, { HOME: '/Users/me', SSH_CONNECTION: '1.2.3.4 5 6.7.8.9 22' })
+  on('fs.list', () => ({ value: [] }))
+  const calls = board(on, [`{"general":6,"drag":3,"source":"clipboard","png":"${PNG_160x80}"}`])
+  const box = composer(on, '[Image #1]')
+  await startSession($, on)
+  await change($, { text: box.text, cursor: 0, origin: { kind: 'engine' } })
+  const ui = await $.ui.mount(band)
+  expect(await ui.find({ type: 'Image' })).toBeFalsy()
+  expect(calls.filter(c => c[0] === '/usr/bin/osascript')).toHaveLength(0)
+  await ui.unmount()
+})
+
 test('paste helpers', () => {
   expect(tagsOf('a [Image #1] b [Image #12] [Image #1]')).toEqual(['[Image #1]', '[Image #12]'])
   expect(tagsOf('no images')).toEqual([])
@@ -74,8 +116,14 @@ test('paste helpers', () => {
   expect(fresh.map(f => f.name)).toEqual([DROP])
   expect(pairDrops(['[Image #1]', '[Image #2]'], freshDrops(entries, new Set(), 100000)).map(([t, d]) => [t, d.name])).toEqual([['[Image #1]', DROP], ['[Image #2]', DROP2]])
   expect(pairDrops(['[Image #1]', '[Image #2]'], fresh).map(([t]) => t)).toEqual(['[Image #2]'])
-  expect(viewerLine('/p/bin/imgview.py', `/tmp/${DROP}`)).toBe(`clear; python3 -I '/p/bin/imgview.py' '/tmp/${DROP}'; exit\n`)
+  expect(viewerLine('/p/bin/imgview.py', `/tmp/${DROP}`)).toBe(`clear; python3 -I '/p/bin/imgview.py' '/tmp/${DROP}'; exit`)
+  expect(viewerLine('/p/bin/imgview.py', '/var/folders/T/prismantis-zoom.b64')).toBe("clear; python3 -I '/p/bin/imgview.py' '/var/folders/T/prismantis-zoom.b64'; exit")
   expect(viewerLine('/p/bin/imgview.py', '/tmp/x; rm -rf ~.png')).toBe(null)
+  expect(viewerLine('/p/bin/imgview.py', "/tmp/a'b.png")).toBe(null)
+  expect(viewerLine('/p/bin/imgview.py', '/tmp/../etc/x.png')).toBe(null)
+  expect(pickedOf('{"general":2,"drag":1,"source":"clipboard","png":"x"}')).toEqual({ general: 2, drag: 1, source: 'clipboard', png: 'x' })
+  expect(pickedOf('{"general":2,"drag":1,"source":"evil"}')).toEqual({ general: 2, drag: 1, source: '', png: '' })
+  expect(pickedOf('garbage')).toBe(null)
   expect(viewerLine("/it's/imgview.py", `/tmp/${DROP}`)).toBe(null)
   expect(surfaceOf('{"surface_id":"74C3E740-4161-4043-A667-D7BA13AF725F"}')).toBe('74C3E740-4161-4043-A667-D7BA13AF725F')
   expect(surfaceOf('nope')).toBe(null)

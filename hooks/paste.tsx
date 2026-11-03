@@ -12,11 +12,13 @@ export const MAX_USED_DROPS = 200
 
 const DROP_NAME = /^cmux-drop-[0-9a-f-]+\.png$/i
 
-const DROP_PATH = /^\/tmp\/cmux-drop-[0-9a-f-]+\.png$/i
+const VIEWABLE = /^\/[A-Za-z0-9._\/-]+\.(png|b64)$/
 
 export type DropEntry = { name: string; kind: string; size: number; mtimeMs: number }
 
-export type Pasted = { tag: string; path: string; png?: string; width: number; height: number }
+export type Pasted = { tag: string; path?: string; png?: string; width: number; height: number }
+
+export type Picked = { general: number; drag: number; source: '' | 'drag' | 'clipboard'; png: string }
 
 export type PasteActions = { zoom: (item: Pasted) => void; remove: (item: Pasted) => void }
 
@@ -47,8 +49,76 @@ const quoted = (s: string): string | null => (s.includes("'") ? null : `'${s}'`)
 
 export const viewerLine = (script: string, path: string): string | null => {
   const s = quoted(script)
-  return s && DROP_PATH.test(path) ? `clear; python3 -I ${s} '${path}'; exit\n` : null
+  return s && VIEWABLE.test(path) && !path.includes('..') ? `clear; python3 -I ${s} '${path}'; exit` : null
 }
+
+export const pickedOf = (stdout: string | undefined): Picked | null => {
+  try {
+    const p = JSON.parse(stdout ?? '') as Partial<Picked>
+    const source = p.source === 'drag' || p.source === 'clipboard' ? p.source : ''
+    return typeof p.general === 'number' && typeof p.drag === 'number' ? { general: p.general, drag: p.drag, source, png: typeof p.png === 'string' ? p.png : '' } : null
+  } catch {
+    return null
+  }
+}
+
+export const PICK_SCRIPT = `function run(argv) {
+  ObjC.import('AppKit')
+  const general = $.NSPasteboard.generalPasteboard
+  const drag = $.NSPasteboard.pasteboardWithName($.NSPasteboardNameDrag)
+  const out = { general: Number(general.changeCount), drag: Number(drag.changeCount), source: '', png: '' }
+  if (argv[2] === 'counts') return JSON.stringify(out)
+  let data = null
+  if (out.drag !== Number(argv[1])) {
+    const urls = drag.readObjectsForClassesOptions($.NSArray.arrayWithObject($.NSURL), $())
+    if (!urls.isNil() && urls.count > 0) {
+      const url = urls.objectAtIndex(0)
+      const ext = ObjC.unwrap(url.pathExtension).toLowerCase()
+      if (url.isFileURL && /^(png|jpe?g|gif|webp|heic|tiff?|bmp)$/.test(ext)) {
+        data = $.NSData.dataWithContentsOfURL(url)
+        out.source = 'drag'
+      }
+    }
+  }
+  if (!data && out.general !== Number(argv[0])) {
+    const png = general.dataForType($.NSPasteboardTypePNG)
+    const any = png.isNil() ? general.dataForType($.NSPasteboardTypeTIFF) : png
+    if (!any.isNil()) {
+      data = any
+      out.source = 'clipboard'
+    }
+  }
+  if (!data || data.isNil()) return JSON.stringify(out)
+  let rep = $.NSBitmapImageRep.imageRepWithData(data)
+  if (rep.isNil()) {
+    const img = $.NSImage.alloc.initWithData(data)
+    if (img.isNil()) return JSON.stringify(out)
+    rep = $.NSBitmapImageRep.imageRepWithData(img.TIFFRepresentation)
+  }
+  const scaled = (side) => {
+    const w = Number(rep.pixelsWide)
+    const h = Number(rep.pixelsHigh)
+    const k = Math.min(1, side / Math.max(w, h))
+    if (k >= 1) return rep
+    const nw = Math.max(1, Math.round(w * k))
+    const nh = Math.max(1, Math.round(h * k))
+    const dst = $.NSBitmapImageRep.alloc.initWithBitmapDataPlanesPixelsWidePixelsHighBitsPerSampleSamplesPerPixelHasAlphaIsPlanarColorSpaceNameBytesPerRowBitsPerPixel(null, nw, nh, 8, 4, true, false, $.NSDeviceRGBColorSpace, 0, 0)
+    $.NSGraphicsContext.saveGraphicsState
+    $.NSGraphicsContext.setCurrentContext($.NSGraphicsContext.graphicsContextWithBitmapImageRep(dst))
+    rep.drawInRect($.NSMakeRect(0, 0, nw, nh))
+    $.NSGraphicsContext.restoreGraphicsState
+    return dst
+  }
+  for (const side of [1600, 1200, 900, 640]) {
+    const encoded = scaled(side).representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $())
+    if (Number(encoded.length) <= 2000000) {
+      out.png = ObjC.unwrap(encoded.base64EncodedStringWithOptions(0))
+      break
+    }
+  }
+  return JSON.stringify(out)
+}
+`
 
 export const surfaceOf = (stdout: string | undefined): string | null => {
   try {
