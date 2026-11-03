@@ -634,6 +634,16 @@ test('other themes keep the shared token mapping', { options: { theme: 'dracula'
   await ui.unmount()
 })
 
+test('a code line draws each run of one color as a single piece and keeps every color', { options: { theme: 'one-dark-pro' } }, async $ => {
+  const t = PRESETS['one-dark-pro']
+  const ui = await $.ui.mount({ ...draw('```ts\nlet x = (a, b) // hi\n```'), surface: 'terminal' })
+  const color = async (text: RegExp) => (await ui.find({ type: 'Text', text }))?.props.color
+  expect(await ui.find({ type: 'Text', text: /^ \(a, b\) $/ })).toBeDefined()
+  expect(await color(/^let$/)).toBe(t.accent)
+  expect(await color(/^\/\/ hi$/)).toBe(t.codeComment)
+  await ui.unmount()
+})
+
 for (const surface of ['terminal', 'desktop'] as const) test(`a list item on ${surface} ${surface === 'desktop' ? 'keeps its marker on the first line, unshrunk, when its text wraps' : 'draws its marker as plain text beside its text'}`, async $ => {
   const ui = await $.ui.mount({ ...draw(`1. ${'long words '.repeat(30).trim()}\n2. Short`), surface })
   const rows = (await ui.findAll({ type: 'Box' })).filter(b => b.props.flexDirection === 'row' && /^1\. long/.test(b.text ?? ''))
