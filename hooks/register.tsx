@@ -14,8 +14,8 @@ import type { Avatar, CopyButton, DrawPaste, Fold, Hues, TerminalEnv } from './r
 import { MARK, agentName, markPress, rememberPress, bashEdits, drawMath, drawsHyperlinks, editNotes, fileRoot, hasShellOutput, instanceKey, isReadOnlyCall, leftToEngine, markerRoom, mirrored, noteTip, pasteLang, pathsToProbe, remember, rememberCall, renderBashEdits, renderBlocks, renderDiffCard, renderExpandedShell, renderFailure, renderReply, renderShellResult, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, replyRoom, replyStyleFor, takesClickableMarks, takesEditorLinks, takesHttpLinks, takesMonoText, withoutBashEdits } from './render'
 import type { SetupStep } from './help'
 import { HINT, ISSUE_HINT, NARROW_PANE, narrowHint, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, THEME_PREVIEW, findSetup, helpText, languageShowcase, rtlShowcaseText, setupParts, setupSteps, setupText, showcaseText } from './help'
-import type { Pasted } from './paste'
-import { DROP_DIR, MAX_USED_DROPS, PICK_SCRIPT, freshDrops, pairDrops, pickedOf, renderPasteBand, renderZoom, sameTags, surfaceOf, tagsOf, viewerLine, withoutTag } from './paste'
+import type { PictureDraw, Pasted, SentPictures } from './paste'
+import { DROP_DIR, IMAGE_TAG, MAX_USED_DROPS, PICK_SCRIPT, PNG_BASE64_LIMIT, freshDrops, pairDrops, pickedOf, picturesFor, pngDimensions, renderPasteBand, renderSentPicture, renderZoom, sameTags, surfaceOf, tagsOf, viewerLine, withPictures, withoutTag } from './paste'
 import { PRESET_NAMES } from './presets'
 import type { Style } from './theme'
 import { RANDOM_THEMES, pickTheme, resolveStyle } from './theme'
@@ -74,6 +74,7 @@ const setupFocus = atom({ plugin: 'prismantis', key: 'setupFocus' } as const, ''
 const setupLand = atom({ plugin: 'prismantis', key: 'setupLand' } as const, '')
 const foundPaths = atom({ plugin: 'prismantis', key: 'foundPaths' } as const, [])
 const pasteTick = atom({ plugin: 'prismantis', key: 'pasteTick' } as const, 0)
+const sentPictures = atom({ plugin: 'prismantis', key: 'sentPictures' } as const, [] as SentPictures[])
 const awaiting = atom({ plugin: 'prismantis', key: 'awaiting' } as const, [] as { key: string; at: number }[])
 const blink = atom({ plugin: 'prismantis', key: 'blink' } as const, false)
 const BLINK_MS = 500
@@ -723,9 +724,9 @@ const ZOOM_PANE = 'prismantis-zoom'
 
 type Board = { general: number; drag: number; last?: Omit<Pasted, 'tag'> }
 
-type PasteState = { items: Map<string, Pasted>; used: Set<string>; tags: string[]; zoomed: string }
+type PasteState = { items: Map<string, Pasted>; used: Set<string>; tags: string[]; zoomed?: Pasted }
 
-const pastes: PasteState = { items: new Map(), used: new Set(), tags: [], zoomed: '' }
+const pastes: PasteState = { items: new Map(), used: new Set(), tags: [] }
 
 const OSASCRIPT = '/usr/bin/osascript'
 
@@ -815,9 +816,37 @@ const zoomInCmux = async ($: EngineInterface, item: Pasted): Promise<boolean> =>
 
 const zoomPaste = async ($: EngineInterface, item: Pasted): Promise<void> => {
   if (await zoomInCmux($, item).catch(() => false)) return
-  pastes.zoomed = item.tag
+  pastes.zoomed = item
   await update($, pasteTick, n => n + 1)
   await $.ui.open({ id: ZOOM_PANE, title: `${item.tag} ${item.width}×${item.height}（Esc 關閉）`, focus: true, closeOnEscape: true }).catch(() => undefined)
+}
+
+const sentPicture = async ($: EngineInterface, tag: string, id: string): Promise<Pasted | undefined> => {
+  let png = ''
+  let offset: number | undefined
+  for (;;) {
+    const part = await $.prompt.media(offset === undefined ? { id } : { id, offset }).catch(() => undefined)
+    if (!part?.base64 || part.mediaType !== 'image/png') return undefined
+    png += part.base64
+    if (png.length > PNG_BASE64_LIMIT) return undefined
+    if (part.next === undefined) break
+    offset = part.next
+  }
+  const size = pngDimensions(png)
+  return size ? { tag, png, ...size } : undefined
+}
+
+const keepPictures = async ($: EngineInterface, e: { text: string; attachments?: readonly { type: string; id?: string }[] }): Promise<void> => {
+  const tags = e.text.match(IMAGE_TAG) ?? []
+  if (tags.length === 0) return
+  const ids = (e.attachments ?? []).filter(a => a.type === 'image' && a.id).map(a => a.id!)
+  const items: Pasted[] = []
+  for (const [i, tag] of tags.entries()) {
+    const known = pastes.items.get(tag)
+    const item = known?.png ? known : ids[i] ? await sentPicture($, tag, ids[i]!) : undefined
+    if (item) items.push(item)
+  }
+  if (items.length > 0) await update($, sentPictures, list => withPictures(list, { text: promptKey(e.text), items }))
 }
 
 const removePaste = async ($: EngineInterface, item: Pasted): Promise<void> => {
@@ -997,6 +1026,7 @@ export const register: Register = (on, options) => {
       const at = await $.clock.now()
       await update($, sent, list => withRecord(list, { text: promptKey(e.text), at }))
     }
+    if (style.sentImages === 'thumbnail') await keepPictures($, e).catch(() => undefined)
     await probe($, style, probes)
     if (!takesHint(e.origin)) return next(e)
     if (style.diagramHints) void latexEngine($, latex)
@@ -1027,7 +1057,7 @@ export const register: Register = (on, options) => {
     await read($, pasteTick)
     const el = $.ui.resolve(e)
     if (!('Image' in el)) return <el.Text dimColor>這個介面不能畫圖</el.Text>
-    return renderZoom(el, el.Image, pastes.items.get(pastes.zoomed), e.props.bodyColumns, Math.max(4, (e.viewport?.rows ?? 30) - 4))
+    return renderZoom(el, el.Image, pastes.zoomed, e.props.bodyColumns, Math.max(4, (e.viewport?.rows ?? 30) - 4))
   })
 
   let landing = ''
@@ -1114,7 +1144,9 @@ export const register: Register = (on, options) => {
     }
     await locateOnce($, style)
     const avatar = style.userAvatar && (await imagesOn($, probes, e.surface)) ? await remember(avatars, `user:${style.userAvatar}`, () => userAvatarOf($, style.userAvatar, style.home), 10) : undefined
-    return renderUserPrompt(el, drawn, e.props.text, columns, time, paste, avatar)
+    const found = style.sentImages === 'thumbnail' && 'Image' in el && (await imagesOn($, probes, e.surface)) ? picturesFor(await read($, sentPictures), e.props.text) : undefined
+    const pictures: PictureDraw | undefined = found?.size ? (tag, key) => (found.has(tag) && 'Image' in el ? renderSentPicture(el, el.Image, found.get(tag)!, key, item => void zoomPaste($, item)) : null) : undefined
+    return renderUserPrompt(el, drawn, e.props.text, columns, time, paste, avatar, pictures)
   })
 
   on('ui.render', { component: 'AssistantMessage', ...here }, async ($, e, next) => {

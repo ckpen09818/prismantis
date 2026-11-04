@@ -375,6 +375,7 @@ Options sit under `options`, keyed by the plugin's install name. Project setting
 | `listMarker` | `dots` (`•` then `◦` nested), `dash` (`-` at every level, pastes as a markdown list) | `dots` |
 | `promptStyle` | `bubble`, `wide`, `bar`, `chevron`, `off` | `bubble` |
 | `promptSide` | `right` (as wide as the text, at most three quarters of the window, under `You ⬤`), `left` (across the full width under `⬤ You`, like Claude's reply bubble, with the `clock` time beside `⬤ You`). Only for `promptStyle: bubble` | `right` |
+| `sentImages` | `thumbnail` (a pasted image shows as a picture in your sent prompt, with a `⤢` button that opens it large in a pane; Esc closes it), `text` (the `[Image #N]` tag as Claude Code draws it). Pictures need a terminal that draws images and a PNG of at most 2 MB | `thumbnail` |
 | `replyStyle` | `auto` (`bubble` while `promptStyle` is `bubble`, else `off`), `bubble`, `solid`, `framed`, `off` | `auto` |
 | `bubbleLabels` | `large` (`⬤`), `small` (`●`), `off` (no labels) | `large` |
 | `clock` | `off`, `24h`, `12h` | `off` |

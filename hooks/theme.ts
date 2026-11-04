@@ -25,6 +25,7 @@ export type Style = {
   listMarker: 'dots' | 'dash'
   promptStyle: 'bubble' | 'wide' | 'bar' | 'chevron' | 'off'
   promptSide: 'right' | 'left'
+  sentImages: 'thumbnail' | 'text'
   replyStyle: 'auto' | 'bubble' | 'solid' | 'framed' | 'off'
   bubbleLabels: 'large' | 'small' | 'off'
   clock: Clock
@@ -111,6 +112,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
     listMarker: pick(options.listMarker, ['dots', 'dash'] as const, 'dots'),
     promptStyle: pick(options.promptStyle, ['bubble', 'wide', 'bar', 'chevron', 'off'] as const, 'bubble'),
     promptSide: pick(options.promptSide, ['right', 'left'] as const, 'right'),
+    sentImages: pick(options.sentImages, ['thumbnail', 'text'] as const, 'thumbnail'),
     replyStyle: pick(options.replyStyle, ['auto', 'bubble', 'solid', 'framed', 'off'] as const, 'auto'),
     bubbleLabels: pick(options.bubbleLabels, ['large', 'small', 'off'] as const, 'large'),
     clock: pick(options.clock, ['off', '24h', '12h'] as const, 'off'),

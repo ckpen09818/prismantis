@@ -1,6 +1,6 @@
 # 個人分支功能清單（personal）
 
-這份清單列出 `personal` 分支上、上游沒有的功能。合併上游（`main` → `personal`）之後，逐項確認每個功能還在、測試還過；任何一項被上游覆蓋，都要把它補回來，不能用上游版本取代。
+這份清單列出 `personal` 分支上、上游沒有的功能（目前 11 項）。合併上游（`main` → `personal`）之後，逐項確認每個功能還在、測試還過；任何一項被上游覆蓋，都要把它補回來，不能用上游版本取代。
 
 合併後第一步：
 
@@ -25,6 +25,7 @@ claude plugin validate . && claude plugin test .
 | 8 | 效能 C：程式碼區塊在渲染點合併相鄰同色 token（`mergedRuns`）；`segmentRows` 不動，diff 逐字比對不受影響 | `hooks/render.tsx` | `hooks/render.tsx :: mergedRuns` | `tests/render.test.tsx` |
 | 9 | 貼圖預覽：拖進輸入框的圖片在送出前顯示縮圖，可放大、可移除；支援本機 macOS 剪貼簿與拖曳剪貼簿 | `hooks/paste.tsx`、`hooks/register.tsx`、`bin/imgview.py`、`types/index.d.ts` | `hooks/paste.tsx :: IMAGE_TAG`、`bin/imgview.py` | `tests/paste.test.tsx`、`tests/clipboard.test.tsx` |
 | 10 | `copyButtonStyle: hover`：點 `⧉` 標記本身就執行該區塊第一個複製動作（含整則回覆右下角的 `⧉`） | `hooks/render.tsx`、`hooks/register.tsx` | `hooks/render.tsx :: rememberPress`、`hooks/render.tsx :: markPress`、`hooks/register.tsx :: rememberPress` | `tests/render.test.tsx`（「copyButtonStyle hover copies a block on a press of its ⧉ marker」） |
+| 11 | 送出後的圖片縮圖：`[Image #N]` 那一列改畫圖片，右上角 `⤢` 按鈕開現有的 `prismantis-zoom` 面板（Esc 關閉）；圖片來源是送出前預覽，沒有就用 `$.prompt.media` 讀 PNG；`sentImages` 選項可關 | `hooks/paste.tsx`、`hooks/register.tsx`、`hooks/render.tsx`、`hooks/theme.ts`、`.claude-plugin/plugin.json` | `hooks/paste.tsx :: pictureRow`、`hooks/register.tsx :: keepPictures`、`hooks/render.tsx :: pictureRow`、`hooks/theme.ts :: sentImages` | `tests/paste.test.tsx`（「a sent prompt draws its pasted image as a picture」） |
 
 不是功能但必須保持的差異：`.github/workflows/` 已刪除（`main` 與 `personal` 都沒有 CI）。
 
@@ -44,9 +45,11 @@ claude plugin validate . && claude plugin test .
 - **功能 3（setup）**：上游新增 setup 步驟時，測試裡的頁數與按鈕數必須等於 `hooks/help.ts` 的 `setupSteps`（0.41.0 為 15 頁：上游 14，含 `bubbleLabels`，加上 `promptSide`）。測試裡的範例編號（`mount(n)`、`setupParts(…, n)`）也要跟著位移。
 - **功能 2、4、5（標頭）與上游 `bubbleLabels`**：標頭文字由上游的 `youHead`、`claudeHead`、`headDot` 產生，你的靠左版本是 `youHeadLeft`，agent 名稱走 `replyHead(style)`。`bubbleLabels: off` 時整列（含時間與頭像）一起隱藏。Claude 標頭與框線顏色是 `replyBorder ?? accent`：上游預設會退回橘色 `claude`，你要保留 accent，不要採用上游那一行。
 - **功能 6**：`locateOnce` 只用在 `UserMessage`／`AssistantMessage`；工具列刻意保留 `locate`，因為上游測試要求工具列路徑跟隨 worktree 移動。
+- **功能 11（送出後縮圖）**：`renderUserPrompt` 多了第 8 個參數 `pictures`，只有圖片標籤那一列會走新分支；若上游改了它的簽章或 `rows.map` 的結構，要同步調整。`zoomed` 從字串改成 `Pasted` 物件，放大面板（`renderZoom`）收到的是圖片本身。`$.prompt.media` 這條路徑無法在測試裡模擬（`attachments` 由引擎設定），改動後要實際貼一張圖確認。只畫 PNG（至多約 2 MB），其他格式與大圖退回文字標籤。
+- **快照**：`npm --prefix scripts run snapshot` 目前有 4 個差異，來自功能 8（`mergedRuns` 合併相鄰同色 token），不是新問題；合併後差異數若不是 4，才需要查。
 - **新增的 token**：上游新增主題 token 時，`hooks/presets.ts` 的 `one-dark-pro` 要補齊，並通過 WCAG AA（4.5:1）。
 - 凡是接收 `$` 的函式，要宣告在 `hooks/register.tsx` 最上層，不能巢狀在 `register` 裡。
 
-## 不在這個 repo 的功能
+## 已併入的獨立 mod
 
-`image-inline`（送出後把對話裡的 `[Image #N]` 換成縮圖，右上角 `⤢` 開預覽面板）目前是獨立的 mod，放在 Claude Code session 的開發資料夾，不是 prismantis 的一部分。要併進來的話，在這份清單新增一列。
+`image-inline`（Claude Code session 開發資料夾裡的獨立 mod）的功能已併入為功能 11。舊 mod 需要停用，否則兩邊都會畫縮圖；它放在 session 的 `dev-mods` 資料夾，由使用者決定何時移除。

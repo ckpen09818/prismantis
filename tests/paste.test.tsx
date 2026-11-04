@@ -2,7 +2,8 @@ import type { On, PromptChangeInput } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 import { startSession } from './clipboard-env'
-import { fitBox, freshDrops, pairDrops, pickedOf, sameTags, surfaceOf, tagsOf, viewerLine, withoutTag } from '../hooks/paste'
+import type { SentPictures } from '../hooks/paste'
+import { fitBox, freshDrops, pairDrops, pickedOf, picturesFor, pngDimensions, sameTags, surfaceOf, tagsOf, viewerLine, withPictures, withoutTag } from '../hooks/paste'
 
 const PNG_160x80 = 'iVBORw0KGgoAAAANSUhEUgAAAKAAAABQAQAAAAC2JkOZAAAAFklEQVR42mNgGAWjYBSMglEwCgYeAAAGkAAB8Q2GVgAAAABJRU5ErkJggg=='
 const DROP = 'cmux-drop-69eb09c8-4964-4660-a0d2-6814cb5d1acf.png'
@@ -130,4 +131,89 @@ test('paste helpers', () => {
   const box = fitBox({ width: 1431, height: 876 }, 20, 6)
   expect(box.columns <= 20 && box.rows <= 6).toBe(true)
   expect(fitBox({ width: 100, height: 100 }, 100, 10)).toEqual({ columns: 20, rows: 10 })
+})
+
+const sentMessage = (text: string) =>
+  ({ plugin: 'prismantis', component: 'UserMessage' as const, props: { text, origin: { kind: 'composer' } as never, isExpanded: true }, viewport: { columns: 100, rows: 40 }, surface: 'terminal' as const })
+
+const droppedImage = (on: On, now: number) => {
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('clock.now', () => ({ value: now }))
+  on('fs.list', () => ({ value: [{ name: DROP, kind: 'file', size: 120, mtimeMs: now - 500, isLink: false }] }))
+  on('fs.read', (_, e) => (e.path === `/tmp/${DROP}` ? { value: { base64: PNG_160x80 } } : { deny: 'no such file' }))
+}
+
+test('a sent prompt draws its pasted image as a picture, and the button opens it large in the zoom pane', async ($, on) => {
+  mock.env(on, { TERM_PROGRAM: 'ghostty' })
+  const opened: string[] = []
+  on('ui.open', (_, e) => {
+    opened.push(e.id)
+    return { value: { isPlaced: true as const } }
+  })
+  droppedImage(on, 1_000_000)
+  const box = composer(on, 'look [Image #1] here')
+  await startSession($, on)
+  await change($, { text: box.text, cursor: box.text.length, origin: { kind: 'engine' } })
+  await $.prompt.submit({ text: 'look [Image #1] here', wait: false, origin: { kind: 'composer' } })
+
+  const ui = await $.ui.mount(sentMessage('look [Image #1] here'))
+  const image = await ui.find({ type: 'Image' })
+  expect(image?.props.source).toEqual({ png: PNG_160x80 })
+  expect(image?.props.alt).toBe('[Image #1]')
+  expect(await ui.find({ text: /look \[Image #1\] here/ })).toBeTruthy()
+  await ui.press({ key: 'pic0.0.zoom' })
+  expect(opened).toEqual(['prismantis-zoom'])
+  const zoom = await $.ui.mount({ plugin: 'prismantis', component: 'Pane' as const, requestId: 'prismantis-zoom', props: { title: 'zoom', isFocused: true, bodyColumns: 90, placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} }, viewport: { columns: 120, rows: 40 }, surface: 'terminal' as const })
+  expect((await zoom.find({ type: 'Image' }))?.props.alt).toBe('[Image #1]')
+  await zoom.unmount()
+  await ui.unmount()
+})
+
+test('a sent prompt that is only an image tag shows the picture and no tag text', async ($, on) => {
+  mock.env(on, { TERM_PROGRAM: 'ghostty' })
+  droppedImage(on, 1_000_000)
+  const box = composer(on, '[Image #1]')
+  await startSession($, on)
+  await change($, { text: box.text, cursor: box.text.length, origin: { kind: 'engine' } })
+  await $.prompt.submit({ text: '[Image #1]', wait: false, origin: { kind: 'composer' } })
+  const ui = await $.ui.mount(sentMessage('[Image #1]'))
+  expect(await ui.find({ type: 'Image' })).toBeTruthy()
+  expect(await ui.find({ text: /^\[Image #1\]$/ })).toBeFalsy()
+  await ui.unmount()
+})
+
+test('sentImages text, a terminal that draws no images, and an unknown tag all keep the tag as text', async ($, on) => {
+  droppedImage(on, 1_000_000)
+  const box = composer(on, 'look [Image #1] here')
+  await startSession($, on)
+  await change($, { text: box.text, cursor: box.text.length, origin: { kind: 'engine' } })
+  await $.prompt.submit({ text: 'look [Image #1] here', wait: false, origin: { kind: 'composer' } })
+  const plain = await $.ui.mount(sentMessage('look [Image #1] here'))
+  expect(await plain.find({ type: 'Image' })).toBeFalsy()
+  expect(await plain.find({ text: /look \[Image #1\] here/ })).toBeTruthy()
+  await plain.unmount()
+})
+
+test('sentImages text draws no picture even where the terminal could', { options: { sentImages: 'text' } }, async ($, on) => {
+  mock.env(on, { TERM_PROGRAM: 'ghostty' })
+  droppedImage(on, 1_000_000)
+  const box = composer(on, '[Image #1] x')
+  await startSession($, on)
+  await change($, { text: box.text, cursor: box.text.length, origin: { kind: 'engine' } })
+  await $.prompt.submit({ text: '[Image #1] x', wait: false, origin: { kind: 'composer' } })
+  const ui = await $.ui.mount(sentMessage('[Image #1] x'))
+  expect(await ui.find({ type: 'Image' })).toBeFalsy()
+  await ui.unmount()
+})
+
+test('sent picture helpers', () => {
+  expect(pngDimensions(PNG_160x80)).toEqual({ width: 160, height: 80 })
+  expect(pngDimensions('not a png at all, just text that is long enough')).toBeUndefined()
+  expect(pngDimensions('')).toBeUndefined()
+  const one = (tag: string, n: number): SentPictures => ({ text: `t${n}`, items: [{ tag, png: 'x', width: 1, height: 1 }] })
+  const many = Array.from({ length: 12 }, (_, i) => one(`[Image #${i}]`, i)).reduce((list, r) => withPictures(list, r), [] as SentPictures[])
+  expect(many).toHaveLength(8)
+  expect(many[0]!.text).toBe('t4')
+  expect(picturesFor(many, ' t11 ').get('[Image #11]')?.tag).toBe('[Image #11]')
+  expect(picturesFor(many, 't0').size).toBe(0)
 })

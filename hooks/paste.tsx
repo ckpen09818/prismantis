@@ -1,5 +1,6 @@
 import type { ElementTable, ImageProps, RenderElement } from 'claude-code'
 
+import { promptKey } from './clock'
 import type { Style } from './theme'
 
 export const IMAGE_TAG = /\[Image #\d+\]/g
@@ -159,4 +160,77 @@ export const renderZoom = ({ Box, Text }: ElementTable, Image: ImageElement, ite
       <Image key="zoom" source={{ png: item.png }} columns={fit.columns} rows={fit.rows} alt={item.tag} />
     </Box>
   )
+}
+
+export type SentPictures = { text: string; items: Pasted[] }
+
+export type PictureDraw = (tag: string, key: string) => RenderElement | null
+
+export type PictureRow = { element: RenderElement; bare: boolean }
+
+export const PNG_BASE64_LIMIT = 2700000
+
+const MAX_SENT_PICTURES = 8
+
+const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10]
+
+const headBytes = (base64: string, count: number): number[] => {
+  const out: number[] = []
+  let acc = 0
+  let bits = 0
+  for (const ch of base64) {
+    const value = BASE64.indexOf(ch)
+    if (value < 0 || out.length >= count) break
+    acc = (acc << 6) | value
+    bits += 6
+    if (bits >= 8) {
+      bits -= 8
+      out.push((acc >> bits) & 255)
+      acc &= (1 << bits) - 1
+    }
+  }
+  return out
+}
+
+export const pngDimensions = (base64: string): { width: number; height: number } | undefined => {
+  const head = headBytes(base64, 24)
+  if (head.length < 24 || !PNG_SIGNATURE.every((byte, i) => head[i] === byte)) return undefined
+  const word = (at: number) => ((head[at]! << 24) | (head[at + 1]! << 16) | (head[at + 2]! << 8) | head[at + 3]!) >>> 0
+  const width = word(16)
+  const height = word(20)
+  return width > 0 && height > 0 ? { width, height } : undefined
+}
+
+export const withPictures = (list: readonly SentPictures[], record: SentPictures): SentPictures[] => {
+  const next = [...list, record]
+  let total = next.reduce((n, one) => n + one.items.length, 0)
+  while (next.length > 1 && total > MAX_SENT_PICTURES) total -= next.shift()!.items.length
+  return next
+}
+
+export const picturesFor = (list: readonly SentPictures[], text: string): Map<string, Pasted> => {
+  const key = promptKey(text)
+  const found = list.findLast(one => one.text === key)
+  return new Map((found?.items ?? []).map(item => [item.tag, item]))
+}
+
+export const renderSentPicture = ({ Box, Button }: ElementTable, Image: ImageElement, item: Pasted, key: string, zoom: (item: Pasted) => void): RenderElement => {
+  const fit = fitBox(item, 40, 10)
+  return (
+    <Box key={key} flexDirection="column" width={Math.max(6, fit.columns)}>
+      <Box justifyContent="flex-end">
+        <Button key={`${key}.zoom`} plain dimColor label=" ⤢  " onPress={() => zoom(item)} />
+      </Box>
+      <Image key={`${key}.img`} source={{ png: item.png! }} columns={fit.columns} rows={fit.rows} alt={item.tag} />
+    </Box>
+  )
+}
+
+export const pictureRow = ({ Box }: ElementTable, draw: PictureDraw | undefined, line: string, key: string): PictureRow | undefined => {
+  if (!draw || !line.includes('[Image #')) return undefined
+  const items = Array.from(line.matchAll(IMAGE_TAG), (m, i) => draw(m[0], `${key}.${i}`)).filter((item): item is RenderElement => item !== null)
+  if (items.length === 0) return undefined
+  return { bare: line.replace(IMAGE_TAG, '').trim() === '', element: <Box key={key} flexDirection="row" flexWrap="wrap" columnGap={1}>{items}</Box> }
 }

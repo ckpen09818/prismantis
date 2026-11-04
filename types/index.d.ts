@@ -27,6 +27,7 @@ declare module 'claude-code' {
       blink: boolean
       drawn: StateFamily<number>
       pasteTick: number
+      sentPictures: { text: string; items: { tag: string; png?: string; width: number; height: number }[] }[]
     }
   }
 }

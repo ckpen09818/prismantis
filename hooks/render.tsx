@@ -6,6 +6,8 @@ import { tableHtml, tableText } from './html'
 import type { Block, Inline } from './markdown'
 import { mathOf } from './latex'
 import { CONTROL, displayText, inlineText, isWebLink, nestedBlocks, parseInline, texText } from './markdown'
+import { pictureRow } from './paste'
+import type { PictureDraw } from './paste'
 import type { Flow } from './rtl'
 import { LTR_BLANK, ROW_MARK, ROW_MARK_TEXT, WALL, codeVisual, commentTail, commentVisual, containsRtl, flow, hasRtl, heldCell, listMarker, opensLatin, terminalLine } from './rtl'
 import type { Style, Theme } from './theme'
@@ -2835,7 +2837,7 @@ const chatPrompt = (el: ElementTable, style: Style, content: RenderElement, size
   )
 }
 
-export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, columns: number, time?: string, paste?: DrawPaste, avatar?: Avatar): RenderElement => {
+export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, columns: number, time?: string, paste?: DrawPaste, avatar?: Avatar, pictures?: PictureDraw): RenderElement => {
   const { Box, Text } = el
   const pastes: string[] = []
   const text = typed.replace(PASTE, (_, _id, body: string) => `\0${pastes.push(body) - 1}\0`)
@@ -2845,8 +2847,9 @@ export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, 
   const color = promptInk(style)
   const headed = style.promptStyle === 'bubble' && style.promptSide === 'left' && time !== undefined
   const rows = text.split('\n')
+  const pictured = rows.map((line, i) => pictureRow(el, pictures, line, `pic${i}`))
   const marked = rows.map(line => parseInline(told(line), { numbers: false, paths: false }))
-  const lines = rows.map((line, i) => (own(line) === undefined ? flowOf(style, marked[i]!, promptRoom(style, columns) - 4 - (time === undefined || headed ? 0 : time.length + 1)) : null))
+  const lines = rows.map((line, i) => (own(line) === undefined && !pictured[i]?.bare ? flowOf(style, marked[i]!, promptRoom(style, columns) - 4 - (time === undefined || headed ? 0 : time.length + 1)) : null))
   const hebrew = lines.some(l => l?.base === 'R')
   const rtl = hebrew && !mirrored(style)
   const body = (
@@ -2855,13 +2858,16 @@ export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, 
         const pasted = own(line)
         if (pasted !== undefined) return paste!(pasted, `paste${i}`)
         const flow = lines[i]
-        return flow ? renderFlow(el, style, flow.lines, `p${i}`, { color, bold: style.promptStyle === 'chevron' }) : <Text key={`p${i}`} color={color} bold={style.promptStyle === 'chevron'}>{marked[i]!.every(n => n.kind === 'text') ? told(line) : renderInline(el, style, marked[i]!, `p${i}`)}</Text>
+        const row = flow ? renderFlow(el, style, flow.lines, `p${i}`, { color, bold: style.promptStyle === 'chevron' }) : <Text key={`p${i}`} color={color} bold={style.promptStyle === 'chevron'}>{marked[i]!.every(n => n.kind === 'text') ? told(line) : renderInline(el, style, marked[i]!, `p${i}`)}</Text>
+        const pics = pictured[i]
+        if (!pics) return row
+        return pics.bare ? pics.element : <Box key={`pr${i}`} flexDirection="column">{row}{pics.element}</Box>
       })}
     </Box>
   )
   const stamp = time === undefined || headed ? null : <Text color={t.codeComment}>{rtl ? ` ${time}` : `${time} `}</Text>
   const content = stamp === null ? body : <Box flexDirection="row">{rtl ? body : stamp}{rtl ? stamp : body}</Box>
-  if (style.promptStyle === 'bubble') return chatPrompt(el, style, content, chatSize(style, hebrew, marked.map(inlineText), columns, time, rows.some(line => own(line) !== undefined)), headed ? time : undefined, avatar)
+  if (style.promptStyle === 'bubble') return chatPrompt(el, style, content, chatSize(style, hebrew, marked.map(inlineText), columns, time, rows.some(line => own(line) !== undefined) || pictured.some(Boolean)), headed ? time : undefined, avatar)
   if (style.promptStyle === 'wide') {
     return <Box borderStyle="round" borderColor={t.accent} paddingX={1} alignSelf={rtl ? 'flex-end' : 'flex-start'} width="100%">{content}</Box>
   }

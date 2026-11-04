@@ -11,6 +11,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - `one-dark-pro` colors code like VS Code One Dark Pro: keywords purple, class names yellow, builtins and operators cyan, properties, tags and variables red, attribute names orange. Other themes keep the shared token mapping.
 - With `copyButtonStyle: hover`, pressing the dim `⧉` marker itself runs the block's first copy (`⧉ md` on a table, the code on a code block, the whole reply on the reply's corner marker). Terminals that send no pointer motion, such as an ssh session, never reveal the buttons, so the marker did nothing before.
 - With `bubbleLabels: off`, the `promptSide: left` time and the avatar rows go with the labels; `small` shrinks the left-side `⬤ You` and the agent name's dot too. Claude's bubble keeps the theme accent unless `replyBorderColor` is set.
+- New option `sentImages`: `thumbnail` (the default) draws an image you pasted as a picture in your sent prompt, with a `⤢` button that opens it large in the zoom pane, Esc closes it; `text` keeps the `[Image #N]` tag. The picture comes from the preview you saw before sending, or from the image Claude Code attached when there was none, so it also works over ssh. It needs a terminal that draws images and a PNG of at most 2 MB; anything else stays text.
 
 ## [0.41.0] - 2026-11-03
 

@@ -33,6 +33,12 @@ check hooks/render.tsx rememberPress
 check hooks/render.tsx markPress
 check hooks/register.tsx rememberPress
 check tests/render.test.tsx 'copies a block on a press of its ⧉ marker'
+check hooks/paste.tsx pictureRow
+check hooks/render.tsx pictureRow
+check hooks/register.tsx keepPictures
+check hooks/theme.ts sentImages
+check .claude-plugin/plugin.json sentImages
+check tests/paste.test.tsx 'a sent prompt draws its pasted image as a picture'
 if [ -d .github/workflows ]; then
   echo "UNEXPECTED    .github/workflows exists (personal has no CI)"
   missing=1

@@ -96,6 +96,13 @@
       "default": "right",
       "options": ["right", "left"]
     },
+    "sentImages": {
+      "type": "string",
+      "title": "Images in your prompts",
+      "description": "How an image you pasted shows in your sent prompt. thumbnail: a picture with a ⤢ button that opens it large in a pane, Esc closes it. text: the [Image #N] tag, as Claude Code draws it. Pictures show where the terminal draws images and the image is a PNG of at most 2 MB.",
+      "default": "thumbnail",
+      "options": ["thumbnail", "text"]
+    },
     "replyStyle": {
       "type": "string",
       "title": "Claude's reply style",
