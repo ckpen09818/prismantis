@@ -9,6 +9,38 @@ All notable changes to this project are documented here. The format follows [Kee
 - New option `promptSide`: `left` draws your prompt bubble on the left under `⬤ You`, across the full width like Claude's reply bubble, with the `clock` send time beside `⬤ You` instead of inside the bubble. The default, `right`, keeps the chat look.
 - A `one-dark-pro` theme, from Binaryify's One Dark Pro (MIT), for `/prismantis theme one-dark-pro` and the `theme` option. It joins the random dark pool.
 - `one-dark-pro` colors code like VS Code One Dark Pro: keywords purple, class names yellow, builtins and operators cyan, properties, tags and variables red, attribute names orange. Other themes keep the shared token mapping.
+- With `copyButtonStyle: hover`, pressing the dim `⧉` marker itself runs the block's first copy (`⧉ md` on a table, the code on a code block, the whole reply on the reply's corner marker). Terminals that send no pointer motion, such as an ssh session, never reveal the buttons, so the marker did nothing before.
+- With `bubbleLabels: off`, the `promptSide: left` time and the avatar rows go with the labels; `small` shrinks the left-side `⬤ You` and the agent name's dot too. Claude's bubble keeps the theme accent unless `replyBorderColor` is set.
+
+## [0.41.0] - 2026-11-03
+
+### Added
+
+- New option `surfaces` picks where prismantis draws, as a comma-separated list of `terminal`, `desktop`, `vscode` and `mobile`. Set `"surfaces": "terminal"` to keep Claude Code's own look in the desktop app. The default `all` is unchanged. Thanks @roman-ternovyi for the idea ([#371](https://github.com/NahumLitvin/prismantis/pull/371)).
+
+### Fixed
+
+- A flowchart with a two-node cycle and an outgoing edge, like `A --> B`, `B --> A`, `B --> C`, no longer hangs and stops the mod for the session. It shows as source instead. Thanks @xyangggx for the repro ([#370](https://github.com/NahumLitvin/prismantis/pull/370)).
+
+## [0.40.0] - 2026-11-03
+
+### Added
+
+- New option `bubbleLabels`: `large` (the default, as before), `small` draws `You ●` and `● Claude` with a small dot, and `off` drops both labels and keeps the frames. `/prismantis setup` has a "Bubble labels" step. Thanks @Nanako0129 ([#353](https://github.com/NahumLitvin/prismantis/pull/353)).
+- New option `folds`: set it to `open` and long code blocks, diff cards and pastes start whole, with `show less` to fold them. The default `closed` is unchanged. Thanks @Nanako0129 ([#354](https://github.com/NahumLitvin/prismantis/pull/354)).
+- New options `runningDot` and `unreadPrompts`: `runningDot: blink` makes a running tool's dot a `●` that blinks every half second, and `unreadPrompts` keeps each prompt you send grey and blinking until Claude starts on it. Both are off by default. Thanks @Nanako0129 ([#357](https://github.com/NahumLitvin/prismantis/pull/357)).
+- New options `alertNoteColor`, `alertTipColor`, `alertImportantColor`, `alertWarningColor` and `alertCautionColor` color each GitHub alert kind. Left empty, nothing changes. Thanks @Nanako0129 ([#352](https://github.com/NahumLitvin/prismantis/pull/352)).
+- New option `replyBorderColor` colors the frame and label of Claude's bubble. Left empty, nothing changes. Thanks @Nanako0129 ([#356](https://github.com/NahumLitvin/prismantis/pull/356)).
+- New option `pngBackgroundColor` sets the background of `▣ png` copies, for example to your terminal's own. Left empty, nothing changes. Thanks @Nanako0129 ([#355](https://github.com/NahumLitvin/prismantis/pull/355)).
+
+### Changed
+
+- A table copied with `▣ png` looks like the table on screen: colored rules and header, bold header, inline colors, bold and italic. New option `tableTextColor` sets the color of plain table text. Thanks @Nanako0129 ([#358](https://github.com/NahumLitvin/prismantis/pull/358)).
+- A Skill tool row names the skill it loaded, `Skill keybindings-help` instead of `Skill`. Thanks @Nanako0129 ([#351](https://github.com/NahumLitvin/prismantis/pull/351)).
+
+### Fixed
+
+- Under tmux, screen or Zellij the chat heads read `You ●` and `● Claude`, with no half dots left over the text. README Troubleshooting names `CLAUDE_CODE_TMUX_TRUECOLOR=1` for gray fills in tmux. Thanks @sworgkh ([#363](https://github.com/NahumLitvin/prismantis/pull/363)).
 
 ## [0.39.1] - 2026-11-02
 

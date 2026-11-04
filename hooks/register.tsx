@@ -74,6 +74,63 @@ const setupFocus = atom({ plugin: 'prismantis', key: 'setupFocus' } as const, ''
 const setupLand = atom({ plugin: 'prismantis', key: 'setupLand' } as const, '')
 const foundPaths = atom({ plugin: 'prismantis', key: 'foundPaths' } as const, [])
 const pasteTick = atom({ plugin: 'prismantis', key: 'pasteTick' } as const, 0)
+const awaiting = atom({ plugin: 'prismantis', key: 'awaiting' } as const, [] as { key: string; at: number }[])
+const blink = atom({ plugin: 'prismantis', key: 'blink' } as const, false)
+const BLINK_MS = 500
+const HELD_TURNS = 2
+type Blinker = { timer?: ReturnType<EngineInterface['clock']['every']>; tools: number; ready: Set<string>; held: Map<string, number> }
+const stopBlink = (blinker: Blinker) => {
+  blinker.timer?.cancel()
+  blinker.timer = undefined
+}
+const darkDot = async ($: EngineInterface, style: Style, running: boolean): Promise<boolean> =>
+  style.runningDot === 'blink' && running && (await read($, blink))
+
+const unreadLook = async ($: EngineInterface, style: Style, shown: Style, text: string, requestId: string): Promise<Style> => {
+  if (!style.unreadPrompts) return shown
+  const drawnAt = await firstDrawn($, requestId)
+  const entry = (await read($, awaiting)).find(a => a.key === promptKey(text))
+  if (!entry || drawnAt < entry.at) return shown
+  const ink = (await read($, blink)) ? shown.theme.rule : shown.theme.codeComment
+  return { ...shown, theme: { ...shown.theme, heading: ink, accent: ink, promptText: ink } }
+}
+
+const markUnread = async ($: EngineInterface, style: Style, e: { text: string; command?: unknown; wait?: boolean; turnId?: string; origin: { kind: string } }, blinker: Blinker) => {
+  if (!style.unreadPrompts || style.promptStyle === 'off' || e.command || (e.origin.kind !== 'composer' && e.origin.kind !== 'bridge')) return
+  const key = promptKey(e.text)
+  if (e.wait && e.turnId !== undefined) blinker.held.set(key, 0)
+  else blinker.ready.add(key)
+  const at = await $.clock.now()
+  await update($, awaiting, list => [...list.filter(a => a.key !== key), { key, at }].slice(-20))
+  await keepBlinking($, blinker)
+}
+
+const startTurn = (blinker: Blinker, key: string) => {
+  for (const [k, turns] of blinker.held) {
+    if (k === key) blinker.ready.add(k)
+    if (k === key || turns + 1 >= HELD_TURNS) blinker.held.delete(k)
+    else blinker.held.set(k, turns + 1)
+  }
+}
+
+const markRead = async ($: EngineInterface, asked: string[], blinker: Blinker) => {
+  for (const key of asked) blinker.ready.delete(key)
+  const list = await read($, awaiting)
+  const left = list.filter(a => blinker.ready.has(a.key) || blinker.held.has(a.key))
+  if (left.length !== list.length) await update($, awaiting, () => left)
+  await keepBlinking($, blinker)
+}
+
+const groupRunning = (props: { isActive: boolean; calls: readonly { isRunning: boolean }[] }): boolean => props.isActive && props.calls.some(c => c.isRunning)
+
+const keepBlinking = async ($: EngineInterface, blinker: Blinker) => {
+  const waiting = (await read($, awaiting)).length > 0 || blinker.tools > 0
+  if (waiting && !blinker.timer) blinker.timer = $.clock.every(BLINK_MS, () => void update($, blink, lit => !lit).catch(() => stopBlink(blinker)))
+  if (!waiting && blinker.timer) {
+    stopBlink(blinker)
+    await update($, blink, () => false)
+  }
+}
 
 const firstDrawn = async ($: EngineInterface, id: string): Promise<number> => {
   const ref = { plugin: 'prismantis', key: 'drawn', id } as const
@@ -264,7 +321,7 @@ const htmlBackend = async ($: EngineInterface): Promise<ClipboardBackend | null>
 
 type LinkReach = { http: boolean; editor: boolean; marks: boolean; monoText: boolean; files: string | null; paths: boolean }
 
-type Probes = { terminal?: Promise<Terminal | null>; htmlCopy?: Promise<ClipboardBackend | null>; links?: Promise<LinkReach>; images?: Promise<boolean>; board?: Promise<Board | null> }
+type Probes = { terminal?: Promise<Terminal | null>; multiplexed?: Promise<boolean>; htmlCopy?: Promise<ClipboardBackend | null>; links?: Promise<LinkReach>; images?: Promise<boolean>; board?: Promise<Board | null> }
 
 const terminalEnv = async ($: EngineInterface): Promise<TerminalEnv> => ({
   FORCE_HYPERLINK: await $.env.get('FORCE_HYPERLINK'),
@@ -336,16 +393,20 @@ const fileCard = async ($: EngineInterface, el: ReturnType<EngineInterface['ui']
   const press = (await linkReach($, probes, style)).marks
   if (leftToEngine(output, press)) return undefined
   await locate($, style)
-  return renderDiffCard(el, drawn(), output, folder($, el, await read($, unfolded), press), id, columns)
+  return renderDiffCard(el, drawn(), output, folder($, el, await read($, unfolded), press, style.folds === 'open'), id, columns)
 }
+
+const multiplexed = async ($: EngineInterface): Promise<boolean> => Boolean(await $.env.get('TMUX') || await $.env.get('STY') || await $.env.get('ZELLIJ'))
 
 const probe = async ($: EngineInterface, style: Style, probes: Probes): Promise<Terminal | null> => {
   probes.terminal ??= applyRtl($, style)
   const terminal = await probes.terminal
   probes.htmlCopy ??= htmlBackend($)
-  const before = style.htmlCopy
+  probes.multiplexed ??= multiplexed($).catch(() => false)
+  const { htmlCopy, smallDot } = style
   style.htmlCopy = await probes.htmlCopy
-  if (style.htmlCopy !== before) $.ui.invalidate('ui.render')
+  style.smallDot = await probes.multiplexed
+  if (style.htmlCopy !== htmlCopy || style.smallDot !== smallDot) $.ui.invalidate('ui.render')
   return terminal
 }
 
@@ -359,16 +420,17 @@ const runHelper = async ($: EngineInterface, backend: ClipboardBackend, build: (
 }
 
 const richCommand = (style: Style, backend: ClipboardBackend, content: string, rich: (() => string) | 'png', hues?: Hues) => (systemRoot?: string): HelperCommand => rich === 'png'
-  ? imageCommand(backend, content, { foreground: style.theme.diagramText ?? style.theme.codeText, background: style.background }, systemRoot, hues)
+  ? imageCommand(backend, content, { foreground: style.theme.diagramText ?? style.theme.codeText, background: style.theme.pngBackground, themeBackground: style.background }, systemRoot, hues)
   : clipboardCommand(backend, rich(), content, systemRoot)
 
 const offers = (style: Style, rich?: (() => string) | 'png'): boolean => !rich || (rich === 'png' ? drawsImages(style.htmlCopy) : !!style.htmlCopy)
 
-const folder = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['resolve']>, open?: string[], faces = false): Fold => (id, hidden, key, look) => {
+const folder = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['resolve']>, open?: string[], faces = false, startOpen = false): Fold => (id, hidden, key, look) => {
   if (!open) return null
-  const folded = !open.includes(id)
+  const toggled = open.includes(id)
+  const folded = startOpen ? toggled : !toggled
   const label = folded ? look?.label ?? `+${hidden} more lines` : 'show less'
-  const toggle = () => update($, unfolded, ids => (folded ? [...ids, id].slice(-500) : ids.filter(x => x !== id)))
+  const toggle = () => update($, unfolded, ids => (toggled ? ids.filter(x => x !== id) : [...ids, id].slice(-500)))
   if (!faces) return { folded, faced: false, element: <el.Button key={key} variant="secondary" label={label} onPress={toggle} /> }
   const element = look?.face ? <el.Button key={key} plain label={label} onPress={toggle}>{look.face(folded)}</el.Button> : <el.Button key={key} variant="secondary" label={label} onPress={toggle} />
   return { folded, faced: look?.face !== undefined, element, around: (rows, hover) => <el.Button key={`${key}.rows`} plain label={label} hover={hover} onPress={toggle}>{rows}</el.Button> }
@@ -403,7 +465,7 @@ const drawMarkdown = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['
     }
   }
   const tip = notes?.press ? noteTip(blocks, text => void $.ui.toast(text)) : undefined
-  const elements = renderBlocks(el, notes ? { ...style, noteKey: instanceKey(notes.id) } : style, blocks, columns, drawMath(el, style, blocks, drawn), copy, folder($, el, open), tip)
+  const elements = renderBlocks(el, notes ? { ...style, noteKey: instanceKey(notes.id) } : style, blocks, columns, drawMath(el, style, blocks, drawn), copy, folder($, el, open, false, style.folds === 'open'), tip)
   const button = reply === undefined ? null : copy(reply, 'reply', '⧉ copy reply')
   if (!button) return elements
   return [...elements, style.copyButtonStyle === 'hover' ? replyMarker(el, button, notes?.id) : <el.Box key="reply" alignSelf="flex-end">{button}</el.Box>]
@@ -621,16 +683,18 @@ const setupKeyboardPane = ($: EngineInterface, v: SetupView, focused: string, ra
 const drawSetup = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['resolve']>, base: Style, options: PluginOptions, found: NonNullable<ReturnType<typeof findSetup>>, columns: number): RenderElement[] => {
   const key = setupSteps(PRESET_NAMES)[found.at]!.key
   const md = (style: Style, text: string, id: string) => <el.Box key={id} flexDirection="column" rowGap={1}>{drawMarkdown($, el, style, parse(text, { numbers: style.highlightNumbers, paths: style.highlightPaths }), columns)}</el.Box>
-  const sample = (style: Style, value: string, id: string): RenderElement[] => {
-    if (key === 'promptStyle' || key === 'promptSide') return promptSample(el, style, value, id, columns)
-    if (key === 'toolStyle') return [md({ ...style, narration: style.toolStyle === 'tree-bold' }, 'Reading the config.', `${id}s`), <el.Box key={id}>{renderToolRow(el, style, { tool: 'Read', input: { file_path: 'src/config.ts' }, isRunning: false, isErrored: false, isInterrupted: false }, columns)}</el.Box>]
-    if (key === 'toolOutput') return toolOutputSample(el, style, value, id, columns)
-    if (key === 'diffStyle') return diffSample(el, style, id, columns)
-    if (key === 'copyButtonStyle') return copySample(el, style, value, id, columns)
-    if (key === 'clock') return clockSample(el, style, value, id, columns)
-    if (key === 'replyStyle') return replySample($, el, style, id, columns)
-    return []
+  const samples: Partial<Record<SetupStep['key'], (style: Style, value: string, id: string) => RenderElement[]>> = {
+    promptStyle: (style, value, id) => promptSample(el, style, value, id, columns),
+    promptSide: (style, value, id) => promptSample(el, style, value, id, columns),
+    toolStyle: (style, _, id) => [md({ ...style, narration: style.toolStyle === 'tree-bold' }, 'Reading the config.', `${id}s`), <el.Box key={id}>{renderToolRow(el, style, { tool: 'Read', input: { file_path: 'src/config.ts' }, isRunning: false, isErrored: false, isInterrupted: false }, columns)}</el.Box>],
+    toolOutput: (style, value, id) => toolOutputSample(el, style, value, id, columns),
+    diffStyle: (style, _, id) => diffSample(el, style, id, columns),
+    copyButtonStyle: (style, value, id) => copySample(el, style, value, id, columns),
+    clock: (style, value, id) => clockSample(el, style, value, id, columns),
+    replyStyle: (style, _, id) => replySample($, el, style, id, columns),
+    bubbleLabels: (style, _, id) => [...promptSample(el, style, style.promptStyle, `${id}p`, columns), ...replySample($, el, style, id, columns)],
   }
+  const sample = (style: Style, value: string, id: string): RenderElement[] => samples[key]?.(style, value, id) ?? []
   const picks = found.parts.options.map(({ value, text }, i) => {
     const style = key === 'theme' ? { ...base, theme: resolveStyle({ ...options, theme: value }).theme } : { ...base, [key]: value }
     return <el.Box key={`o${i}`} flexDirection="column">{md(style, text, 'm')}{sample(style, value, 'x')}</el.Box>
@@ -770,6 +834,8 @@ export const register: Register = (on, options) => {
   if (options.enabled === false) return
   const firstTheme = pickTheme(options.theme)
   const style = resolveStyle({ ...options, theme: firstTheme })
+  const here: { surface?: RenderSurface[] } = style.surfaces ? { surface: style.surfaces } : {}
+  const blinker: Blinker = { tools: 0, ready: new Set(), held: new Map() }
   const parsed = new Map<string, ReturnType<typeof parse>>()
   const parseCached = (text: string, cache = parsed, limit?: number) => remember(cache, text, () => parse(text, { numbers: style.highlightNumbers, paths: style.highlightPaths }), limit)
   const shared = new Map<string, ReturnType<typeof parse>>()
@@ -797,7 +863,7 @@ export const register: Register = (on, options) => {
   }
   let firstEdit: string | undefined
   if (options.toolRows !== false) {
-    on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
+    on('ui.render', { component: 'ToolGroup', ...here }, async ($, e, next) => {
       await locate($, style)
       for (const call of e.props.calls) noteCommand(call.tool_use_id, call.tool, call.input)
       if (quiet) for (const call of e.props.calls) if (call.tool_use_id && isReadOnlyCall(call.tool, call.input)) rememberCall(readOnlyCalls, call.tool_use_id)
@@ -805,17 +871,19 @@ export const register: Register = (on, options) => {
         for (const call of e.props.calls) if (call.tool_use_id) rememberCall(expandedCalls, call.tool_use_id, 500)
         return next(e)
       }
-      return renderToolGroup($.ui.resolve(e), forSurface(style, e, await linkReach($, probes, style)), e.props.calls, e.props.isActive, e.viewport?.columns)
+      const dotDark = await darkDot($, style, groupRunning(e.props))
+      return renderToolGroup($.ui.resolve(e), { ...forSurface(style, e, await linkReach($, probes, style)), dotDark }, e.props.calls, e.props.isActive, e.viewport?.columns)
     })
-    on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
+    on('ui.render', { component: 'ToolUse', ...here }, async ($, e, next) => {
       await locate($, style)
       noteCommand(e.props.tool_use_id, e.props.tool, e.props.input)
       if (quiet && isReadOnlyCall(e.props.tool, e.props.input)) rememberCall(readOnlyCalls, e.props.tool_use_id)
-      if (!expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), forSurface(style, e, await linkReach($, probes, style)), e.props, e.viewport?.columns)
+      const dotDark = await darkDot($, style, e.props.isRunning)
+      if (!expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), { ...forSurface(style, e, await linkReach($, probes, style)), dotDark }, e.props, e.viewport?.columns)
       const shell = e.props.tool === 'Bash' || e.props.tool === 'PowerShell'
-      return shell && typeof e.props.output !== 'string' ? renderExpandedShell($.ui.resolve(e), style, e.props, e.viewport?.columns) : next(e)
+      return shell && typeof e.props.output !== 'string' ? renderExpandedShell($.ui.resolve(e), { ...style, dotDark }, e.props, e.viewport?.columns) : next(e)
     })
-    on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
+    on('ui.render', { component: 'ToolResult', ...here }, async ($, e, next) => {
       const cards = (): Style => ({ ...style, pressPreview: e.surface === 'terminal' })
       if ((e.props.tool === 'Edit' || e.props.tool === 'Write') && !e.props.isErrored) return (await fileCard($, $.ui.resolve(e), e.props.output, e.props.tool_use_id, style, probes, cards, e.viewport?.columns)) ?? next(e)
       const edits = e.props.tool === 'Bash' && !e.props.isErrored ? bashEdits(e.props.output) : undefined
@@ -826,7 +894,7 @@ export const register: Register = (on, options) => {
         const above = !hasShellOutput(output) ? null : quiet ? renderShellResult(el, style, output) : await next({ ...e, props: { ...e.props, output } })
         firstEdit ??= e.props.tool_use_id
         const notes = editNotes(edits, firstEdit === e.props.tool_use_id, shellCommands.get(e.props.tool_use_id))
-        const drawn = renderBashEdits(el, forSurface(cards(), e, await linkReach($, probes, style)), edits, folder($, el, await read($, unfolded), (await linkReach($, probes, style)).marks), e.props.tool_use_id, above !== null, notes, e.viewport?.columns)
+        const drawn = renderBashEdits(el, forSurface(cards(), e, await linkReach($, probes, style)), edits, folder($, el, await read($, unfolded), (await linkReach($, probes, style)).marks, style.folds === 'open'), e.props.tool_use_id, above !== null, notes, e.viewport?.columns)
         return above === null ? drawn : <el.Box flexDirection="column">{above}{drawn}</el.Box>
       }
       if (!quiet) return next(e)
@@ -841,11 +909,23 @@ export const register: Register = (on, options) => {
     })
   }
 
-  on('tool.call', async (_$, e, next) => {
-    const done = await next(e)
-    located.delete(style)
-    pathChecks.asked = new Set(pathChecks.found)
-    return done
+  on('tool.call', async ($, e, next) => {
+    if (style.runningDot !== 'blink') {
+      const done = await next(e)
+      located.delete(style)
+      pathChecks.asked = new Set(pathChecks.found)
+      return done
+    }
+    blinker.tools++
+    await keepBlinking($, blinker)
+    try {
+      return await next(e)
+    } finally {
+      blinker.tools--
+      await keepBlinking($, blinker)
+      located.delete(style)
+      pathChecks.asked = new Set(pathChecks.found)
+    }
   })
 
   on('session.start', async ($, e, next) => {
@@ -883,7 +963,7 @@ export const register: Register = (on, options) => {
     return { text: await setTheme($, picked, name) }
   })
 
-  on('ui.render', { component: 'TurnDuration' }, async ($, e) => {
+  on('ui.render', { component: 'TurnDuration', ...here }, async ($, e) => {
     const at = style.clock === 'off' ? undefined : endedAt(await read($, turnEnds), e.props.durationMs, await firstDrawn($, e.requestId))
     const time = at === undefined ? undefined : clockText(at, await $.clock.now(), style.clock)
     return renderTurnDuration($.ui.resolve(e), style, e.props.word, e.props.durationMs, time)
@@ -897,8 +977,22 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  on('turn.start', async (_$, e, next) => {
+    if ((e as { agentId?: string }).agentId === undefined) startTurn(blinker, promptKey(e.text))
+    return next(e)
+  })
+  on('turn.step', async function* ($, e, next) {
+    let asked = style.unreadPrompts && e.agentId === undefined ? [...blinker.ready] : undefined
+    for await (const chunk of next(e)) {
+      if (asked) await markRead($, asked, blinker)
+      asked = undefined
+      yield chunk
+    }
+  })
+
   on('prompt.submit', async ($, e, next) => {
     located.delete(style)
+    await markUnread($, style, e, blinker)
     if (style.clock !== 'off' && (e.origin.kind === 'composer' || e.origin.kind === 'bridge')) {
       const at = await $.clock.now()
       await update($, sent, list => withRecord(list, { text: promptKey(e.text), at }))
@@ -957,7 +1051,7 @@ export const register: Register = (on, options) => {
     return {}
   })
 
-  on('ui.render', { component: 'Pane', requestId: SETUP_PANE }, async ($, e) => {
+  on('ui.render', { component: 'Pane', requestId: SETUP_PANE, ...here }, async ($, e) => {
     const steps = setupSteps(PRESET_NAMES)
     const at = Math.min(await read($, setupAt), steps.length - 1)
     const step = steps[at]!
@@ -971,10 +1065,10 @@ export const register: Register = (on, options) => {
     return setupKeyboardPane($, view, await read($, setupFocus), picked.theme)
   })
 
-  on('ui.render', { component: 'InfoNotice' }, async (_$, e, next) =>
+  on('ui.render', { component: 'InfoNotice', ...here }, async (_$, e, next) =>
     mirrored(style) && hasRtl(e.props.text) && opensLatin(e.props.text) ? next({ ...e, props: { ...e.props, text: ROW_MARK_TEXT + e.props.text } }) : next(e))
 
-  on('ui.render', { component: 'CommandOutput' }, async ($, e, next) => {
+  on('ui.render', { component: 'CommandOutput', ...here }, async ($, e, next) => {
     if (e.props.isErrored) return next(e)
     if (e.props.text.includes('\u001b')) return next(e)
     const found = e.props.command === 'prismantis' ? findSetup(PRESET_NAMES, e.props.text) : undefined
@@ -995,7 +1089,7 @@ export const register: Register = (on, options) => {
     return <Box flexDirection="column" rowGap={1} {...fullWidth(e.props.text)}>{drawMarkdown($, el, surfaceStyle, blocks, columnsOf(e.viewport, surfaceStyle), math, pictures, undefined, open, { id: e.requestId, press: reach.marks })}</Box>
   })
 
-  on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
+  on('ui.render', { component: 'UserMessage', ...here }, async ($, e, next) => {
     const kind = e.props.origin.kind
     const own = kind === 'composer' || kind === 'bridge' || (kind === 'unclassified' && !e.props.from && !e.props.task)
     if (!own) return next(e)
@@ -1003,13 +1097,13 @@ export const register: Register = (on, options) => {
     const time = at === undefined ? undefined : clockText(at, await $.clock.now(), style.clock)
     if (style.promptStyle === 'off') return time === undefined ? next(e) : next({ ...e, props: { ...e.props, text: `[${time}] ${e.props.text}` } })
     const el = $.ui.resolve(e)
-    const drawn = forSurface(style, e, await linkReach($, probes, style))
+    const drawn = await unreadLook($, style, forSurface(style, e, await linkReach($, probes, style)), e.props.text, e.requestId)
     const columns = columnsOf(e.viewport, drawn)
     const open = await read($, unfolded)
     const paste: DrawPaste = (body, key) => {
       const lines = body.split('\n')
       const title = `pasted text · ${lines.length} lines`
-      const toggle = folder($, el, open)(`${e.requestId}:${key}`, lines.length, key, { label: title })
+      const toggle = folder($, el, open, false, style.folds === 'open')(`${e.requestId}:${key}`, lines.length, key, { label: title })
       const opened = toggle?.folded === false
       return (
         <el.Box key={key} borderStyle="double" borderColor={drawn.theme.codeComment} paddingX={1} flexDirection="column" alignSelf="flex-start">
@@ -1023,7 +1117,7 @@ export const register: Register = (on, options) => {
     return renderUserPrompt(el, drawn, e.props.text, columns, time, paste, avatar)
   })
 
-  on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
+  on('ui.render', { component: 'AssistantMessage', ...here }, async ($, e, next) => {
     if (e.surface === 'terminal' && e.viewport?.columns) pane = e.viewport.columns
     const blocks = parseCached(e.props.text)
     if (blocks.length === 0) return next(e)
@@ -1044,7 +1138,7 @@ export const register: Register = (on, options) => {
     return renderReply(el, framed, drawn, e.props.isFirstOfReply === true, columns, corner, avatar)
   })
 
-  on('prismantis.markdown', async ($, e, next) => {
+  on('prismantis.markdown', here, async ($, e, next) => {
     const blocks = parseCached(e.text, shared, 20)
     if (blocks.length === 0) return next(e)
     const el = $.ui.resolve({ surface: e.surface, component: 'AssistantMessage' })

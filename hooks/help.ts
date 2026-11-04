@@ -31,7 +31,7 @@ Code-shaped prose stays as written: f(*args, **kwargs), a link with parentheses 
 | \`/prismantis\` | This screen |
 | \`/prismantis theme <name>\` | Switch theme on the spot (\`/prismantis <name>\` works too), \`random\` for a new dark one now and each time the mod loads |
 | \`/prismantis copy\` | Copy the last reply, or \`copy code\` for its last code block |
-| \`/prismantis setup\` | Pick a theme and how tables, tasks, headings, copy buttons, prompts, replies, times, tool rows, tool output, diffs and pie charts look, from drawn samples |
+| \`/prismantis setup\` | Pick a theme and how tables, tasks, headings, copy buttons, prompts, replies, bubble labels, times, tool rows, tool output, diffs and pie charts look, from drawn samples |
 | \`/config\` | Edit any option |
 
 > [!NOTE]
@@ -88,11 +88,11 @@ Set \`listMarker\` to dash in \`/config\` and bullets draw as \`-\`, so a list y
 
 ### Your prompts
 
-Scroll up: what you typed sits on the right under \`You ⬤\` and Claude's replies on the left under \`⬤ Claude\`, each in a bubble of its own, like a chat app. \`promptStyle\` switches to \`wide\`, \`bar\`, \`chevron\` or \`off\` in \`/config\`, which also brings back the dot before Claude's replies; \`replyStyle\` picks \`solid\`, \`framed\` or \`off\` for Claude's side. Set \`clock\` to \`24h\` or \`12h\` and each prompt shows when you sent it, and each turn's last line when it finished. A paste of 4 lines or more draws in a double frame of its own, folded to one button that opens it as highlighted code.
+Scroll up: what you typed sits on the right under \`You ⬤\` and Claude's replies on the left under \`⬤ Claude\`, each in a bubble of its own, like a chat app. \`promptStyle\` switches to \`wide\`, \`bar\`, \`chevron\` or \`off\` in \`/config\`, which also brings back the dot before Claude's replies; \`replyStyle\` picks \`solid\`, \`framed\` or \`off\` for Claude's side, and \`bubbleLabels\` draws both labels with a \`small\` dot or turns them \`off\`. Set \`clock\` to \`24h\` or \`12h\` and each prompt shows when you sent it, and each turn's last line when it finished. A paste of 4 lines or more draws in a double frame of its own, folded to one button that opens it as highlighted code.
 
 ### Tool rows
 
-Tool calls draw as one line, dimmed on the right by default, and the file each one read or edited opens on click in a terminal that draws hyperlinks. Set \`toolStyle\` in \`/config\` to \`chat\`, \`tree-dim\`, \`tree-bold\` or \`classic\`. \`toolOutput: quiet\` in \`/config\` hides what Claude only read and says in plain words what each call did: \`Read src/app.ts lines 1–40\`, \`Searched src/ for "TODO"\`.
+Tool calls draw as one line, dimmed on the right by default, and the file each one read or edited opens on click in a terminal that draws hyperlinks. Set \`toolStyle\` in \`/config\` to \`chat\`, \`tree-dim\`, \`tree-bold\` or \`classic\`. \`toolOutput: quiet\` in \`/config\` hides what Claude only read and says in plain words what each call did: \`Read src/app.ts lines 1–40\`, \`Searched src/ for "TODO"\`. A call still running shows a still \`◌\`; \`runningDot: blink\` makes it a \`●\` that blinks every half second, and \`unreadPrompts\` keeps each prompt you send grey and blinking until Claude starts on it, so one queued mid-turn stands out.
 
 Each edit draws as a diff card headed \`+N −M\`: code highlighted in the file's language, added and removed lines on a tint of the theme's own green and red with the changed words in a deeper tint, kept readable in every theme, long lines wrapped, the first 20 lines and a \`+K more lines\` button that opens the rest, as does a click anywhere on the card. Files a shell command changes (\`sed -i\`, a script) get the same card, one per file, headed by its path. Set \`diffStyle\` in \`/config\` for the look: \`card\`, \`full\`, \`marks\` or \`bar\`.
 
@@ -120,7 +120,7 @@ A line that holds only a tag draws dim, so wrapper tags show the reply's structu
 { "theme": "dracula", "headingStyle": "banner", "mermaid": true }
 \`\`\`
 
-Blocks of 10 lines or more get line numbers. Past 30 lines they fold to the first 20 and a \`+M more lines\` button, \`show less\` folds them back; \`⧉ copy\` still copies the whole block.
+Blocks of 10 lines or more get line numbers. Past 30 lines they fold to the first 20 and a \`+M more lines\` button, \`show less\` folds them back; \`⧉ copy\` still copies the whole block. Set \`folds\` to \`open\` in \`/config\` and long blocks start whole instead, with \`show less\` to fold them again.
 
 \`\`\`ts
 type Item = { name: string; price: number; qty: number }
@@ -273,7 +273,7 @@ export const helpText = (themes: readonly string[]): string => `
 |---------|------|
 | \`/prismantis theme <name>\` | Switch theme on the spot (\`/prismantis <name>\` works too), \`random\` for a new dark one now and each time the mod loads |
 | \`/prismantis copy\` | Copy the last reply, or \`copy code\` for its last code block |
-| \`/prismantis setup\` | Pick a theme and how tables, tasks, headings, copy buttons, prompts, replies, times, tool rows, tool output, diffs and pie charts look, from drawn samples |
+| \`/prismantis setup\` | Pick a theme and how tables, tasks, headings, copy buttons, prompts, replies, bubble labels, times, tool rows, tool output, diffs and pie charts look, from drawn samples |
 | \`/prismantis demo\` | Full showcase, every element and diagram, plus a section in your language (Korean so far, or \`demo ko\`) |
 | \`/prismantis demo-rtl\` | Hebrew right-to-left showcase |
 
@@ -391,7 +391,7 @@ flowchart LR
 
 export const languageShowcase = (lang: string): string => (/^ko/i.test(lang) ? KOREAN_SHOWCASE : '')
 
-export type SetupStep = { name: string; key: 'theme' | 'tableStyle' | 'taskStyle' | 'listMarker' | 'headingStyle' | 'copyButtonStyle' | 'promptStyle' | 'promptSide' | 'replyStyle' | 'clock' | 'toolStyle' | 'toolOutput' | 'diffStyle' | 'pieStyle'; title: string; note: string; options: readonly string[]; sample: string }
+export type SetupStep = { name: string; key: 'theme' | 'tableStyle' | 'taskStyle' | 'listMarker' | 'headingStyle' | 'copyButtonStyle' | 'promptStyle' | 'promptSide' | 'replyStyle' | 'bubbleLabels' | 'clock' | 'toolStyle' | 'toolOutput' | 'diffStyle' | 'pieStyle'; title: string; note: string; options: readonly string[]; sample: string }
 
 export const setupSteps = (themes: readonly string[]): SetupStep[] => [
   { name: 'theme', key: 'theme', title: 'Theme', note: 'Each theme draws the same line. `random` picks a new dark one each time the mod loads.', options: themes, sample: '**Bold**, `inline code`, 250ms and ~/src/app.ts.' },
@@ -403,6 +403,7 @@ export const setupSteps = (themes: readonly string[]): SetupStep[] => [
   { name: 'prompts', key: 'promptStyle', title: 'Your prompts', note: 'How what you type draws in the transcript. `bubble` puts it on the right like a chat app, under `You ⬤`, and Claude\'s replies in a bubble of their own. The other styles keep Claude\'s replies as they were. `off` keeps Claude Code\'s own look.', options: ['bubble', 'wide', 'bar', 'chevron', 'off'], sample: '' },
   { name: 'side', key: 'promptSide', title: 'Your bubble side', note: 'Where your prompt bubble sits when your prompts are a `bubble`. `right` puts it under `You ⬤`, as wide as its longest line. `left` puts it under `⬤ You` across the full width, like Claude\'s reply bubble, with the time beside `⬤ You`. Other prompt styles ignore it.', options: ['right', 'left'], sample: '' },
   { name: 'replies', key: 'replyStyle', title: 'Claude\'s replies', note: 'How Claude\'s replies draw in the transcript. `auto` draws them as `bubble` while your prompts are a `bubble`, so the transcript reads as a chat, and as `off` with any other prompt style. `bubble` puts each one under `⬤ Claude` in a rounded frame of Claude\'s orange on a fill a step off the background, `solid` fills it to the edge with no frame, `framed` keeps the frame with no fill. A reply that calls tools between its sentences draws one bubble per block of text. `off` keeps a dot before the first line.', options: ['auto', 'bubble', 'solid', 'framed', 'off'], sample: '' },
+  { name: 'labels', key: 'bubbleLabels', title: 'Bubble labels', note: 'The `You ⬤` label above your prompts and the `⬤ Claude` label above Claude\'s replies. `large` draws the ⬤ as Claude Code does, `small` draws the dot ●, `off` drops both labels and keeps the frames. `You` needs `promptStyle: bubble`, `Claude` a `replyStyle` other than `off`.', options: ['large', 'small', 'off'], sample: '' },
   { name: 'clock', key: 'clock', title: 'Times', note: 'Whether your prompts show when you sent them and the line that closes each turn when it finished. A time from another day gets its date.', options: ['off', '24h', '12h'], sample: '' },
   { name: 'tools', key: 'toolStyle', title: 'Tool rows', note: 'How tool rows sit next to Claude\'s sentences. Sharing sessions as screenshots? `chat` and `tree-dim` draw tool rows in dim gray, the first thing to blur when an image gets resized, so pick `tree-bold` or `classic`.', options: ['chat', 'tree-dim', 'tree-bold', 'classic'], sample: '' },
   { name: 'output', key: 'toolOutput', title: 'Tool output', note: 'How much of a tool call shows. `full` keeps Claude Code\'s own results under each row. `quiet` names a shell call by what it does and shows a failure\'s last real line instead of its whole output; it also shows reads, searches and listings as their row only and drops approval lines. Edits keep their diff either way. Needs `toolRows` on.', options: ['full', 'quiet'], sample: '' },

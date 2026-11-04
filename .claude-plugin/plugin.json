@@ -1,6 +1,6 @@
 {
   "name": "prismantis",
-  "version": "0.39.1",
+  "version": "0.41.0",
   "description": "Colorful, themeable rendering for Claude Code replies: tables, headings, code, numbers, paths and links.",
   "author": {
     "name": "Nahum Litvin",
@@ -24,6 +24,12 @@
       "title": "Enabled",
       "description": "Draw replies with this mod. Off falls back to Claude Code's own renderer.",
       "default": true
+    },
+    "surfaces": {
+      "type": "string",
+      "title": "Surfaces",
+      "description": "Where this mod draws, as a comma-separated list of terminal, desktop, vscode and mobile, like terminal,vscode. The rest fall back to Claude Code's own renderer. Empty or all draws everywhere.",
+      "default": "all"
     },
     "theme": {
       "type": "string",
@@ -97,6 +103,13 @@
       "default": "auto",
       "options": ["auto", "bubble", "solid", "framed", "off"]
     },
+    "bubbleLabels": {
+      "type": "string",
+      "title": "Bubble labels",
+      "description": "The You ⬤ label above your prompt bubble and the ⬤ Claude label above Claude's first bubble. large: ⬤, as Claude Code draws it. small: the dot ●. off: no labels, only the frames.",
+      "default": "large",
+      "options": ["large", "small", "off"]
+    },
     "clock": {
       "type": "string",
       "title": "Clock times",
@@ -116,6 +129,19 @@
       "description": "How tool rows (Ran, Read, Edited) sit next to Claude's sentences. chat: tool rows dimmed on the right, Claude on the left. tree-dim: tucked under the sentence with ⎿ and dimmed. tree-bold: tree-dim plus one-line sentences in bold. classic: the original look.",
       "default": "chat",
       "options": ["chat", "tree-dim", "tree-bold", "classic"]
+    },
+    "runningDot": {
+      "type": "string",
+      "title": "Running tool dot",
+      "description": "The dot of a tool call that is still running. ring: a still ◌. blink: ● blinking on and off every half second, as Claude Code's own does.",
+      "default": "ring",
+      "options": ["ring", "blink"]
+    },
+    "unreadPrompts": {
+      "type": "boolean",
+      "title": "Unread prompts",
+      "description": "Draw a prompt you sent in the comment grey, blinking to the rule color, until the model starts answering the request that carries it, like Claude Code's own grey queued prompts. Slash commands are left alone.",
+      "default": false
     },
     "toolOutput": {
       "type": "string",
@@ -196,6 +222,12 @@
       "type": "string",
       "title": "Table rule",
       "description": "Color for table rules. Hex (#a6e3a1), rgb(166,227,161), ansi256(114) or a name (green). Empty uses the theme.",
+      "default": ""
+    },
+    "tableTextColor": {
+      "type": "string",
+      "title": "Table text",
+      "description": "Color for plain text in table body cells, on screen and in the png copy. Hex, rgb(), ansi256() or a name. Empty keeps the terminal's own text color (the diagram text color in the png copy).",
       "default": ""
     },
     "numberColor": {
@@ -342,6 +374,48 @@
       "description": "Fill behind Claude's replies with replyStyle bubble or solid. Hex, rgb(), ansi256() or a name. Empty uses a midnight blue a step off the theme's background, a pale one in a light theme.",
       "default": ""
     },
+    "alertNoteColor": {
+      "type": "string",
+      "title": "Note alert",
+      "description": "Box, bar and label of > [!NOTE] alerts. Hex, rgb(), ansi256() or a name. Empty uses the terminal's blue.",
+      "default": ""
+    },
+    "alertTipColor": {
+      "type": "string",
+      "title": "Tip alert",
+      "description": "Box, bar and label of > [!TIP] alerts. Hex, rgb(), ansi256() or a name. Empty uses the terminal's green.",
+      "default": ""
+    },
+    "alertImportantColor": {
+      "type": "string",
+      "title": "Important alert",
+      "description": "Box, bar and label of > [!IMPORTANT] alerts. Hex, rgb(), ansi256() or a name. Empty uses the terminal's magenta.",
+      "default": ""
+    },
+    "alertWarningColor": {
+      "type": "string",
+      "title": "Warning alert",
+      "description": "Box, bar and label of > [!WARNING] alerts. Hex, rgb(), ansi256() or a name. Empty uses the terminal's yellow.",
+      "default": ""
+    },
+    "alertCautionColor": {
+      "type": "string",
+      "title": "Caution alert",
+      "description": "Box, bar and label of > [!CAUTION] alerts. Hex, rgb(), ansi256() or a name. Empty uses the terminal's red.",
+      "default": ""
+    },
+    "replyBorderColor": {
+      "type": "string",
+      "title": "Claude's bubble frame",
+      "description": "Frame and ⬤ Claude label of Claude's replies with replyStyle bubble or framed. Hex, rgb(), ansi256() or a name. Empty uses Claude Code's own Claude orange.",
+      "default": ""
+    },
+    "pngBackgroundColor": {
+      "type": "string",
+      "title": "png copy background",
+      "description": "Background of the ▣ png copy of tables, diagrams and figures. Hex, rgb(), ansi256() or a name. Empty uses the theme's background, white when the theme has none. Set it to your terminal's background to paste what you see.",
+      "default": ""
+    },
     "diffStyle": {
       "type": "string",
       "title": "Diff style",
@@ -361,6 +435,13 @@
       "title": "Mermaid diagrams",
       "description": "Draw ```mermaid blocks as colored box art sized to the terminal. Off leaves the code as written.",
       "default": true
+    },
+    "folds": {
+      "type": "string",
+      "title": "Long blocks",
+      "description": "How long code blocks, diff cards, new-file previews and pasted text in your prompts start. closed: folded to their first lines with a +N more lines button. open: drawn whole (up to each one's line ceiling) with a show less button. Drawing them whole costs more nodes and time on every redraw.",
+      "default": "closed",
+      "options": ["closed", "open"]
     },
     "copyButtons": {
       "type": "boolean",

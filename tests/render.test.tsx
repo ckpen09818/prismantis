@@ -85,6 +85,33 @@ test('disabled leaves the engine renderer alone', { options: { enabled: false } 
   await ui.unmount()
 })
 
+for (const surfaces of [undefined, 'all', 'desktop-app, nope', '']) {
+  test(`surfaces ${JSON.stringify(surfaces)} draws everywhere`, { options: surfaces === undefined ? {} : { surfaces } }, async $ => {
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const ui = await $.ui.mount({ ...draw(TABLE), surface })
+      expect((await ui.find({ type: 'Text', text: /^Service$/ }))?.text).toBe('Service')
+      await ui.unmount()
+    }
+  })
+}
+
+test('surfaces terminal leaves the desktop to the engine', { options: { surfaces: ' Terminal ,bogus' } }, async ($, on) => {
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  const desktop = await $.ui.mount({ ...draw(TABLE), surface: 'desktop' })
+  expect(await desktop.find({ type: 'Text', text: /^Service$/ })).toBeUndefined()
+  expect((await desktop.find({ type: 'Text', text: /^engine$/ }))?.text).toBe('engine')
+  await desktop.unmount()
+  const row = await $.ui.mount({ plugin: 'prismantis', surface: 'desktop', component: 'TurnDuration', props: { word: 'Cooked', durationMs: 4000 } })
+  expect((await row.find({ type: 'Text', text: /^engine$/ }))?.text).toBe('engine')
+  await row.unmount()
+  const terminal = await $.ui.mount({ ...draw(TABLE), surface: 'terminal' })
+  expect((await terminal.find({ type: 'Text', text: /^Service$/ }))?.text).toBe('Service')
+  await terminal.unmount()
+})
+
 test('box art from a mermaid mod above is not shell-colored', async $ => {
   const ui = await $.ui.mount({ ...draw('```\n┌───┐\n│ A │\n└───┘\n```'), surface: 'terminal' })
   expect((await ui.find({ type: 'Text', text: /^│ A │$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].codeText)
@@ -616,6 +643,21 @@ test('long code blocks fold to 20 lines, open and fold back on press, and copy e
     await ui.press({ key: 'fold0' })
     expect(await shown()).toBe(20)
     expect((await ui.find({ key: 'fold0' }))?.props.label).toBe(`+${n - 20} more lines`)
+    await ui.unmount()
+  }
+})
+
+test('folds open starts a long code block open, folds it on press and opens it again', { options: { folds: 'open' } }, async $ => {
+  for (const [surface, n] of [['terminal', 40], ['desktop', 45]] as const) {
+    const ui = await $.ui.mount({ ...draw(longCode(n)), surface })
+    const shown = async () => surface === 'desktop' ? String((await ui.find({ type: 'Code' }))!.props.source).split('\n').length : (await ui.findAll({ type: 'Text', text: /^ *\d+  $/ })).length
+    expect(await shown()).toBe(n)
+    expect((await ui.find({ key: 'fold0' }))?.props.label).toBe('show less')
+    await ui.press({ key: 'fold0' })
+    expect(await shown()).toBe(20)
+    expect((await ui.find({ key: 'fold0' }))?.props.label).toBe(`+${n - 20} more lines`)
+    await ui.press({ key: 'fold0' })
+    expect(await shown()).toBe(n)
     await ui.unmount()
   }
 })

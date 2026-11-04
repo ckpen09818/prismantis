@@ -358,6 +358,8 @@ test('the help screen shows every element prismantis draws', async () => {
   expect(showcaseText(Object.keys(PRESETS))).toContain('A paste of 4 lines or more')
   expect(showcaseText(Object.keys(PRESETS))).toContain('`clock`')
   expect(showcaseText(Object.keys(PRESETS))).toContain('`listMarker` to dash in')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`bubbleLabels`')
+  expect(helpText([])).toContain('bubble labels')
   expect(showcaseText([])).toContain('⧉ html')
   expect(showcaseText([])).toContain('`▣ png`')
   expect(showcaseText([])).toContain('src/app.ts:42, and Windows paths like C:\\work\\plan.md')
@@ -365,6 +367,7 @@ test('the help screen shows every element prismantis draws', async () => {
   expect(showcaseText([])).toContain('CopyQ')
   expect(showcaseText([])).toContain('plain text')
   expect(showcaseText([])).toContain('line "east" [')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('Set `folds` to `open` in `/config`')
   expect(blocks.some(b => b.kind === 'table' && b.align.includes('right') && b.align.includes('center'))).toBe(true)
   const kinds = new Set(blocks.map(b => b.kind))
   for (const kind of ['heading', 'paragraph', 'list', 'code', 'quote', 'alert', 'rule', 'table']) expect(kinds.has(kind as never)).toBe(true)
@@ -382,6 +385,8 @@ test('the help screen shows every element prismantis draws', async () => {
   expect(showcaseText([])).toContain('/tmp/app.ts open on click')
   expect(showcaseText([])).toContain('slash commands like /config stay text')
   expect(showcaseText([])).toContain('the file each one read or edited opens on click')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`runningDot: blink`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`unreadPrompts`')
   expect(showcaseText([])).toContain('f(*args, **kwargs)')
   expect(showcaseText([])).toContain('Programs and launchers stay plain text')
   expect(showcaseText([])).toContain('[a note](obsidian://open?vault=notes&file=todo)')
@@ -2315,4 +2320,12 @@ test('copying a table keeps a <br> cell as one cell: a <br> in HTML, a quoted mu
   const table = tableOf('| a | b |\n|-|-|\n| one<br>**two** | x |')
   expect(tableHtml(table)).toContain('<td style="text-align: left">one<br><strong>two</strong></td>')
   expect(tableText(table)).toBe('a\tb\n"one\ntwo"\tx')
+})
+
+test('a two-node cycle with an outgoing edge falls back to its source instead of hanging', async $ => {
+  const source = 'flowchart TD\n  A --> B\n  B --> A\n  B --> C'
+  expect(mermaidText(source, false, 97)).toBeNull()
+  const ui = await $.ui.mount(mount('```mermaid\n' + source + '\n```', 97))
+  expect(await ui.find({ type: 'Text', text: /B --> C/ })).toBeDefined()
+  await ui.unmount()
 })
