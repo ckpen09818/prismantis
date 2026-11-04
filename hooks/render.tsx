@@ -1,5 +1,6 @@
 import type { ElementTable, RenderElement, RenderNode, TextHoverProps } from 'claude-code'
 
+import type { Ink } from './clipboard'
 import { figureText, isFigureLang } from './figure'
 import { tableHtml, tableText } from './html'
 import type { Block, Inline } from './markdown'
@@ -10,7 +11,7 @@ import { LTR_BLANK, ROW_MARK, ROW_MARK_TEXT, WALL, codeVisual, commentTail, comm
 import type { Style, Theme } from './theme'
 import type { PrismToken } from './vendor/prism.js'
 import { languages, tokenize } from './vendor/prism.js'
-import { clusters, columnWidths, graphemes, longestWord, mostLines, textRows, widestLine, width, wrapRanges } from './layout'
+import { cells, clusters, columnWidths, graphemes, longestWord, mostLines, textRows, widestLine, width, wrapRanges } from './layout'
 
 const sliceInline = (nodes: Inline[], from: number, to: number): Inline[] => {
   const out: Inline[] = []
@@ -683,29 +684,97 @@ const tableSize = (block: Extract<Block, { kind: 'table' }>) => {
   return { natural: column(widestLine), words: column(longestWord) }
 }
 
-const tableGrid = (block: Extract<Block, { kind: 'table' }>): string => {
-  const cells = [block.header, ...block.rows].map(r => block.header.map((_, c) => displayText(r[c] ?? [])))
+type Face = Exclude<Ink, string | undefined>
+
+const own = (face: Face): Face => Object.fromEntries(Object.entries(face).filter(([, v]) => v !== undefined))
+
+const INLINE_FACE: Partial<Record<Inline['kind'], (t: Theme) => Face>> = {
+  strong: t => ({ color: t.strong, bold: true }),
+  emphasis: t => ({ color: t.emphasis, italic: true }),
+  math: t => ({ color: t.emphasis, italic: true }),
+  code: t => ({ color: t.inlineCode }),
+  link: t => ({ color: t.link }),
+  image: t => ({ color: t.link }),
+  number: t => ({ color: t.number }),
+  path: t => ({ color: t.path }),
+  footnote: t => ({ color: t.accent }),
+}
+
+const cellInks = (t: Theme, nodes: Inline[], face: Face): Ink[] => nodes.flatMap(n => {
+  const inner = { ...face, ...own(INLINE_FACE[n.kind]?.(t) ?? {}) }
+  return 'children' in n ? cellInks(t, n.children, inner) : Array<Ink>(displayText([n]).length).fill(inner)
+})
+
+const blank = (n: number): Ink[] => Array<Ink>(n).fill(undefined)
+
+const glyphInks = (piece: string, from: number, paint: Ink[]): Ink[] => {
+  let at = from
+  return graphemes(piece).flatMap(g => {
+    const ink = paint[at]
+    at += g.length
+    return cells(g).map(() => ink)
+  })
+}
+
+const placed = (piece: string, w: number, align: 'left' | 'right' | 'center') => {
+  const room = Math.max(0, w - width(piece))
+  const left = align === 'right' ? room : align === 'center' ? Math.floor(room / 2) : 0
+  return { left, right: room - left }
+}
+
+const tablePicture = (block: Extract<Block, { kind: 'table' }>, screen: boolean, t: Theme = {}): { text: string; inks: Ink[][] } => {
+  const rows = [block.header, ...block.rows].map(r => block.header.map((_, c) => r[c] ?? []))
+  const texts = rows.map(r => r.map(displayText))
   const { natural, words } = tableSize(block)
   const widths = columnWidths(natural, ART_WIDTH - 4, 3, words)
-  const pad = (text: string, c: number, align: 'left' | 'right' | 'center') => {
-    const room = Math.max(0, widths[c]! - width(text))
-    const left = align === 'right' ? room : align === 'center' ? Math.floor(room / 2) : 0
-    return ' '.repeat(left) + text + ' '.repeat(room - left)
+  const rule: Ink = own({ color: t.tableRule })
+  const header = own({ color: t.tableHeader, bold: screen || undefined })
+  const lines: string[] = []
+  const inks: Ink[][] = []
+  const line = (l: string, m: string, r: string, fill = '─') => {
+    const text = l + widths.map(w => fill.repeat(w + 2)).join(m) + r
+    lines.push(text)
+    inks.push(cells(text).map(() => rule))
   }
-  const line = (l: string, m: string, r: string) => l + widths.map(w => '─'.repeat(w + 2)).join(m) + r
-  const row = (r: string[], header: boolean) => {
-    const lines = r.map((text, c) => wrapRanges(text, widths[c]!).map(([a, b]) => text.slice(a, b)))
-    return Array.from({ length: Math.max(...lines.map(l => l.length)) }, (_, i) =>
-      `│ ${lines.map((l, c) => pad(l[i] ?? '', c, header ? 'center' : block.align[c] ?? 'left')).join(' │ ')} │`)
+  const alignOf = (i: number, c: number) => (i === 0 && !screen ? 'center' : block.align[c] ?? 'left')
+  const paintOf = (i: number, c: number) => (i === 0 ? Array<Ink>(texts[i]![c]!.length).fill(header) : cellInks(t, rows[i]![c]!, own({ color: t.tableText })))
+  const row = (i: number) => {
+    const paints = texts[i]!.map((_, c) => paintOf(i, c))
+    const pieces = texts[i]!.map((text, c) => wrapRanges(text, widths[c]!))
+    for (let k = 0; k < Math.max(...pieces.map(p => p.length)); k++) {
+      const parts = pieces.map((p, c) => {
+        const [a, b] = p[k] ?? [0, 0]
+        const piece = texts[i]![c]!.slice(a, b)
+        const { left, right } = placed(piece, widths[c]!, alignOf(i, c))
+        return { text: ` ${' '.repeat(left)}${piece}${' '.repeat(right)} │`, ink: [...blank(left + 1), ...glyphInks(piece, a, paints[c]!), ...blank(right + 1), rule] }
+      })
+      lines.push(`│${parts.map(part => part.text).join('')}`)
+      inks.push([rule, ...parts.flatMap(part => part.ink)])
+    }
   }
-  const art = [line('┌', '┬', '┐'), ...row(cells[0]!, true), ...cells.slice(1).flatMap(r => [line('├', '┼', '┤'), ...row(r, false)]), line('└', '┴', '┘')]
-  return art.join('\n')
+  line('┌', '┬', '┐')
+  row(0)
+  for (let i = 1; i < rows.length; i++) {
+    if (i === 1 && screen) line('╞', '╪', '╡', '═')
+    else line('├', '┼', '┤')
+    row(i)
+  }
+  line('└', '┴', '┘')
+  return { text: lines.join('\n'), inks }
 }
+
+const tableGrid = (block: Extract<Block, { kind: 'table' }>): string => tablePicture(block, false).text
 
 export const tableArt = (block: Extract<Block, { kind: 'table' }>): string => ['```', tableGrid(block), '```'].join('\n')
 
-const artsOf = (drawn: string | undefined, block: Block): { art?: string | (() => string); grid?: string | (() => string) } =>
-  drawn !== undefined ? { art: drawn, grid: drawn } : block.kind === 'table' ? { art: () => tableArt(block), grid: () => tableGrid(block) } : {}
+const tableArts = (block: Extract<Block, { kind: 'table' }>, t: Theme) => {
+  let picture: { text: string; inks: Ink[][] } | undefined
+  const drawn = () => (picture ??= tablePicture(block, true, t))
+  return { art: () => tableArt(block), grid: () => drawn().text, hues: () => drawn().inks }
+}
+
+const artsOf = (drawn: { art?: string; hues?: () => Hues } | undefined, block: Block, t: Theme): { art?: string | (() => string); grid?: string | (() => string); hues?: () => Hues } =>
+  drawn?.art !== undefined ? { art: drawn.art, grid: drawn.art, hues: drawn.hues } : block.kind === 'table' ? tableArts(block, t) : {}
 
 const clip = ({ Box }: ElementTable, w: number, drawn: RenderElement, key?: string) => (
   <Box key={key} flexDirection="column" minWidth={w}>
@@ -841,11 +910,11 @@ const renderTable = (el: ElementTable, style: Style, block: Extract<Block, { kin
         const runs = isHeader ? headerRuns(content) : content
         const cellBox = (
           <Box key={`${k}.${c}`} {...tableColumn(style, w, shares[c]!, words[c]!)} {...laidCell(style, box)} justifyContent={side}>
-            {pressInline(el, style, runs, w, `${k}.${c}.p`, tip, isHeader ? { bold: true, color: t.tableHeader } : {}, { justifyContent: side })
+            {pressInline(el, style, runs, w, `${k}.${c}.p`, tip, isHeader ? { bold: true, color: t.tableHeader } : own({ color: t.tableText }), { justifyContent: side })
               ?? (isHeader
                 ? <Text bold color={t.tableHeader}>{runs.some(n => n.kind === 'footnote') ? renderInline(el, style, runs, `${k}.${c}`) : inlineText(runs)}</Text>
                 : mirror && inlineText(content).trim() === '' ? <Text>{' '.repeat(w)}</Text>
-                : <Text>{renderInline(el, style, content, `${k}.${c}`)}</Text>)}
+                : <Text color={t.tableText}>{renderInline(el, style, content, `${k}.${c}`)}</Text>)}
           </Box>
         )
         return [i > 0 && (box ? border(`${k}.${c}s`, wall(' │ ')) : spacer(`${k}.${c}g`)), cellBox]
@@ -930,6 +999,8 @@ const drawHeading = (el: ElementTable, style: Style, block: Extract<Block, { kin
 
 const ALERT_COLOR = { note: 'blue', tip: 'green', important: 'magenta', warning: 'yellow', caution: 'red' } as const
 
+const ALERT_TOKEN = { note: 'alertNote', tip: 'alertTip', important: 'alertImportant', warning: 'alertWarning', caution: 'alertCaution' } as const
+
 const prose = (style: Style) => (style.inside === 'quote' ? { italic: true, color: style.theme.quote } : {})
 
 const bulletOf = (style: Style, item: { marker: string; depth: number }): string => {
@@ -983,7 +1054,7 @@ const renderQuote = (el: ElementTable, style: Style, block: Extract<Block, { kin
 
 const renderAlert = (el: ElementTable, style: Style, block: Extract<Block, { kind: 'alert' }>, columns: number, key: string, copy?: CopyButton, fold?: Fold, tip?: Tip) => {
   const { Box, Text } = el
-  const color = ALERT_COLOR[block.level]
+  const color = style.theme[ALERT_TOKEN[block.level]] ?? ALERT_COLOR[block.level]
   const inner = columns - 4
   const hebrew = flowOf(style, leadInline(block.blocks), inner)?.base === 'R'
   const label = block.level[0]!.toUpperCase() + block.level.slice(1)
@@ -1109,7 +1180,7 @@ const renderList = (el: ElementTable, style: Style, block: Extract<Block, { kind
 }
 
 export type CopyButton = (text: string | (() => string), key: string, label?: string, rich?: (() => string) | 'png', hues?: () => Hues) => RenderElement | null
-export type Hues = (string | undefined)[][]
+export type Hues = Ink[][]
 export type Drawn = Map<number, { element?: RenderElement; art?: string; hues?: () => Hues; note?: string }>
 export type FoldLook = { label?: string; face?: (folded: boolean) => RenderElement }
 export type Fold = (id: string, hidden: number, key: string, look?: FoldLook) => { folded: boolean; element: RenderElement; faced: boolean; around?: (rows: RenderElement, hover: TextHoverProps) => RenderElement } | null
@@ -1217,11 +1288,11 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
   const buttons = blocks.map((block, b) => {
     const text = hover && holdsOnlyEmptyCode(block) ? undefined : copySource(style, block)
     const isPlainCode = block.kind === 'code' && !drawn.get(b)?.element
-    const { art, grid } = artsOf(drawn.get(b)?.art, block)
+    const { art, grid, hues } = artsOf(drawn.get(b), block, style.theme)
     const first = text === undefined || isPlainCode ? null : copy?.(text, `copy${b}`, block.kind === 'table' ? '⧉ md' : art === undefined ? undefined : '⧉ source')
     const second = first && art !== undefined ? copy?.(art, `art${b}`, '⧉ art') : null
     const html = first && block.kind === 'table' ? copy?.(() => tableText(block), `html${b}`, '⧉ html', () => tableHtml(block)) : null
-    return { first, second, html, png: second && copy?.(grid!, `png${b}`, '▣ png', 'png', drawn.get(b)?.hues) }
+    return { first, second, html, png: second && copy?.(grid!, `png${b}`, '▣ png', 'png', hues) }
   })
   const codeHead = (label: string, button: RenderElement | null) => {
     if (!hover || !button) return null
@@ -1350,17 +1421,19 @@ const field = (input: unknown, ...keys: string[]): string | undefined => {
   return undefined
 }
 
-const TARGET_FIELDS = ['file_path', 'notebook_path', 'path', 'pattern', 'url', 'query', 'description']
+const TARGET_FIELDS = ['file_path', 'notebook_path', 'path', 'pattern', 'url', 'query', 'description', 'skill']
 
 const statusColor = (t: Theme, row: ToolRow) =>
   row.isErrored ? t.codeFlag : row.isInterrupted ? t.codeComment : row.isRunning ? t.accent : t.number
 
 const toolDim = (style: Style) => style.toolStyle !== "classic"
 
+const runningDot = (style: Style, running: boolean) => (!running ? '●' : style.runningDot === 'ring' ? '◌' : style.dotDark ? ' ' : '●')
+
 const toolGutter = ({ Box, Text }: ElementTable, style: Style, color: string | undefined, running: boolean) =>
   style.toolStyle.startsWith("tree")
     ? <Box width={4} flexShrink={0}><Text color={color}>{'  ⎿ '}</Text></Box>
-    : <Box width={2} flexShrink={0}><Text color={color}>{running ? '◌' : '●'}</Text></Box>
+    : <Box width={2} flexShrink={0}><Text color={color}>{runningDot(style, running)}</Text></Box>
 
 const toolLayout = (el: ElementTable, style: Style, columns: number, label: string, color: string | undefined, running: boolean, text: RenderElement) => {
   const { Box, Text } = el
@@ -1368,7 +1441,7 @@ const toolLayout = (el: ElementTable, style: Style, columns: number, label: stri
   const w = Math.min(width(label) + 2, Math.max(20, Math.floor(columns * 0.6)))
   return (
     <Box flexDirection="row" justifyContent="flex-end" width="100%">
-      <Box width={w} flexDirection="row">{text}<Text color={color}>{running ? " ◌" : " ●"}</Text></Box>
+      <Box width={w} flexDirection="row">{text}<Text color={color}>{` ${runningDot(style, running)}`}</Text></Box>
     </Box>
   )
 }
@@ -2180,7 +2253,7 @@ const callPieces = (call: ToolRow, style: Style): LinkPiece[] => {
     if (pattern !== undefined) return path === undefined ? [{ text: `Searched . for "${pattern}"` }] : [{ text: 'Searched ' }, { text: shortTarget(style, path), path }, { text: ` for "${pattern}"` }]
   }
   const verb = call.tool === 'Skill' ? 'Loaded skill' : VERBS[call.tool] ?? call.tool.replace(/^mcp__([^_]+)__/, '$1 ')
-  const target = field(call.input, 'skill', ...TARGET_FIELDS)
+  const target = field(call.input, ...TARGET_FIELDS)
   const args = call.tool === 'Skill' ? field(call.input, 'args') : undefined
   if (target === undefined) return [{ text: verb }]
   const path = toolPath(call.tool, PATH_FIELDS.some(k => field(call.input, k) === target) ? target : undefined)
@@ -2516,7 +2589,7 @@ const commandLine = (el: ElementTable, style: Style, row: ToolRow, line: string,
   ]
   return cells.map(({ text, cell }, k) => (
     <Box key={`c${i}.${k}`} flexDirection="row">
-      <Box width={COMMAND_LEAD} flexShrink={0}>{i === 0 && k === 0 ? <Text color={statusColor(style.theme, row)}>{row.isRunning ? '◌' : '●'}</Text> : <Text>{heldLabel(style, '  ', text)}</Text>}</Box>
+      <Box width={COMMAND_LEAD} flexShrink={0}>{i === 0 && k === 0 ? <Text color={statusColor(style.theme, row)}>{runningDot(style, row.isRunning)}</Text> : <Text>{heldLabel(style, '  ', text)}</Text>}</Box>
       <Text>{cell}</Text>
     </Box>
   ))
@@ -2647,9 +2720,11 @@ export type DrawPaste = (body: string, key: string) => RenderElement
 
 const CHAT_SHARE = 0.75
 
-const YOU_HEAD = 'You  ⬤ '
+const headDot = (style: Pick<Style, 'smallDot'>): string => (style.smallDot ? '●' : '⬤')
 
-const CLAUDE_HEAD = '⬤  Claude'
+const youHead = (style: Style): string => style.bubbleLabels === 'small' ? 'You ● ' : `You  ${headDot(style)} `
+
+const claudeHead = (style: Style): string => style.bubbleLabels === 'small' ? '● Claude' : `${headDot(style)}  Claude`
 
 const youColor = (theme: Theme): string | undefined => theme.promptBorder ?? theme.diffAdded ?? theme.accent
 
@@ -2693,7 +2768,7 @@ const chatPrompt = (el: ElementTable, style: Style, content: RenderElement, size
   const color = youColor(style.theme)
   return (
     <el.Box flexDirection="column" width="100%" {...(size === '100%' ? {} : { alignItems: 'flex-end' as const })}>
-      <el.Text color={color} bold>{YOU_HEAD}</el.Text>
+      {style.bubbleLabels === 'off' ? null : <el.Text color={color} bold>{youHead(style)}</el.Text>}
       <el.Box borderStyle="round" borderColor={color} backgroundColor={promptFill(style.theme, style.background, color)} paddingX={1} width={size} flexShrink={0}>{content}</el.Box>
     </el.Box>
   )
@@ -2747,7 +2822,7 @@ export const replyRoom = (style: Style): number => ({ off: 0, solid: 0, bubble: 
 
 const solidEdge = (width: number, top: boolean): string => (width < 2 ? (top ? '▄' : '▀').repeat(width) : top ? `▗${'▄'.repeat(width - 2)}▖` : `▝${'▀'.repeat(width - 2)}▘`)
 
-const claudeColor = (theme: Theme): string | undefined => (theme.accent === undefined ? undefined : 'claude')
+const claudeColor = (theme: Theme): string | undefined => theme.replyBorder ?? (theme.accent === undefined ? undefined : 'claude')
 
 const replyFrame = (el: ElementTable, style: Style, body: RenderElement, columns: number): RenderElement => {
   const t = style.theme
@@ -2782,7 +2857,7 @@ export const renderReply = (el: ElementTable, style: Style, drawn: RenderElement
   }
   return (
     <el.Box key="msg" flexDirection="column">
-      {first ? <el.Text color={claudeColor(style.theme)} bold>{CLAUDE_HEAD}</el.Text> : null}
+      {first && style.bubbleLabels !== 'off' ? <el.Text color={claudeColor(style.theme)} bold>{claudeHead(style)}</el.Text> : null}
       {replyFrame(el, style, <el.Box flexDirection="row">{body}{room}</el.Box>, columns)}
     </el.Box>
   )

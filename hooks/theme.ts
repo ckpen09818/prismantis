@@ -1,4 +1,4 @@
-import type { PluginOptions } from 'claude-code'
+import type { PluginOptions, RenderSurface } from 'claude-code'
 
 import type { ClipboardBackend } from './clipboard'
 import type { PresetName } from './presets'
@@ -8,7 +8,7 @@ import { TERMINALS } from './rtl'
 
 export const TOKENS = [
   'accent', 'heading', 'strong', 'emphasis', 'inlineCode', 'codeText', 'codeCommand', 'codeFlag', 'codeString', 'codeComment',
-  'link', 'path', 'number', 'quote', 'rule', 'tableHeader', 'tableRule', 'bullet', 'diagram', 'diagramText', 'diffAdded', 'diffRemoved', 'promptFill', 'promptBorder', 'promptText', 'replyFill',
+  'link', 'path', 'number', 'quote', 'rule', 'tableHeader', 'tableRule', 'tableText', 'bullet', 'diagram', 'diagramText', 'diffAdded', 'diffRemoved', 'promptFill', 'promptBorder', 'promptText', 'replyFill', 'alertNote', 'alertTip', 'alertImportant', 'alertWarning', 'alertCaution', 'replyBorder', 'pngBackground',
 ] as const
 
 export type Theme = Partial<Record<(typeof TOKENS)[number], string>>
@@ -24,9 +24,13 @@ export type Style = {
   listMarker: 'dots' | 'dash'
   promptStyle: 'bubble' | 'wide' | 'bar' | 'chevron' | 'off'
   replyStyle: 'auto' | 'bubble' | 'solid' | 'framed' | 'off'
+  bubbleLabels: 'large' | 'small' | 'off'
   clock: Clock
   toolStyle: 'chat' | 'tree-dim' | 'tree-bold' | 'classic'
   toolOutput: 'full' | 'quiet'
+  runningDot: 'ring' | 'blink'
+  dotDark?: boolean
+  unreadPrompts: boolean
   narration?: boolean
   inside?: 'quote' | 'alert'
   noteKey?: string
@@ -34,10 +38,12 @@ export type Style = {
   diffStyle: 'card' | 'full' | 'marks' | 'bar'
   pieStyle: 'round' | 'bars'
   highlightNumbers: boolean
+  surfaces?: RenderSurface[]
   highlightPaths: boolean
   mermaid: boolean
   mermaidAscii: boolean
   copyButtons: boolean
+  folds: 'closed' | 'open'
   copyButtonStyle: 'inline' | 'hover'
   textCopyButtons: boolean
   htmlCopy: ClipboardBackend | null
@@ -45,6 +51,7 @@ export type Style = {
   nativeCode?: boolean
   gridFace?: boolean
   monoFace?: boolean
+  smallDot?: boolean
   httpLinks: boolean
   editorLinks: boolean
   obsidianLinks: boolean
@@ -64,6 +71,13 @@ export type Style = {
 const COLOR = /^(#[0-9a-f]{3}|#[0-9a-f]{6}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)|ansi256\(\d{1,3}\)|(black|red|green|yellow|blue|magenta|cyan|white|gray|grey)(Bright)?)$/i
 
 export const isColor = (value: unknown): value is string => typeof value === 'string' && COLOR.test(value.trim())
+
+const SURFACES: RenderSurface[] = ['terminal', 'desktop', 'vscode', 'mobile']
+
+const surfacesOf = (value: unknown): RenderSurface[] | undefined => {
+  const named = String(value ?? '').toLowerCase().split(',').map(s => s.trim()).filter((s): s is RenderSurface => (SURFACES as string[]).includes(s))
+  return named.length ? named : undefined
+}
 
 const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   allowed.includes(value as T) ? (value as T) : fallback
@@ -93,16 +107,21 @@ export const resolveStyle = (options: PluginOptions): Style => {
     listMarker: pick(options.listMarker, ['dots', 'dash'] as const, 'dots'),
     promptStyle: pick(options.promptStyle, ['bubble', 'wide', 'bar', 'chevron', 'off'] as const, 'bubble'),
     replyStyle: pick(options.replyStyle, ['auto', 'bubble', 'solid', 'framed', 'off'] as const, 'auto'),
+    bubbleLabels: pick(options.bubbleLabels, ['large', 'small', 'off'] as const, 'large'),
     clock: pick(options.clock, ['off', '24h', '12h'] as const, 'off'),
     toolStyle: pick(options.toolStyle, ['chat', 'tree-dim', 'tree-bold', 'classic'] as const, 'chat'),
     toolOutput: pick(options.toolOutput, ['full', 'quiet'] as const, 'full'),
+    runningDot: pick(options.runningDot, ['ring', 'blink'] as const, 'ring'),
+    unreadPrompts: options.unreadPrompts === true,
     diffStyle: pick(options.diffStyle, ['card', 'full', 'marks', 'bar'] as const, 'card'),
     pieStyle: pick(options.pieStyle, ['round', 'bars'] as const, 'round'),
     highlightNumbers: options.highlightNumbers !== false,
+    surfaces: surfacesOf(options.surfaces),
     highlightPaths: options.highlightPaths !== false,
     mermaid: options.mermaid !== false,
     mermaidAscii: options.mermaidAscii === true,
     copyButtons: options.copyButtons !== false,
+    folds: pick(options.folds, ['closed', 'open'] as const, 'closed'),
     copyButtonStyle: pick(options.copyButtonStyle, ['inline', 'hover'] as const, 'inline'),
     textCopyButtons: options.textCopyButtons !== false,
     htmlCopy: null,

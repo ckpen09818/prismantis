@@ -72,7 +72,7 @@ prismantis also runs in OpenCode 2.2.5 and later, where it draws figure blocks i
 
 | Feature | What you get |
 | --- | --- |
-| [Themes](#themes) | `/prismantis theme <name>` switches on the spot. 17 themes and 26 color slots you can override |
+| [Themes](#themes) | `/prismantis theme <name>` switches on the spot. 17 themes and 34 color slots you can override |
 | [Tables](#tables) | colored headers, rules, column alignment, colored numbers, sized to the terminal |
 | [Code](#code) | a language header and copy button, Prism highlighting in two dozen languages, shell lines colored like a prompt |
 | [Diagrams and charts](#diagrams-and-charts) | flowcharts, sequence, state, class and ER diagrams, bar and line charts, one color per box, participant and bar |
@@ -302,7 +302,7 @@ Lists keep their numbers and nest with `•` and `◦`. `listMarker: dash` draws
 |---|---|
 | ![dots](docs/lists/dots.png) | ![dash](docs/lists/dash.png) |
 
-Quotes get an accent bar down every line and keep their paragraphs, lists, code, tables and nested quotes, and GitHub alerts (`> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`) draw as colored boxes.
+Quotes get an accent bar down every line and keep their paragraphs, lists, code, tables and nested quotes, and GitHub alerts (`> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`) draw as colored boxes, in the terminal's blue, green, magenta, yellow and red unless `alertNoteColor`, `alertTipColor`, `alertImportantColor`, `alertWarningColor` or `alertCautionColor` sets one.
 
 Task lists draw as `[ ]` and `[✓]`, with done items dimmed and struck through. `taskStyle` switches to `ticks` (`○` `✓`), `box` (`□` `✓`) or `progress`, which adds a done-count bar above each list.
 
@@ -312,7 +312,7 @@ Task lists draw as `[ ]` and `[✓]`, with done items dimmed and struck through.
 
 ![Your prompts: plain Claude Code on the left, prismantis on the right](docs/compare/prompts.png)
 
-What you type, at the prompt or through Remote Control, draws in the theme's colors. `promptStyle` picks the look, and `off` keeps Claude Code's own. `bubble` draws it on the right like a chat app, as wide as its longest line and at most three quarters of the window, under `You ⬤`, in a rounded frame of the theme's green on a deep green fill, a pale one in a light theme, and Claude's replies in a bubble of their own. The other styles keep Claude's replies as they were. `promptFillColor` and `replyFillColor` change the two fills. Task notifications and teammate messages are left alone.
+What you type, at the prompt or through Remote Control, draws in the theme's colors. `promptStyle` picks the look, and `off` keeps Claude Code's own. `bubble` draws it on the right like a chat app, as wide as its longest line and at most three quarters of the window, under `You ⬤`, in a rounded frame of the theme's green on a deep green fill, a pale one in a light theme, and Claude's replies in a bubble of their own. The other styles keep Claude's replies as they were. `promptFillColor` and `replyFillColor` change the two fills, and `replyBorderColor` the frame of Claude's. Task notifications and teammate messages are left alone.
 
 | `bubble` (default) | `wide` | `bar` | `chevron` |
 |---|---|---|---|
@@ -325,11 +325,17 @@ What you type, at the prompt or through Remote Control, draws in the theme's col
 | `24h` | ![a prompt bubble that starts with the time it was sent](docs/clock/prompt.png) | ![a turn line that ends with the time it finished](docs/clock/turn.png) |
 | `12h` | ![a prompt bubble that starts with 5:45 PM](docs/clock/prompt-12h.png) | ![a turn line that ends with 5:45 PM](docs/clock/turn-12h.png) |
 
-`replyStyle` does the same for Claude's replies, so the two sides of the conversation read apart at a glance. Its default, `auto`, draws them as `bubble` while your prompts are a `bubble` and as `off` with any other `promptStyle`. `bubble` heads a reply with `⬤ Claude` and draws it in a rounded frame of Claude's orange, as Claude Code's theme draws it, on a midnight blue fill a step off the background, `solid` fills it to the edge with half blocks top and bottom and no frame, `framed` keeps the frame with no fill. A reply that calls tools between its sentences draws one bubble per block of text, and only the first gets `⬤ Claude`. In a theme with no colors to fill with, such as `mono`, `solid` draws the frame. `off` keeps the dot before the first line.
+`replyStyle` does the same for Claude's replies, so the two sides of the conversation read apart at a glance. Its default, `auto`, draws them as `bubble` while your prompts are a `bubble` and as `off` with any other `promptStyle`. `bubble` heads a reply with `⬤ Claude` and draws it in a rounded frame of Claude's orange, as Claude Code's theme draws it, on a midnight blue fill a step off the background, `solid` fills it to the edge with half blocks top and bottom and no frame, `framed` keeps the frame with no fill. A reply that calls tools between its sentences draws one bubble per block of text, and only the first gets `⬤ Claude`. In a theme with no colors to fill with, such as `mono`, `solid` draws the frame. `off` keeps the dot before the first line. `bubbleLabels` sets the `You ⬤` and `⬤ Claude` labels over the bubbles: `large` (the default), `small` with the dot `●`, or `off` for frames alone.
 
 | `bubble` (with `auto`) | `solid` | `framed` |
 |---|---|---|
 | ![Claude's reply under Claude in an orange frame on a filled background](docs/prompts/bubble.png) | ![Claude's reply on a filled background with no frame](docs/prompts/reply-solid.png) | ![Claude's reply in an orange frame with no fill](docs/prompts/reply-framed.png) |
+
+`bubbleLabels` sets the labels over the bubbles: `large` draws `You ⬤` and `⬤ Claude` as above, `small` swaps the ⬤ for a `●`, and `off` drops both labels and keeps the frames.
+
+| `large` (default) | `small` | `off` |
+|---|---|---|
+| ![You and Claude labels with the large dot over the prompt and reply bubbles](docs/prompts/bubble.png) | ![You and Claude labels with a small dot over the prompt and reply bubbles](docs/prompts/labels-small.png) | ![the prompt and reply bubbles with no labels over them](docs/prompts/labels-off.png) |
 
 ### Right to left
 
@@ -362,19 +368,24 @@ Options sit under `options`, keyed by the plugin's install name. Project setting
 | Option | Values | Default |
 | --- | --- | --- |
 | `enabled` | `true`, `false` | `true` |
+| `surfaces` | `all`, or a comma-separated list of `terminal`, `desktop`, `vscode`, `mobile` (like `terminal,vscode`); the rest use Claude Code's own renderer | `all` |
 | `theme` | see [Themes](#themes), or `random` for a new dark color preset each time the mod loads | `catppuccin-mocha` |
 | `tableStyle` | `box`, `rules`, `grid`, `minimal` | `box` |
 | `taskStyle` | `checks` (`[ ]` `[✓]`, done struck through), `ticks` (`○` `✓`), `box` (`□` `✓`), `progress` (ticks with a done-count bar) | `checks` |
 | `listMarker` | `dots` (`•` then `◦` nested), `dash` (`-` at every level, pastes as a markdown list) | `dots` |
 | `promptStyle` | `bubble`, `wide`, `bar`, `chevron`, `off` | `bubble` |
 | `replyStyle` | `auto` (`bubble` while `promptStyle` is `bubble`, else `off`), `bubble`, `solid`, `framed`, `off` | `auto` |
+| `bubbleLabels` | `large` (`⬤`), `small` (`●`), `off` (no labels) | `large` |
 | `clock` | `off`, `24h`, `12h` | `off` |
 | `headingStyle` | `banner`, `bold`, `underline`, `uppercase` | `banner` |
 | `highlightNumbers` | `true`, `false` | `true` |
 | `highlightPaths` | `true`, `false` | `true` |
+| `folds` | `closed` (long blocks start folded to their first lines), `open` (they start whole, with `show less`) | `closed` |
 | `toolRows` | `true`, `false` | `true` |
 | `toolStyle` | `chat`, `tree-dim`, `tree-bold`, `classic` | `chat` |
 | `toolOutput` | `full`, `quiet` | `full` |
+| `runningDot` | `ring` (a still `◌`), `blink` (`●` on and off every half second) | `ring` |
+| `unreadPrompts` | `true` (a prompt stays grey and blinks until the model starts on it), `false` | `false` |
 | `copyButtons` | `true`, `false` | `true` |
 | `copyButtonStyle` | `inline`, `hover` | `inline` |
 | `textCopyButtons` | `true`, `false` | `true` |
@@ -408,6 +419,7 @@ A color is hex (`#a6e3a1`, `#fc0`), `rgb(166,227,161)`, `ansi256(114)` or a name
 | `rule` | rules, diff card borders, chart gridlines |
 | `tableHeader` | table header cells |
 | `tableRule` | table rules |
+| `tableText` | plain text in table body cells, on screen and in the `▣ png` copy (the terminal's own text color) |
 | `bullet` | list bullets and numbers |
 | `diagram` | diagram lines, `accent` in figures |
 | `diagramText` | diagram labels, LaTeX formulas and figure text |
@@ -417,6 +429,13 @@ A color is hex (`#a6e3a1`, `#fc0`), `rgb(166,227,161)`, `ansi256(114)` or a name
 | `promptBorder` | the frame and `You ⬤` label of your prompts with `promptStyle: bubble`, and the hue of their default fill (the `diffAdded` green) |
 | `promptText` | the text of your prompts with `promptStyle: bubble` (the `heading` color, or `codeText` where that would not read on the fill) |
 | `replyFill` | the fill behind Claude's replies with `replyStyle: bubble` or `solid` (a midnight blue a step off the background, a pale one in a light theme) |
+| `alertNote` | the box, bar and label of `> [!NOTE]` alerts (the terminal's blue) |
+| `alertTip` | the box, bar and label of `> [!TIP]` alerts (the terminal's green) |
+| `alertImportant` | the box, bar and label of `> [!IMPORTANT]` alerts (the terminal's magenta) |
+| `alertWarning` | the box, bar and label of `> [!WARNING]` alerts (the terminal's yellow) |
+| `alertCaution` | the box, bar and label of `> [!CAUTION]` alerts (the terminal's red) |
+| `replyBorder` | the frame and `⬤ Claude` label of Claude's replies with `replyStyle: bubble` or `framed` (Claude Code's own Claude orange) |
+| `pngBackground` | the background of the `▣ png` copy (the theme's background, white when it has none) |
 
 ## Troubleshooting
 
@@ -426,6 +445,8 @@ A color is hex (`#a6e3a1`, `#fc0`), `rgb(166,227,161)`, `ansi256(114)` or a name
 - **No `⧉ html` on tables:** you're over SSH, in the desktop app or VS Code, or on Linux with no graphical session. `⧉ md` and `⧉ art` still work.
 - **`⧉ html` copied plain text only:** CopyQ isn't running, or the clipboard helper failed. The toast says why.
 - **Clicking a copy button selects the word "copy":** your terminal copies on select. Use `/prismantis copy`.
+- **Fills look flat gray in tmux:** Claude Code draws 256 colors inside tmux, which turns dark fills gray. Set `CLAUDE_CODE_TMUX_TRUECOLOR=1` in the environment Claude Code starts in.
+- **`You ●` instead of `You ⬤` in tmux, screen or Zellij:** on purpose. The large dot can draw across two cells in the terminal outside, which leaves half dots behind and over the next letter.
 
 ## Limits
 
@@ -443,7 +464,7 @@ To change the code, read [AGENTS.md](AGENTS.md) instead.
 - **Install:** `/plugin marketplace add NahumLitvin/prismantis`, then `/plugin install prismantis@prismantis`. Needs Claude Code 2.1.287+. Changes apply after `/reload`.
 - **Configure:** `/prismantis theme <name>` and `/prismantis setup` set options at runtime. Every option is a key under `pluginConfigs["prismantis@prismantis"].options` in `~/.claude/settings.json` (or a row in `/config`), then `/reload`. Options and defaults are in the [Configure](#configure) table; the machine-readable source is `userConfig` in [.claude-plugin/plugin.json](.claude-plugin/plugin.json). Color values that don't parse are ignored.
 - **Side effects:** no network. Programs it runs: the `⧉ html` and `▣ png` clipboard helper (`/usr/bin/osascript` on macOS, `powershell.exe` on Windows, `copyq` on Linux for `⧉ html` only, 5 second timeout, 15 on Windows, only on a click), and `ratex-render` while `latex` is on. With `diagramHints` on, it adds about 630 tokens of model-only context (about 710 while `latex` is on) to each prompt you type and each prompt another plugin sends, as broken down under [Diagram hints](#diagram-hints).
-- **Turning it off:** `"enabled": false`, or disable the plugin in `/plugin`.
+- **Turning it off:** `"enabled": false`, or disable the plugin in `/plugin`. To keep it in one app only, like the terminal but not the desktop app, set `"surfaces": "terminal"`.
 - **For other mods:** `$.prismantis.markdown({ surface, text, columns })`, typed in [types/index.d.ts](types/index.d.ts). See [Other mods](#other-mods).
 
 </details>
