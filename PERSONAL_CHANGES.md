@@ -41,7 +41,8 @@ claude plugin validate . && claude plugin test .
 ## 各功能的合併注意事項
 
 - **功能 10（點 `⧉`）**：複製按鈕的 `onPress` 閉包不在元素 props 上，所以靠 `copy()` 建立按鈕時用 `rememberPress` 登記、標記用 `markPress` 取回。若上游改了 `copy()` 的簽章或 `floating()` 的標記結構，要同步調整；若 `markPress` 取不到處理函式，標記會退回純文字（不會報錯），要靠上面那則測試才抓得到。
-- **功能 3（setup）**：上游新增 setup 步驟時，測試裡的頁數與按鈕數必須等於 `hooks/help.ts` 的 `setupSteps`（0.39.1 為 14 頁：上游 13 + `promptSide`）。
+- **功能 3（setup）**：上游新增 setup 步驟時，測試裡的頁數與按鈕數必須等於 `hooks/help.ts` 的 `setupSteps`（0.41.0 為 15 頁：上游 14，含 `bubbleLabels`，加上 `promptSide`）。測試裡的範例編號（`mount(n)`、`setupParts(…, n)`）也要跟著位移。
+- **功能 2、4、5（標頭）與上游 `bubbleLabels`**：標頭文字由上游的 `youHead`、`claudeHead`、`headDot` 產生，你的靠左版本是 `youHeadLeft`，agent 名稱走 `replyHead(style)`。`bubbleLabels: off` 時整列（含時間與頭像）一起隱藏。Claude 標頭與框線顏色是 `replyBorder ?? accent`：上游預設會退回橘色 `claude`，你要保留 accent，不要採用上游那一行。
 - **功能 6**：`locateOnce` 只用在 `UserMessage`／`AssistantMessage`；工具列刻意保留 `locate`，因為上游測試要求工具列路徑跟隨 worktree 移動。
 - **新增的 token**：上游新增主題 token 時，`hooks/presets.ts` 的 `one-dark-pro` 要補齊，並通過 WCAG AA（4.5:1）。
 - 凡是接收 `$` 的函式，要宣告在 `hooks/register.tsx` 最上層，不能巢狀在 `register` 裡。
