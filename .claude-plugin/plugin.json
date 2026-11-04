@@ -103,6 +103,12 @@
       "default": "thumbnail",
       "options": ["thumbnail", "text"]
     },
+    "copyPopup": {
+      "type": "boolean",
+      "title": "Copy buttons pop up on hover",
+      "description": "With copyButtonStyle hover: true shows the copy buttons while the pointer is on the dim ⧉. false shows nothing on hover and a press of the ⧉ runs the block's first copy.",
+      "default": true
+    },
     "replyStyle": {
       "type": "string",
       "title": "Claude's reply style",

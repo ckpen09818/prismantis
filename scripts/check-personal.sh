@@ -33,6 +33,8 @@ check hooks/render.tsx rememberPress
 check hooks/render.tsx markPress
 check hooks/register.tsx rememberPress
 check tests/render.test.tsx 'copies a block on a press of its ⧉ marker'
+check hooks/theme.ts 'copyPopup'
+check tests/render.test.tsx 'copyPopup false leaves only the pressable'
 check hooks/paste.tsx pictureRow
 check hooks/render.tsx pictureRow
 check hooks/register.tsx keepPictures

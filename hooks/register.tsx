@@ -469,10 +469,10 @@ const drawMarkdown = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['
   const elements = renderBlocks(el, notes ? { ...style, noteKey: instanceKey(notes.id) } : style, blocks, columns, drawMath(el, style, blocks, drawn), copy, folder($, el, open, false, style.folds === 'open'), tip)
   const button = reply === undefined ? null : copy(reply, 'reply', '⧉ copy reply')
   if (!button) return elements
-  return [...elements, style.copyButtonStyle === 'hover' ? replyMarker(el, button, notes?.id) : <el.Box key="reply" alignSelf="flex-end">{button}</el.Box>]
+  return [...elements, style.copyButtonStyle === 'hover' ? replyMarker(el, style, button, notes?.id) : <el.Box key="reply" alignSelf="flex-end">{button}</el.Box>]
 }
 
-const replyMarker = (el: ReturnType<EngineInterface['ui']['resolve']>, button: RenderElement, id?: string) => {
+const replyMarker = (el: ReturnType<EngineInterface['ui']['resolve']>, style: Style, button: RenderElement, id?: string) => {
   const scope = `copy:${id === undefined ? '' : instanceKey(id)}:reply`
   return (
     <el.Box key="reply" position="absolute" bottom={0} right={-MARK} hover={{ scope }}>
@@ -483,7 +483,7 @@ const replyMarker = (el: ReturnType<EngineInterface['ui']['resolve']>, button: R
       ) : (
         <el.Text dimColor>⧉</el.Text>
       )}
-      <el.Box position="absolute" top={0} right={0} display="none" hover={{ scope, display: 'flex' }}>{button}</el.Box>
+      {style.copyPopup || !markPress(button) ? <el.Box position="absolute" top={0} right={0} display="none" hover={{ scope, display: 'flex' }}>{button}</el.Box> : null}
     </el.Box>
   )
 }

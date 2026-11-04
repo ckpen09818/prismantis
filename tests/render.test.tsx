@@ -328,6 +328,22 @@ test('copyButtonStyle hover copies a block on a press of its ⧉ marker, without
   await ui.unmount()
 })
 
+test('copyPopup false leaves only the pressable ⧉ marker, with no buttons to pop up on hover', { options: { copyButtonStyle: 'hover', copyPopup: false } }, async ($, on) => {
+  const copied: string[] = []
+  on('ui.copy', (_, e) => {
+    copied.push(e.text)
+    return { value: { isCopied: true as const } }
+  })
+  const ui = await $.ui.mount({ ...draw('```bash\nls -la\n```\n\nplain'), surface: 'terminal' })
+  const keys = (await ui.findAll({ type: 'Button' })).map(button => String((button.props as { key?: string }).key))
+  expect(keys.filter(key => !key.endsWith(':mark'))).toEqual([])
+  const marks = keys.filter(key => key.endsWith(':mark'))
+  expect(marks).toHaveLength(2)
+  await ui.press({ key: marks[0]! })
+  expect(copied).toEqual(['ls -la'])
+  await ui.unmount()
+})
+
 for (const surface of SURFACES) test(`copyButtonStyle hover draws a block's buttons over its marker, from the marker's row and side, on ${surface}`, { options: { copyButtonStyle: 'hover' } }, async $ => {
   const ui = await $.ui.mount({ ...draw('| Region | p99 |\n|---|---:|\n| eu | 12 |\n\n```bash\nls\n```\n\n> ```bash\n> npm test\n> ```\n>\n> Run that first.'), surface })
   const tree = (await ui.drawn()) as DrawnNode

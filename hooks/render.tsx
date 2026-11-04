@@ -1295,6 +1295,7 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
     }, 0)
   const fitted = (parts: (RenderElement | null | undefined)[]): RenderElement[] =>
     parts.reduce<RenderElement[]>((kept, part) => (part && (!kept.length || reserved([...kept, part]) <= columns) ? [...kept, part] : kept), [])
+  const popup = (button: RenderElement): boolean => style.copyPopup || !markPress(button)
   const scopeOf = (button: RenderElement): string => `copy:${style.noteKey ?? ''}:${keyOf(button)}`
   const floating = (kept: RenderElement[], low = false, start = false): Float => {
     const scope = scopeOf(kept[0]!)
@@ -1311,7 +1312,7 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
           )}
         </Box>
       ),
-      element: <Box position="absolute" {...(low ? { bottom: 0 } : { top: 0 })} {...(start ? { left: 0 } : { right: 0 })} display="none" hover={{ scope, display: 'flex' }}>{kept.flatMap((button, i) => (i ? [<Text key={`gap${i}`}> </Text>, button] : [button]))}</Box>,
+      element: popup(kept[0]!) ? <Box position="absolute" {...(low ? { bottom: 0 } : { top: 0 })} {...(start ? { left: 0 } : { right: 0 })} display="none" hover={{ scope, display: 'flex' }}>{kept.flatMap((button, i) => (i ? [<Text key={`gap${i}`}> </Text>, button] : [button]))}</Box> : <Box key={`${scope}:none`} display="none" />,
     }
   }
   const shown = blocks.map(block => drawable(block, style))
