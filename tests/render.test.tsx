@@ -273,7 +273,7 @@ for (const surface of SURFACES) test(`copyButtonStyle hover hides every copy but
   })
   const ui = await $.ui.mount({ ...draw(COPY_SAMPLE), surface })
   const tree = (await ui.drawn()) as DrawnNode
-  expect(await ui.findAll({ type: 'Button' })).toHaveLength(5)
+  expect(await ui.findAll({ type: 'Button' })).toHaveLength(9)
   expect(await floatingCopies(ui)).toEqual(['⧉ md ⧉ art', '⧉ copy', '⧉ copy', '⧉ copy reply'])
   expect(reveals(tree).flatMap(({ node }) => withParents(node).filter(({ node: n }) => n.type === 'Button'))).toHaveLength(5)
   for (const { node } of reveals(tree)) {
@@ -282,6 +282,21 @@ for (const surface of SURFACES) test(`copyButtonStyle hover hides every copy but
     expect(markersOf(tree, scope).map(({ node: marker }) => ({ text: shownText(marker), flows: inFlow(marker) }))).toEqual([{ text: '⧉', flows: !scope.endsWith(':reply') }])
   }
   await ui.press({ key: 'copy1' })
+  expect(copied).toEqual(['ls -la'])
+  await ui.unmount()
+})
+
+test('copyButtonStyle hover copies a block on a press of its ⧉ marker, without the pointer reaching its buttons', { options: { copyButtonStyle: 'hover' } }, async ($, on) => {
+  const copied: string[] = []
+  on('ui.copy', (_, e) => {
+    copied.push(e.text)
+    return { value: { isCopied: true as const } }
+  })
+  const ui = await $.ui.mount({ ...draw('```bash\nls -la\n```\n\nplain'), surface: 'terminal' })
+  const keys = (await ui.findAll({ type: 'Button' })).map(button => String((button.props as { key?: string }).key))
+  const marks = keys.filter(key => key.endsWith(':mark'))
+  expect(marks).toHaveLength(2)
+  await ui.press({ key: marks[0]! })
   expect(copied).toEqual(['ls -la'])
   await ui.unmount()
 })
@@ -322,7 +337,8 @@ for (const surface of SURFACES) test(`copyButtonStyle hover gives every block wi
   const marks = withParents(tree).filter(({ node }) => node.type === 'Text' && shownText(node) === '⧉')
   expect(marks).toHaveLength(7)
   for (const { node } of marks) expect(node.props?.dimColor).toBe(true)
-  const blocks = marks.map(({ parent }) => parent!).filter(box => !box.hover?.scope?.endsWith(':reply'))
+  const all = withParents(tree)
+  const blocks = marks.map(({ parent }) => all.find(({ node }) => node === parent)!.parent!).filter(box => !box.hover?.scope?.endsWith(':reply'))
   expect(blocks).toHaveLength(6)
   for (const box of blocks) expect({ scoped: box.hover?.scope !== undefined, flows: inFlow(box) }).toEqual({ scoped: true, flows: true })
   for (const key of ['c0', 'c2', 'c3', 'c4', 'c5']) expect(((await ui.find({ key }))?.children[0] as DrawnNode).props?.columnGap).toBe(1)

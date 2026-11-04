@@ -11,7 +11,7 @@ import { clipboardCommand, drawsImages, imageCommand } from './clipboard'
 import { FIGURE_HINT } from './figure'
 import { drawDiagrams } from './mermaid'
 import type { Avatar, CopyButton, DrawPaste, Fold, Hues, TerminalEnv } from './render'
-import { MARK, agentName, bashEdits, drawMath, drawsHyperlinks, editNotes, fileRoot, hasShellOutput, instanceKey, isReadOnlyCall, leftToEngine, markerRoom, mirrored, noteTip, pasteLang, pathsToProbe, remember, rememberCall, renderBashEdits, renderBlocks, renderDiffCard, renderExpandedShell, renderFailure, renderReply, renderShellResult, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, replyRoom, replyStyleFor, takesClickableMarks, takesEditorLinks, takesHttpLinks, takesMonoText, withoutBashEdits } from './render'
+import { MARK, agentName, markPress, rememberPress, bashEdits, drawMath, drawsHyperlinks, editNotes, fileRoot, hasShellOutput, instanceKey, isReadOnlyCall, leftToEngine, markerRoom, mirrored, noteTip, pasteLang, pathsToProbe, remember, rememberCall, renderBashEdits, renderBlocks, renderDiffCard, renderExpandedShell, renderFailure, renderReply, renderShellResult, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, replyRoom, replyStyleFor, takesClickableMarks, takesEditorLinks, takesHttpLinks, takesMonoText, withoutBashEdits } from './render'
 import type { SetupStep } from './help'
 import { HINT, ISSUE_HINT, NARROW_PANE, narrowHint, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, THEME_PREVIEW, findSetup, helpText, languageShowcase, rtlShowcaseText, setupParts, setupSteps, setupText, showcaseText } from './help'
 import type { Pasted } from './paste'
@@ -387,14 +387,8 @@ const drawMarkdown = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['
   const { Button } = el
   const copy = (text: string | (() => string), key: string, label = '⧉ copy', rich?: (() => string) | 'png', hues?: () => Hues) => {
     const copied = (surface: RenderSurface) => copyOut($, style, typeof text === 'function' ? text() : text, surface, rich, hues?.())
-    return style.copyButtons && offers(style, rich) ? (
-      <Button
-        key={key}
-        variant="primary"
-        label={label}
-        onPress={async press => $.ui.toast(await copied(press.surface).catch(() => 'Copy failed'))}
-      />
-    ) : null
+    const onPress = async (press: { surface: RenderSurface }) => $.ui.toast(await copied(press.surface).catch(() => 'Copy failed'))
+    return style.copyButtons && offers(style, rich) ? rememberPress(<Button key={key} variant="primary" label={label} onPress={onPress} />, onPress) : null
   }
   const drawn = drawDiagrams(el, style, blocks, columns - markerRoom(style))
   const Image = 'Image' in el ? el.Image : null
@@ -419,7 +413,13 @@ const replyMarker = (el: ReturnType<EngineInterface['ui']['resolve']>, button: R
   const scope = `copy:${id === undefined ? '' : instanceKey(id)}:reply`
   return (
     <el.Box key="reply" position="absolute" bottom={0} right={-MARK} hover={{ scope }}>
-      <el.Text dimColor>⧉</el.Text>
+      {markPress(button) ? (
+        <el.Button key={`${scope}:mark`} plain onPress={markPress(button)!}>
+          <el.Text dimColor>⧉</el.Text>
+        </el.Button>
+      ) : (
+        <el.Text dimColor>⧉</el.Text>
+      )}
       <el.Box position="absolute" top={0} right={0} display="none" hover={{ scope, display: 'flex' }}>{button}</el.Box>
     </el.Box>
   )

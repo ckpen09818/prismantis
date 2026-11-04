@@ -1,4 +1,4 @@
-import type { ElementTable, RenderElement, RenderNode, TextHoverProps } from 'claude-code'
+import type { ElementTable, RenderElement, RenderNode, RenderSurface, TextHoverProps } from 'claude-code'
 
 import { figureText, isFigureLang } from './figure'
 import { tableHtml, tableText } from './html'
@@ -1178,6 +1178,17 @@ const holdsOnlyEmptyCode = (block: Block): boolean =>
 
 export const MARK = 2
 
+type PressHandler = (press: { surface: RenderSurface }) => unknown
+
+const pressOf = new WeakMap<object, PressHandler>()
+
+export const rememberPress = (button: RenderElement, onPress: PressHandler): RenderElement => {
+  pressOf.set(button, onPress)
+  return button
+}
+
+export const markPress = (button: RenderElement): PressHandler | undefined => pressOf.get(button)
+
 export const markerRoom = (style: Style): number => (style.copyButtons && style.copyButtonStyle === 'hover' ? MARK : 0)
 
 const codeLabel = (block: Extract<Block, { kind: 'code' }>): string => `── ${block.lang || 'code'}`
@@ -1201,7 +1212,7 @@ const markedRow = ({ Box }: ElementTable, key: string, element: RenderElement, f
 )
 
 export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], columns: number, drawn: Drawn = new Map(), copy?: CopyButton, fold?: Fold, tip?: Tip): RenderElement[] => {
-  const { Box, Text } = el
+  const { Box, Text, Button } = el
   const t = style.theme
   const hover = style.copyButtonStyle === 'hover'
   const reserved = (buttons: (RenderElement | null | undefined)[]): number =>
@@ -1216,7 +1227,17 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
     const scope = scopeOf(kept[0]!)
     return {
       needs: reserved(kept),
-      marker: <Box flexShrink={0} alignSelf={low ? 'flex-end' : 'flex-start'} hover={{ scope }}><Text dimColor>⧉</Text></Box>,
+      marker: (
+        <Box flexShrink={0} alignSelf={low ? 'flex-end' : 'flex-start'} hover={{ scope }}>
+          {markPress(kept[0]!) ? (
+            <Button key={`${scope}:mark`} plain onPress={markPress(kept[0]!)!}>
+              <Text dimColor>⧉</Text>
+            </Button>
+          ) : (
+            <Text dimColor>⧉</Text>
+          )}
+        </Box>
+      ),
       element: <Box position="absolute" {...(low ? { bottom: 0 } : { top: 0 })} {...(start ? { left: 0 } : { right: 0 })} display="none" hover={{ scope, display: 'flex' }}>{kept.flatMap((button, i) => (i ? [<Text key={`gap${i}`}> </Text>, button] : [button]))}</Box>,
     }
   }
