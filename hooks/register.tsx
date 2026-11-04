@@ -477,9 +477,7 @@ const replyMarker = (el: ReturnType<EngineInterface['ui']['resolve']>, style: St
   return (
     <el.Box key="reply" position="absolute" bottom={0} right={-MARK} hover={{ scope }}>
       {markPress(button) ? (
-        <el.Button key={`${scope}:mark`} plain onPress={markPress(button)!}>
-          <el.Text dimColor>⧉</el.Text>
-        </el.Button>
+        <el.Button key={`${scope}:mark`} plain dimColor label="⧉" onPress={markPress(button)!} />
       ) : (
         <el.Text dimColor>⧉</el.Text>
       )}

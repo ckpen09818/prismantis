@@ -283,7 +283,7 @@ const floatingCopies = async (ui: { findAll: (query: { type: string }) => Promis
 type DrawnNode = { type?: string; props?: Record<string, unknown>; hover?: { scope?: string; display?: string }; children?: unknown[] }
 const drawnKids = (node: DrawnNode) => (node.children ?? []).filter((child): child is DrawnNode => !!child && typeof child === 'object')
 const withParents = (node: DrawnNode, parent?: DrawnNode): { node: DrawnNode; parent?: DrawnNode }[] => [{ node, parent }, ...drawnKids(node).flatMap(child => withParents(child, node))]
-const shownText = (node: DrawnNode): string => (node.children ?? []).map(child => (typeof child === 'string' ? child : child && typeof child === 'object' ? shownText(child as DrawnNode) : '')).join('')
+const shownText = (node: DrawnNode): string => node.type === 'Button' && node.props?.plain === true ? String(node.props.label ?? '') : (node.children ?? []).map(child => (typeof child === 'string' ? child : child && typeof child === 'object' ? shownText(child as DrawnNode) : '')).join('')
 const holdsButton = (node: DrawnNode): boolean => node.type === 'Button' || drawnKids(node).some(holdsButton)
 const inFlow = (node: DrawnNode) => node.props?.position !== 'absolute'
 const reveals = (tree: DrawnNode) => withParents(tree).filter(({ node }) => holdsButton(node) && node.props?.position === 'absolute' && node.props.display === 'none')
@@ -377,11 +377,11 @@ for (const surface of SURFACES) test(`copyButtonStyle hover gives every block wi
   const text = '| a |\n|---|\n| 1 |\n\n```\nx\n```\n\n- y\n\n> z\n\n> [!NOTE]\n> w\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\nplain'
   const ui = await $.ui.mount({ ...draw(text), surface })
   const tree = (await ui.drawn()) as DrawnNode
-  const marks = withParents(tree).filter(({ node }) => node.type === 'Text' && shownText(node) === '⧉')
+  const marks = withParents(tree).filter(({ node }) => (node.type === 'Text' || node.type === 'Button') && shownText(node) === '⧉')
   expect(marks).toHaveLength(7)
   for (const { node } of marks) expect(node.props?.dimColor).toBe(true)
   const all = withParents(tree)
-  const blocks = marks.map(({ parent }) => all.find(({ node }) => node === parent)!.parent!).filter(box => !box.hover?.scope?.endsWith(':reply'))
+  const blocks = marks.map(({ parent }) => parent!).filter(box => !box.hover?.scope?.endsWith(':reply'))
   expect(blocks).toHaveLength(6)
   for (const box of blocks) expect({ scoped: box.hover?.scope !== undefined, flows: inFlow(box) }).toEqual({ scoped: true, flows: true })
   for (const key of ['c0', 'c2', 'c3', 'c4', 'c5']) expect(((await ui.find({ key }))?.children[0] as DrawnNode).props?.columnGap).toBe(1)

@@ -1304,9 +1304,7 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
       marker: (
         <Box flexShrink={0} alignSelf={low ? 'flex-end' : 'flex-start'} hover={{ scope }}>
           {markPress(kept[0]!) ? (
-            <Button key={`${scope}:mark`} plain onPress={markPress(kept[0]!)!}>
-              <Text dimColor>⧉</Text>
-            </Button>
+            <Button key={`${scope}:mark`} plain dimColor label="⧉" onPress={markPress(kept[0]!)!} />
           ) : (
             <Text dimColor>⧉</Text>
           )}
