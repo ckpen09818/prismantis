@@ -52,4 +52,4 @@ claude plugin validate . && claude plugin test .
 
 ## 已併入的獨立 mod
 
-`image-inline`（Claude Code session 開發資料夾裡的獨立 mod）的功能已併入為功能 11。舊 mod 需要停用，否則兩邊都會畫縮圖；它放在 session 的 `dev-mods` 資料夾，由使用者決定何時移除。
+`image-inline`（原本放在 Claude Code session 開發資料夾裡的獨立 mod）的功能已併入為功能 11，舊 mod 已於 2026-11-04 刪除。
