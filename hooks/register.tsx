@@ -477,7 +477,7 @@ const replyMarker = (el: ReturnType<EngineInterface['ui']['resolve']>, style: St
   return (
     <el.Box key="reply" position="absolute" bottom={0} right={-MARK} hover={{ scope }}>
       {markPress(button) ? (
-        <el.Button key={`${scope}:mark`} plain dimColor label="⧉" onPress={markPress(button)!} />
+        <el.Button key={`${scope}:mark`} plain dimColor label="⧉ " onPress={markPress(button)!} />
       ) : (
         <el.Text dimColor>⧉</el.Text>
       )}
@@ -621,7 +621,7 @@ const copySample = (el: ReturnType<EngineInterface['ui']['resolve']>, style: Sty
   const table = renderBlocks(el, style, parse(SETUP_TABLE, { numbers: style.highlightNumbers, paths: style.highlightPaths }), columns, new Map(), label)
   return [
     <el.Box key={`${id}t`} flexDirection="column">{table}</el.Box>,
-    ...(value === 'hover' ? [<el.Text key={`${id}h`} dimColor>{'Its buttons show only while the pointer is on its ⧉.'}</el.Text>] : []),
+    ...(value === 'hover' ? [<el.Text key={`${id}h`} dimColor>{'Its buttons show only while the pointer is on its ⧉.'}</el.Text>] : style.copyButtonStyle === 'hover' && !style.copyPopup ? [<el.Text key={`${id}h`} dimColor>{'Nothing shows on hover; press its ⧉ to copy.'}</el.Text>] : []),
   ]
 }
 
@@ -695,7 +695,7 @@ const drawSetup = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['res
   }
   const sample = (style: Style, value: string, id: string): RenderElement[] => samples[key]?.(style, value, id) ?? []
   const picks = found.parts.options.map(({ value, text }, i) => {
-    const style = key === 'theme' ? { ...base, theme: resolveStyle({ ...options, theme: value }).theme } : { ...base, [key]: value }
+    const style = key === 'theme' ? { ...base, theme: resolveStyle({ ...options, theme: value }).theme } : key === 'copyButtonStyle' && value === 'click' ? { ...base, copyButtonStyle: 'hover' as const, copyPopup: false } : { ...base, [key]: value }
     return <el.Box key={`o${i}`} flexDirection="column">{md(style, text, 'm')}{sample(style, value, 'x')}</el.Box>
   })
   return [...(found.before ? [md(base, found.before, 'before')] : []), md(base, found.parts.head, 'head'), ...picks, md(base, found.parts.tail, 'tail')]

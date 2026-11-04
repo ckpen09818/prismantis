@@ -1249,7 +1249,7 @@ const opensWithCopy = (block: Block): boolean =>
 const holdsOnlyEmptyCode = (block: Block): boolean =>
   block.kind === 'quote' && block.blocks.length === 1 && ((block.blocks[0]!.kind === 'code' && block.blocks[0]!.lines.length === 0) || holdsOnlyEmptyCode(block.blocks[0]!))
 
-export const MARK = 2
+export const MARK = 3
 
 type PressHandler = (press: { surface: RenderSurface }) => unknown
 
@@ -1304,7 +1304,7 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
       marker: (
         <Box flexShrink={0} alignSelf={low ? 'flex-end' : 'flex-start'} hover={{ scope }}>
           {markPress(kept[0]!) ? (
-            <Button key={`${scope}:mark`} plain dimColor label="⧉" onPress={markPress(kept[0]!)!} />
+            <Button key={`${scope}:mark`} plain dimColor label="⧉ " onPress={markPress(kept[0]!)!} />
           ) : (
             <Text dimColor>⧉</Text>
           )}

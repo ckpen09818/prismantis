@@ -306,7 +306,7 @@ for (const surface of SURFACES) test(`copyButtonStyle hover hides every copy but
   for (const { node } of reveals(tree)) {
     const scope = node.hover?.scope ?? ''
     expect(node.hover).toEqual({ scope, display: 'flex' })
-    expect(markersOf(tree, scope).map(({ node: marker }) => ({ text: shownText(marker), flows: inFlow(marker) }))).toEqual([{ text: '⧉', flows: !scope.endsWith(':reply') }])
+    expect(markersOf(tree, scope).map(({ node: marker }) => ({ text: shownText(marker), flows: inFlow(marker) }))).toEqual([{ text: '⧉ ', flows: !scope.endsWith(':reply') }])
   }
   await ui.press({ key: 'copy1' })
   expect(copied).toEqual(['ls -la'])
@@ -377,7 +377,7 @@ for (const surface of SURFACES) test(`copyButtonStyle hover gives every block wi
   const text = '| a |\n|---|\n| 1 |\n\n```\nx\n```\n\n- y\n\n> z\n\n> [!NOTE]\n> w\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\nplain'
   const ui = await $.ui.mount({ ...draw(text), surface })
   const tree = (await ui.drawn()) as DrawnNode
-  const marks = withParents(tree).filter(({ node }) => (node.type === 'Text' || node.type === 'Button') && shownText(node) === '⧉')
+  const marks = withParents(tree).filter(({ node }) => (node.type === 'Text' || node.type === 'Button') && shownText(node).trim() === '⧉')
   expect(marks).toHaveLength(7)
   for (const { node } of marks) expect(node.props?.dimColor).toBe(true)
   const all = withParents(tree)
@@ -401,11 +401,11 @@ for (const surface of SURFACES) test(`copyButtonStyle hover puts the reply's ⧉
   for (const text of [COPY_SAMPLE, 'שלום עולם']) {
     const ui = await $.ui.mount({ ...draw(text), surface })
     const anchor = await ui.find({ key: 'reply' })
-    expect({ position: anchor?.props.position, bottom: anchor?.props.bottom, right: anchor?.props.right, text: anchor?.text }).toEqual({ position: 'absolute', bottom: 0, right: -2, text: '⧉⧉ copy reply' })
+    expect({ position: anchor?.props.position, bottom: anchor?.props.bottom, right: anchor?.props.right, text: anchor?.text }).toEqual({ position: 'absolute', bottom: 0, right: -3, text: '⧉ ⧉ copy reply' })
     const reveal = (anchor?.children ?? []).find((child): child is DrawnNode => !!child && typeof child === 'object' && (child as DrawnNode).props?.display === 'none')
     expect({ top: reveal?.props?.top, right: reveal?.props?.right }).toEqual({ top: 0, right: 0 })
     const row = drawnKids((await ui.drawn()) as DrawnNode)
-    expect({ width: row.at(-1)?.props?.width, children: row.at(-1)?.children ?? [] }).toEqual({ width: 2, children: [] })
+    expect({ width: row.at(-1)?.props?.width, children: row.at(-1)?.children ?? [] }).toEqual({ width: 3, children: [] })
     await ui.unmount()
   }
 })

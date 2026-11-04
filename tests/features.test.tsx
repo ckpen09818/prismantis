@@ -1237,7 +1237,7 @@ test('a bubble keeps the hover ⧉ gutter inside its frame, so the ⧉ never lan
   const ui = await $.ui.mount(answer('## Plan\n\nShip it.'))
   const frame = (await ui.findAll({ type: 'Box' })).find(b => b.props.borderStyle === 'round')
   const row = frame?.children?.find((child): child is NonNullable<typeof frame> => !!child && typeof child === 'object')
-  expect(row?.children?.at(-1)).toMatchObject({ props: { width: 2, flexShrink: 0 } })
+  expect(row?.children?.at(-1)).toMatchObject({ props: { width: 3, flexShrink: 0 } })
   await ui.unmount()
 })
 
@@ -2802,7 +2802,7 @@ test('/prismantis setup walks every step, saves each pick through config, and ca
   })
   const steps = setupSteps(PRESET_NAMES)
   expect(steps.map(s => s.key)).toEqual(['theme', 'tableStyle', 'taskStyle', 'listMarker', 'headingStyle', 'copyButtonStyle', 'promptStyle', 'promptSide', 'replyStyle', 'bubbleLabels', 'clock', 'toolStyle', 'toolOutput', 'diffStyle', 'pieStyle'])
-  for (const step of steps.slice(1)) for (const value of step.options) expect(resolveStyle({ [step.key]: value })[step.key]).toBe(value)
+  for (const step of steps.slice(1)) for (const value of step.options) expect(resolveStyle({ [step.key]: value })[step.key]).toBe(value === 'click' ? 'hover' : value)
   expect(steps[0]!.options).toEqual(PRESET_NAMES)
   expect(steps.find(s => s.key === 'copyButtonStyle')?.note).toContain('`hover` puts a dim ⧉ beside each block instead and shows its buttons only while the pointer is on that ⧉')
   expect((await setupRun($, 'setup')).text).toBe(SETUP_PANE_OPENED)
@@ -3078,9 +3078,9 @@ test('/prismantis setup draws each sample in its own style', async $ => {
   expect((await headings.findAll({ type: 'Text', text: /^Fixes$/ })).filter(t => t.props.underline)).toHaveLength(1)
   await headings.unmount()
   const copy = await mount(5)
-  expect(await copy.findAll({ type: 'Text', text: /^\[ ⧉ md \]$/ })).toHaveLength(2)
-  expect((await copy.findAll({ type: 'Box' })).filter(b => b.props.display === 'none').map(b => b.text)).toEqual(['[ ⧉ md ] [ ⧉ art ]'])
-  expect((await copy.findAll({ type: 'Text', text: /^⧉$/ })).map(t => t.props.dimColor)).toEqual([true])
+  expect(await copy.findAll({ type: 'Text', text: /^\[ ⧉ md \]$/ })).toHaveLength(3)
+  expect((await copy.findAll({ type: 'Box' })).filter(b => b.props.display === 'none').map(b => b.text)).toEqual(['[ ⧉ md ] [ ⧉ art ]', '[ ⧉ md ] [ ⧉ art ]'])
+  expect((await copy.findAll({ type: 'Text', text: /^⧉$/ })).map(t => t.props.dimColor)).toEqual([true, true])
   expect(await copy.findAll({ type: 'Text', text: /^Its buttons show only while the pointer is on its ⧉\.$/ })).toHaveLength(1)
   expect(await copy.findAll({ type: 'Button' })).toHaveLength(0)
   await copy.unmount()
@@ -3242,4 +3242,9 @@ test('a narrow pane adds its width to the render hint, a wide one does not', asy
   }
   expect(seen[0]?.some(c => c.includes('70 columns'))).toBe(true)
   expect(seen[1]?.some(c => c.includes('columns wide')) ?? false).toBe(false)
+})
+
+test('copyButtonStyle click is hover with no popup, set from the setup page', async () => {
+  expect(resolveStyle({ copyButtonStyle: 'click' })).toMatchObject({ copyButtonStyle: 'hover', copyPopup: false })
+  expect(resolveStyle({ copyButtonStyle: 'hover' })).toMatchObject({ copyButtonStyle: 'hover', copyPopup: true })
 })
