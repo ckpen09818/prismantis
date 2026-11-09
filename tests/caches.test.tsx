@@ -13,6 +13,14 @@ test('a cached entry read again outlives newer ones', async () => {
   expect(cache.size).toBe(3)
 })
 
+test('a streaming reply keeps a bounded number of characters cached, not its last 200 prefixes', async () => {
+  const cache = new Map<string, number>()
+  const reply = 'word '.repeat(20000)
+  for (let end = 100; end <= reply.length; end += 100) remember(cache, reply.slice(0, end), () => end)
+  expect([...cache.keys()].reduce((sum, key) => sum + key.length, 0)).toBeLessThanOrEqual(1000000)
+  expect(cache.get(reply)).toBe(reply.length)
+})
+
 test('the terminal is looked up once, not on every prompt', async ($, on) => {
   const reads: string[] = []
   on('env.get', (_, e) => {
@@ -42,4 +50,22 @@ test('only the 500 most recently expanded tool calls stay expanded', async ($, o
   }
   expect(await isEngine('bounded-500')).toBe(true)
   expect(await isEngine('bounded-0')).toBe(false)
+})
+
+test('a cache miss in a full cache reads a few keys, not all 2000', async () => {
+  let reads = 0
+  class Counted extends Map<string, number> {
+    override *keys(): MapIterator<string> {
+      for (const key of super.keys()) {
+        reads++
+        yield key
+      }
+    }
+  }
+  const cache = new Counted()
+  for (let i = 0; i < 2500; i++) remember(cache, `paragraph ${i}`, () => i, 2000)
+  reads = 0
+  remember(cache, 'one more paragraph', () => 0, 2000)
+  expect(reads).toBeLessThan(10)
+  expect(cache.size).toBe(2000)
 })

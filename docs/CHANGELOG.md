@@ -2,6 +2,118 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.45.3] - 2026-11-08
+
+Bug fixes from a third QA round and two reports.
+
+### Fixed
+
+- ▣ png and ⧉ html copy work on Macs whose security agent kills long `osascript -e` scripts. Thanks @arykhoda for the repro and the test ([#407](https://github.com/NahumLitvin/prismantis/pull/407)).
+- With `surfaces` limited to the terminal, prompts from the desktop app no longer ask Claude for figures and fenced copy blocks. Thanks @KryptoShrimp ([#476](https://github.com/NahumLitvin/prismantis/pull/476)).
+- A line holding only `<br>` is a line break again, as before 0.45.1 ([#463](https://github.com/NahumLitvin/prismantis/pull/463)).
+- Long Hebrew replies draw as fast as in 0.44.0 ([#464](https://github.com/NahumLitvin/prismantis/pull/464)).
+- `/prismantis copy` waits its turn behind a copy button pressed just before it, and a mistyped target says so instead of copying the whole reply ([#465](https://github.com/NahumLitvin/prismantis/pull/465)).
+- A table with an empty column of only `<br>` draws as a table instead of the whole reply going plain ([#466](https://github.com/NahumLitvin/prismantis/pull/466)).
+- A link whose label names another site anywhere in it shows its real target ([#467](https://github.com/NahumLitvin/prismantis/pull/467)).
+- Hebrew inside a display formula reads right to left like the text around it ([#468](https://github.com/NahumLitvin/prismantis/pull/468)).
+- `` `name` `` draws as `name`, without its padding spaces ([#469](https://github.com/NahumLitvin/prismantis/pull/469)).
+- Holding an arrow key in `/prismantis setup` walks through every style, and setup samples fit the room beside the list ([#470](https://github.com/NahumLitvin/prismantis/pull/470), [#471](https://github.com/NahumLitvin/prismantis/pull/471)).
+
+## [0.45.2] - 2026-11-07
+
+### Changed
+
+- The bundled Prism and beautiful-mermaid code ships with its real names instead of mangled ones, so anyone auditing the plugin can read it. Nothing draws differently ([#409](https://github.com/NahumLitvin/prismantis/pull/409)).
+
+## [0.45.1] - 2026-11-07
+
+Bug and performance fixes from a second QA round.
+
+### Fixed
+
+- A long streamed reply holds about 24 MB of cache instead of 260 MB ([#453](https://github.com/NahumLitvin/prismantis/pull/453)).
+- A JS or TS block holding a very long word, like a JWT, draws at once as plain code instead of freezing the screen ([#451](https://github.com/NahumLitvin/prismantis/pull/451)).
+- A very long reply keeps its copy reply button and ends on a clear note ([#452](https://github.com/NahumLitvin/prismantis/pull/452)).
+- Formulas, send times, the unread blink and prompt hints survive a busy redraw ([#450](https://github.com/NahumLitvin/prismantis/pull/450)).
+- Big tables copy as PNG on the first press, and PNG bars and pies have no seams ([#449](https://github.com/NahumLitvin/prismantis/pull/449)).
+- The last copy button you press is what ends up on the clipboard ([#446](https://github.com/NahumLitvin/prismantis/pull/446)).
+- ⧉ art of a Hebrew table pastes in screen order, and mono PNG copies draw faint rules and gridlines ([#445](https://github.com/NahumLitvin/prismantis/pull/445), [#447](https://github.com/NahumLitvin/prismantis/pull/447)).
+- A quote under a list item draws as a quote ([#454](https://github.com/NahumLitvin/prismantis/pull/454)).
+- `&copy;`, `&mdash;` and other common entities draw as symbols, negative numbers are colored whole, and `<https://…>` autolinks lose their brackets ([#448](https://github.com/NahumLitvin/prismantis/pull/448)).
+- Backslash escapes and links with a title draw as on GitHub ([#455](https://github.com/NahumLitvin/prismantis/pull/455)).
+- Setext headings draw as headings, and HTML tag lines with attributes draw dim ([#458](https://github.com/NahumLitvin/prismantis/pull/458)).
+- Flowcharts deeper than 25 levels draw, and the too-wide note says how many columns fit ([#456](https://github.com/NahumLitvin/prismantis/pull/456)).
+- No gap above a pasted prompt, its label says "1 line", and a wrapping prompt keeps the space after its 12h send time ([#457](https://github.com/NahumLitvin/prismantis/pull/457), [#444](https://github.com/NahumLitvin/prismantis/pull/444)).
+
+## [0.45.0] - 2026-11-06
+
+A hardening release from two code reviews, an end-to-end bug hunt in real terminals and a QA pass.
+
+### Changed
+
+- A file path with no extension, like `/bin/sh` or `Makefile`, no longer becomes a clickable link, so a click can't launch a program. Folders without an extension still link once prismantis sees they are folders ([#424](https://github.com/NahumLitvin/prismantis/pull/424), [#440](https://github.com/NahumLitvin/prismantis/pull/440)).
+- A link whose label names one site but goes to another draws as `label (target)`, also for lookalikes with markup, odd dots or hidden characters, and links in your own prompt get the same checks ([#427](https://github.com/NahumLitvin/prismantis/pull/427), [#438](https://github.com/NahumLitvin/prismantis/pull/438), [#436](https://github.com/NahumLitvin/prismantis/pull/436)).
+- An opened code block over 400 lines shows its first 400 and a `… +N lines` note, and a reply too big for Claude Code shows the rest as dim markdown ending in `… +N lines · /prismantis copy for the whole reply`, instead of falling back to Claude Code's own drawing. Copy still gives everything ([#417](https://github.com/NahumLitvin/prismantis/pull/417), [#419](https://github.com/NahumLitvin/prismantis/pull/419), [#437](https://github.com/NahumLitvin/prismantis/pull/437)).
+- Copying an alert gives its text without the `[!TYPE]` line, and `/prismantis copy code` skips diagrams ([#421](https://github.com/NahumLitvin/prismantis/pull/421)).
+- Hebrew tables copy to PNG and HTML in the order you see them ([#420](https://github.com/NahumLitvin/prismantis/pull/420)).
+
+### Fixed
+
+- A stray terminal escape in a reply no longer erases everything after it, and escapes in tool commands and errors are stripped instead of making the row fall back ([#414](https://github.com/NahumLitvin/prismantis/pull/414), [#426](https://github.com/NahumLitvin/prismantis/pull/426)).
+- `&amp;`, `&lt;` and numeric entities show as `&`, `<` and the character, and no longer get escaped twice in the HTML copy ([#412](https://github.com/NahumLitvin/prismantis/pull/412)).
+- Two trailing spaces or a backslash break a line inside list items too ([#413](https://github.com/NahumLitvin/prismantis/pull/413)).
+- Broken or very deep display math shows as source instead of misleading text or a crash ([#416](https://github.com/NahumLitvin/prismantis/pull/416)).
+- Very long table cells, runs of unclosed `$$` lines and long folded code blocks no longer slow drawing down ([#415](https://github.com/NahumLitvin/prismantis/pull/415), [#418](https://github.com/NahumLitvin/prismantis/pull/418)).
+- Light themes on a dark terminal draw readable reply text, and `mono` draws alerts without color ([#429](https://github.com/NahumLitvin/prismantis/pull/429), [#430](https://github.com/NahumLitvin/prismantis/pull/430)).
+- `promptStyle: bar` runs down the whole prompt, and the `wide` description matches what it draws ([#432](https://github.com/NahumLitvin/prismantis/pull/432), [#431](https://github.com/NahumLitvin/prismantis/pull/431)).
+- Deep lists stop indenting at half the width, so every level shows its text ([#433](https://github.com/NahumLitvin/prismantis/pull/433)).
+- `/prismantis setup` keeps the focused style visible in a short, narrow terminal ([#434](https://github.com/NahumLitvin/prismantis/pull/434)).
+- Under Ctrl+O, failed calls in quiet mode expand, and a command's output shows once ([#435](https://github.com/NahumLitvin/prismantis/pull/435), [#439](https://github.com/NahumLitvin/prismantis/pull/439)).
+- Short `#abc` colors in options tint like six-digit ones ([#422](https://github.com/NahumLitvin/prismantis/pull/422)).
+- Chart gridlines stay dim in a PNG copy ([#420](https://github.com/NahumLitvin/prismantis/pull/420)).
+- Fewer file system checks per turn, and LaTeX and image caches are bounded by size ([#425](https://github.com/NahumLitvin/prismantis/pull/425), [#423](https://github.com/NahumLitvin/prismantis/pull/423)).
+
+## [0.44.0] - 2026-11-06
+
+### Added
+
+- New option `codeStyle` draws code blocks `plain`, `framed`, `filled` or `card`, with `codeBorderColor` and `codeFillColor`, and a `Code blocks` step in `/prismantis setup`. The default stays `plain`. Thanks @zarcell ([#405](https://github.com/NahumLitvin/prismantis/pull/405)).
+- `promptStyle` gains `framed`, a frame around your prompt with no fill, also a setup step. The default stays `bubble`. Thanks @zarcell ([#404](https://github.com/NahumLitvin/prismantis/pull/404)).
+
+### Changed
+
+- Highlighted code draws with about half the elements, so scrolling past long code blocks costs less. Nothing looks different. Thanks @Nanako0129 ([#406](https://github.com/NahumLitvin/prismantis/pull/406)).
+
+### Fixed
+
+- Two trailing spaces or a trailing backslash break a paragraph line, as in CommonMark, and a Hebrew paragraph keeps its broken lines in order. Thanks @arykhoda for the report ([#408](https://github.com/NahumLitvin/prismantis/pull/408)).
+- An untagged code block holding a box diagram draws as one plain block instead of switching to shell colors line by line. Thanks @berkay8987 ([#394](https://github.com/NahumLitvin/prismantis/pull/394)).
+- A blank line between two lines of your prompt stays in the prompt bubble. Thanks @berkay8987 ([#402](https://github.com/NahumLitvin/prismantis/pull/402)).
+
+## [0.43.0] - 2026-11-05
+
+### Changed
+
+- Copy buttons draw dim by default, as bare `⧉ md ⧉ art` labels that light up under the pointer or the focus, so they stop pulling the eye from the reply. `copyButtonStyle` gains `dim` as its new default; set it to `inline` for the accent-colored `[ ⧉ md ]` buttons as before. Older Claude Code versions draw the dim labels in plain white. Thanks @zarcell ([#387](https://github.com/NahumLitvin/prismantis/pull/387)).
+- Installs and updates download a zip of the plugin folder, pinned by its SHA-256, instead of cloning the whole repository, and need no git. The install commands are the same ([#392](https://github.com/NahumLitvin/prismantis/pull/392), [#393](https://github.com/NahumLitvin/prismantis/pull/393)).
+- The plugin gets an icon, and its README says what prismantis runs, reads and changes on your machine ([#391](https://github.com/NahumLitvin/prismantis/pull/391)).
+
+### Fixed
+
+- In the Claude Code desktop app your own prompts draw with `promptStyle`, as in the terminal, and the bubble fits its text. Thanks @berkay8987 ([#385](https://github.com/NahumLitvin/prismantis/pull/385)).
+
+## [0.42.0] - 2026-11-04
+
+### Added
+
+- PHP code blocks are highlighted, and a `.php` path resolves to the grammar. Thanks @chrislacey89 ([#373](https://github.com/NahumLitvin/prismantis/pull/373)).
+- With BBilingual installed, a translation starts on its own line in the colour set by `BBILINGUAL_STYLE`. Other line breaks inside a paragraph still join as before. Thanks @buaazp ([#368](https://github.com/NahumLitvin/prismantis/pull/368)).
+
+### Fixed
+
+- A figure role written as a closing tag, like `{ok}text{/ok}`, draws in colour and no longer counts toward the line's width. Thanks @berkay8987 ([#377](https://github.com/NahumLitvin/prismantis/pull/377)).
+- Installing from the marketplace works on a machine without a GitHub SSH key ([#379](https://github.com/NahumLitvin/prismantis/pull/379)).
+
 ## [0.41.0] - 2026-11-03
 
 ### Added

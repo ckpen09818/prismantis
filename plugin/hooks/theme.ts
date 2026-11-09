@@ -6,8 +6,8 @@ import { PRESET_BACKGROUNDS, PRESET_NAMES, PRESETS } from './presets'
 import type { Shape, Terminal } from './rtl'
 import { TERMINALS } from './rtl'
 
-export const TOKENS = [
-  'accent', 'heading', 'strong', 'emphasis', 'inlineCode', 'codeText', 'codeCommand', 'codeFlag', 'codeString', 'codeComment',
+const TOKENS = [
+  'accent', 'heading', 'strong', 'emphasis', 'inlineCode', 'codeText', 'codeCommand', 'codeFlag', 'codeString', 'codeComment', 'codeFill', 'codeBorder',
   'link', 'path', 'number', 'quote', 'rule', 'tableHeader', 'tableRule', 'tableText', 'bullet', 'diagram', 'diagramText', 'diffAdded', 'diffRemoved', 'promptFill', 'promptBorder', 'promptText', 'replyFill', 'alertNote', 'alertTip', 'alertImportant', 'alertWarning', 'alertCaution', 'replyBorder', 'pngBackground',
 ] as const
 
@@ -22,7 +22,7 @@ export type Style = {
   tableStyle: 'box' | 'rules' | 'grid' | 'minimal'
   taskStyle: 'checks' | 'ticks' | 'box' | 'progress'
   listMarker: 'dots' | 'dash'
-  promptStyle: 'bubble' | 'wide' | 'bar' | 'chevron' | 'off'
+  promptStyle: 'bubble' | 'framed' | 'wide' | 'bar' | 'chevron' | 'off'
   replyStyle: 'auto' | 'bubble' | 'solid' | 'framed' | 'off'
   bubbleLabels: 'large' | 'small' | 'off'
   clock: Clock
@@ -32,10 +32,12 @@ export type Style = {
   dotDark?: boolean
   unreadPrompts: boolean
   narration?: boolean
+  ink?: string
   inside?: 'quote' | 'alert'
   noteKey?: string
   pressPreview?: boolean
   diffStyle: 'card' | 'full' | 'marks' | 'bar'
+  codeStyle: 'plain' | 'framed' | 'filled' | 'card'
   pieStyle: 'round' | 'bars'
   highlightNumbers: boolean
   surfaces?: RenderSurface[]
@@ -44,7 +46,7 @@ export type Style = {
   mermaidAscii: boolean
   copyButtons: boolean
   folds: 'closed' | 'open'
-  copyButtonStyle: 'inline' | 'hover'
+  copyButtonStyle: 'dim' | 'inline' | 'hover'
   textCopyButtons: boolean
   htmlCopy: ClipboardBackend | null
   images: boolean
@@ -70,7 +72,9 @@ export type Style = {
 
 const COLOR = /^(#[0-9a-f]{3}|#[0-9a-f]{6}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)|ansi256\(\d{1,3}\)|(black|red|green|yellow|blue|magenta|cyan|white|gray|grey)(Bright)?)$/i
 
-export const isColor = (value: unknown): value is string => typeof value === 'string' && COLOR.test(value.trim())
+const isColor = (value: unknown): value is string => typeof value === 'string' && COLOR.test(value.trim())
+
+export const longHex = (color: string): string => color.replace(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i, '#$1$1$2$2$3$3')
 
 const SURFACES: RenderSurface[] = ['terminal', 'desktop', 'vscode', 'mobile']
 
@@ -93,7 +97,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
   const preset = (PRESET_NAMES as string[]).includes(String(options.theme)) ? (String(options.theme) as PresetName) : 'catppuccin-mocha'
   const base: Theme = PRESETS[preset]
   const fromFields = Object.fromEntries(
-    TOKENS.filter(k => isColor(options[`${k}Color`])).map(k => [k, String(options[`${k}Color`]).trim()]),
+    TOKENS.filter(k => isColor(options[`${k}Color`])).map(k => [k, longHex(String(options[`${k}Color`]).trim())]),
   )
 
   const rtl = pick(options.rtl, ['auto', 'off', ...(Object.keys(TERMINALS) as Terminal[])], 'auto')
@@ -105,7 +109,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
     tableStyle: pick(options.tableStyle, ['box', 'rules', 'grid', 'minimal'] as const, 'box'),
     taskStyle: pick(options.taskStyle, ['checks', 'ticks', 'box', 'progress'] as const, 'checks'),
     listMarker: pick(options.listMarker, ['dots', 'dash'] as const, 'dots'),
-    promptStyle: pick(options.promptStyle, ['bubble', 'wide', 'bar', 'chevron', 'off'] as const, 'bubble'),
+    promptStyle: pick(options.promptStyle, ['bubble', 'framed', 'wide', 'bar', 'chevron', 'off'] as const, 'bubble'),
     replyStyle: pick(options.replyStyle, ['auto', 'bubble', 'solid', 'framed', 'off'] as const, 'auto'),
     bubbleLabels: pick(options.bubbleLabels, ['large', 'small', 'off'] as const, 'large'),
     clock: pick(options.clock, ['off', '24h', '12h'] as const, 'off'),
@@ -114,6 +118,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
     runningDot: pick(options.runningDot, ['ring', 'blink'] as const, 'ring'),
     unreadPrompts: options.unreadPrompts === true,
     diffStyle: pick(options.diffStyle, ['card', 'full', 'marks', 'bar'] as const, 'card'),
+    codeStyle: pick(options.codeStyle, ['plain', 'framed', 'filled', 'card'] as const, 'plain'),
     pieStyle: pick(options.pieStyle, ['round', 'bars'] as const, 'round'),
     highlightNumbers: options.highlightNumbers !== false,
     surfaces: surfacesOf(options.surfaces),
@@ -122,7 +127,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
     mermaidAscii: options.mermaidAscii === true,
     copyButtons: options.copyButtons !== false,
     folds: pick(options.folds, ['closed', 'open'] as const, 'closed'),
-    copyButtonStyle: pick(options.copyButtonStyle, ['inline', 'hover'] as const, 'inline'),
+    copyButtonStyle: pick(options.copyButtonStyle, ['dim', 'inline', 'hover'] as const, 'dim'),
     textCopyButtons: options.textCopyButtons !== false,
     htmlCopy: null,
     images: false,

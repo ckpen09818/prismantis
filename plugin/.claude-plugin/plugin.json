@@ -1,6 +1,6 @@
 {
   "name": "prismantis",
-  "version": "0.41.0",
+  "version": "0.45.3",
   "description": "Colorful, themeable rendering for Claude Code replies: tables, headings, code, numbers, paths and links.",
   "author": {
     "name": "Nahum Litvin",
@@ -84,9 +84,9 @@
     "promptStyle": {
       "type": "string",
       "title": "Your prompt style",
-      "description": "How the prompts you type draw in the transcript. bubble: on the right like a chat app, under You ⬤, in a rounded frame of the theme's green on a deep green fill, with Claude's replies in a bubble of their own while replyStyle is auto. wide: a rounded accent box across the full width, a divider between turns. bar: an accent bar on the left. chevron: a bold accent › before the text. off: Claude Code's own look.",
+      "description": "How the prompts you type draw in the transcript. bubble: on the right like a chat app, under You ⬤, in a rounded frame of the theme's green on a deep green fill, with Claude's replies in a bubble of their own while replyStyle is auto. framed: the same with no fill. wide: a rounded accent box across the full width. bar: an accent bar on the left. chevron: a bold accent › before the text. off: Claude Code's own look.",
       "default": "bubble",
-      "options": ["bubble", "wide", "bar", "chevron", "off"]
+      "options": ["bubble", "framed", "wide", "bar", "chevron", "off"]
     },
     "replyStyle": {
       "type": "string",
@@ -312,6 +312,18 @@
       "description": "Color for # comments in shell blocks. Hex, rgb(), ansi256() or a name. Empty uses the theme.",
       "default": ""
     },
+    "codeFillColor": {
+      "type": "string",
+      "title": "Code block fill",
+      "description": "Background of code blocks with codeStyle filled or card. Hex, rgb(), ansi256() or a name. Empty uses a shade a step off the background.",
+      "default": ""
+    },
+    "codeBorderColor": {
+      "type": "string",
+      "title": "Code block frame",
+      "description": "Frame of code blocks with codeStyle framed or card. Hex, rgb(), ansi256() or a name. Empty uses the rule color.",
+      "default": ""
+    },
     "ruleColor": {
       "type": "string",
       "title": "Rules",
@@ -345,13 +357,13 @@
     "promptBorderColor": {
       "type": "string",
       "title": "Your bubble frame",
-      "description": "Frame and You ⬤ label of your prompts with promptStyle bubble, and the hue of its default fill. Hex, rgb(), ansi256() or a name. Empty uses the theme's green (the diff added color).",
+      "description": "Frame and You ⬤ label of your prompts with promptStyle bubble or framed, and the hue of its default fill. Hex, rgb(), ansi256() or a name. Empty uses the theme's green (the diff added color).",
       "default": ""
     },
     "promptTextColor": {
       "type": "string",
       "title": "Your bubble text",
-      "description": "Text of your prompts with promptStyle bubble. Hex, rgb(), ansi256() or a name. Empty uses the heading color, or the code text color where the heading color would not read on the fill.",
+      "description": "Text of your prompts with promptStyle bubble or framed. Hex, rgb(), ansi256() or a name. Empty uses the heading color, or the code text color where the heading color would not read on the fill.",
       "default": ""
     },
     "replyFillColor": {
@@ -409,6 +421,13 @@
       "default": "card",
       "options": ["card", "full", "marks", "bar"]
     },
+    "codeStyle": {
+      "type": "string",
+      "title": "Code block style",
+      "description": "How code blocks draw in the terminal. plain: no frame, so a mouse selection copies only the code. framed: a rounded box. filled: a background, or the box in a theme with no colors to fill with. card: a rounded box on a background.",
+      "default": "plain",
+      "options": ["plain", "framed", "filled", "card"]
+    },
     "pieStyle": {
       "type": "string",
       "title": "Pie style",
@@ -438,9 +457,9 @@
     "copyButtonStyle": {
       "type": "string",
       "title": "Copy button style",
-      "description": "inline: buttons beside or above each block, always shown. hover: each block shows a dim ⧉ beside its first row, and the reply one in its bottom-right corner; the pointer on a ⧉ draws its buttons over it, so they take no line; ctrl+x tab does not reach them, and the mobile app, which has no pointer, shows them inline. Needs copyButtons on.",
-      "default": "inline",
-      "options": ["inline", "hover"]
+      "description": "dim: bare ⧉ labels beside or above each block, drawn dim and at full strength under the pointer or the focus. inline: the same buttons in the accent color. hover: each block shows a dim ⧉ beside its first row, and the reply one in its bottom-right corner; the pointer on a ⧉ draws its buttons over it, so they take no line; ctrl+x tab does not reach them, and the mobile app, which has no pointer, shows them inline. Needs copyButtons on.",
+      "default": "dim",
+      "options": ["dim", "inline", "hover"]
     },
     "textCopyButtons": {
       "type": "boolean",
