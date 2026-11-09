@@ -12,34 +12,34 @@ check() {
     missing=1
   fi
 }
-check hooks/presets.ts one-dark-pro
-check .claude-plugin/plugin.json one-dark-pro
-check hooks/theme.ts promptSide
-check .claude-plugin/plugin.json promptSide
-check hooks/help.ts promptSide
-check hooks/register.tsx SETUP_PAGE
-check hooks/render.tsx agentName
-check hooks/register.tsx avatars/avatar.png
-check hooks/theme.ts userAvatar
-check .claude-plugin/plugin.json userAvatar
-check hooks/register.tsx locateOnce
-check hooks/register.tsx HINT_EVERY
-check hooks/render.tsx mergedRuns
-check hooks/paste.tsx IMAGE_TAG
-check bin/imgview.py ''
+check plugin/hooks/presets.ts one-dark-pro
+check plugin/.claude-plugin/plugin.json one-dark-pro
+check plugin/hooks/theme.ts promptSide
+check plugin/.claude-plugin/plugin.json promptSide
+check plugin/hooks/help.ts promptSide
+check plugin/hooks/register.tsx SETUP_PAGE
+check plugin/hooks/render.tsx agentName
+check plugin/hooks/register.tsx avatars/avatar.png
+check plugin/hooks/theme.ts userAvatar
+check plugin/.claude-plugin/plugin.json userAvatar
+check plugin/hooks/register.tsx locateOnce
+check plugin/hooks/register.tsx HINT_EVERY
+check plugin/hooks/render.tsx mergedRuns
+check plugin/hooks/paste.tsx IMAGE_TAG
+check plugin/bin/imgview.py ''
 check tests/paste.test.tsx ''
 check tests/clipboard.test.tsx ''
-check hooks/render.tsx rememberPress
-check hooks/render.tsx markPress
-check hooks/register.tsx rememberPress
+check plugin/hooks/render.tsx rememberPress
+check plugin/hooks/render.tsx markPress
+check plugin/hooks/register.tsx rememberPress
 check tests/render.test.tsx 'copies a block on a press of its ⧉ marker'
-check hooks/theme.ts 'copyPopup'
+check plugin/hooks/theme.ts 'copyPopup'
 check tests/render.test.tsx 'copyPopup false leaves only the pressable'
-check hooks/paste.tsx pictureRow
-check hooks/render.tsx pictureRow
-check hooks/register.tsx keepPictures
-check hooks/theme.ts sentImages
-check .claude-plugin/plugin.json sentImages
+check plugin/hooks/paste.tsx pictureRow
+check plugin/hooks/render.tsx pictureRow
+check plugin/hooks/register.tsx keepPictures
+check plugin/hooks/theme.ts sentImages
+check plugin/.claude-plugin/plugin.json sentImages
 check tests/paste.test.tsx 'a sent prompt draws its pasted image as a picture'
 if [ -d .github/workflows ]; then
   echo "UNEXPECTED    .github/workflows exists (personal has no CI)"

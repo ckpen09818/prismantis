@@ -1,11 +1,13 @@
-// ../hooks/markdown.ts
+// ../plugin/hooks/markdown.ts
 var FIGURE_ROLES = ["accent", "warn", "ok", "note", "dim", "strong"];
 var ROLE_MARKUP = new RegExp(`\\{(?:${FIGURE_ROLES.join("|")}):([^{}]*)\\}`, "g");
 var scriptMap = (from, to) => new Map(Array.from(from).map((c, i) => [c, Array.from(to)[i]]));
 var SUP = scriptMap("0123456789+-\u2212=()niabcdefghjklmoprstuvwxyzABDEGHIJKLMNOPRTUVW", "\u2070\xB9\xB2\xB3\u2074\u2075\u2076\u2077\u2078\u2079\u207A\u207B\u207B\u207C\u207D\u207E\u207F\u2071\u1D43\u1D47\u1D9C\u1D48\u1D49\u1DA0\u1D4D\u02B0\u02B2\u1D4F\u02E1\u1D50\u1D52\u1D56\u02B3\u02E2\u1D57\u1D58\u1D5B\u02B7\u02E3\u02B8\u1DBB\u1D2C\u1D2E\u1D30\u1D31\u1D33\u1D34\u1D35\u1D36\u1D37\u1D38\u1D39\u1D3A\u1D3C\u1D3E\u1D3F\u1D40\u1D41\u2C7D\u1D42");
 var SUB = scriptMap("0123456789+-\u2212=()aehijklmnoprstuvx", "\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089\u208A\u208B\u208B\u208C\u208D\u208E\u2090\u2091\u2095\u1D62\u2C7C\u2096\u2097\u2098\u2099\u2092\u209A\u1D63\u209B\u209C\u1D64\u1D65\u2093");
+var TINT_ON = { "2": "dim", "3": "italic", "90": "gray", "36": "cyan", "32": "green", "33": "yellow" };
+var TINT_KEYS = Object.keys(TINT_ON);
 
-// ../hooks/figure.tsx
+// ../plugin/hooks/figure.tsx
 var FIGURE_MAX_COLUMNS = 100;
 var FIGURE_SAFE_COLUMNS = 74;
 var RAW_MAX_LINE = FIGURE_MAX_COLUMNS * 4;
@@ -17,9 +19,9 @@ var FIGURE_HINT = [
   "Figures only: color with {role:text}, not nested: accent for lines, warn for risk, ok for healthy, note for time, dim for asides, strong for emphasis.",
   `At most ${FIGURE_SAFE_COLUMNS} columns, glyphs one column wide such as ${FIGURE_GLYPHS}, no emoji or tabs; markup takes no columns, so align on the drawn text and pad box rows to the top border. CJK letters take two columns, count them twice. Draw a time axis with edge ticks like \u258F\u2500\u2500\u2500\u258F\u2500\u2500\u2500\u258F, not \u251C\u253C\u2524: \u2588 fills its cell, \u251C\u253C\u2524 sit mid-cell.`
 ].join(" ");
-var MARKUP = new RegExp(`\\{(${FIGURE_ROLES.join("|")}):([^{}]*)\\}`, "g");
+var MARKUP = new RegExp(`\\{(${FIGURE_ROLES.join("|")})(?::([^{}]*)\\}|\\}([^{}]*)\\{\\/\\1\\})`, "g");
 
-// ../hooks/presets.ts
+// ../plugin/hooks/presets.ts
 var PRESETS = {
   "catppuccin-mocha": {
     accent: "#cba6f7",
@@ -409,10 +411,10 @@ var PRESETS = {
 };
 var PRESET_NAMES = Object.keys(PRESETS);
 
-// ../hooks/theme.ts
+// ../plugin/hooks/theme.ts
 var RANDOM_THEMES = PRESET_NAMES.filter((t) => !/latte|light|dawn/.test(t) && t !== "mono");
 
-// ../hooks/help.ts
+// ../plugin/hooks/help.ts
 var HINT = [
   "Replies in this session are drawn by the prismantis mod, which runs inside Claude Code and is not a command or tool to call: when the user asks to show something with prismantis, write it as markdown in the reply.",
   "Markdown tables, GitHub alerts (> [!WARNING], > [!NOTE]), fenced code with a language tag, and ```mermaid blocks render as colored terminal graphics:",
@@ -443,7 +445,7 @@ Code-shaped prose stays as written: f(*args, **kwargs), a link with parentheses 
 | \`/prismantis\` | This screen |
 | \`/prismantis theme <name>\` | Switch theme on the spot (\`/prismantis <name>\` works too), \`random\` for a new dark one now and each time the mod loads |
 | \`/prismantis copy\` | Copy the last reply, or \`copy code\` for its last code block |
-| \`/prismantis setup\` | Pick a theme and how tables, tasks, headings, copy buttons, prompts, replies, bubble labels, times, tool rows, tool output, diffs and pie charts look, from drawn samples |
+| \`/prismantis setup\` | Pick a theme and how tables, tasks, headings, copy buttons, prompts, replies, bubble labels, times, tool rows, tool output, diffs, code blocks and pie charts look, from drawn samples |
 | \`/config\` | Edit any option |
 
 > [!NOTE]
@@ -469,7 +471,7 @@ Code-shaped prose stays as written: f(*args, **kwargs), a link with parentheses 
 
 ### Copy tables
 
-Use \`\u29C9 md\` for Markdown, \`\u29C9 art\` for chat, or \`\u29C9 html\` for a formatted table. \`\u29C9 html\` shows in a local macOS, Linux or Windows terminal and writes HTML and tab-separated plain text together; Linux needs CopyQ running. Pasted into Slack it makes a native table; Slack keeps cell text but drops bold, links and alignment. If that fails, it copies the plain text alone. \`\u25A3 png\` puts a picture of the drawn table, diagram or chart on the clipboard in the theme's colors, ready to paste into Slack, docs or slides; it shows in a local macOS or Windows terminal. Set \`copyButtonStyle\` to \`hover\` in \`/config\` and each block shows a dim \u29C9 instead: point at it for its buttons. Set \`textCopyButtons\` to \`false\` to keep only the buttons on code, tables, diagrams and the reply.
+Use \`\u29C9 md\` for Markdown, \`\u29C9 art\` for chat, or \`\u29C9 html\` for a formatted table. \`\u29C9 html\` shows in a local macOS, Linux or Windows terminal and writes HTML and tab-separated plain text together; Linux needs CopyQ running. Pasted into Slack it makes a native table; Slack keeps cell text but drops bold, links and alignment. If that fails, it copies the plain text alone. \`\u25A3 png\` puts a picture of the drawn table, diagram or chart on the clipboard in the theme's colors, ready to paste into Slack, docs or slides; it shows in a local macOS or Windows terminal. The buttons draw dim and light up under the pointer; set \`copyButtonStyle\` to \`inline\` in \`/config\` for the accent color, or to \`hover\` and each block shows a dim \u29C9 instead: point at it for its buttons. Set \`textCopyButtons\` to \`false\` to keep only the buttons on code, tables, diagrams and the reply.
 
 | Item | Quantity[^count] | Status |
 |:-----|---------:|:------:|
@@ -500,7 +502,7 @@ Set \`listMarker\` to dash in \`/config\` and bullets draw as \`-\`, so a list y
 
 ### Your prompts
 
-Scroll up: what you typed sits on the right under \`You \u2B24\` and Claude's replies on the left under \`\u2B24 Claude\`, each in a bubble of its own, like a chat app. \`promptStyle\` switches to \`wide\`, \`bar\`, \`chevron\` or \`off\` in \`/config\`, which also brings back the dot before Claude's replies; \`replyStyle\` picks \`solid\`, \`framed\` or \`off\` for Claude's side, and \`bubbleLabels\` draws both labels with a \`small\` dot or turns them \`off\`. Set \`clock\` to \`24h\` or \`12h\` and each prompt shows when you sent it, and each turn's last line when it finished. A paste of 4 lines or more draws in a double frame of its own, folded to one button that opens it as highlighted code.
+Scroll up: what you typed sits on the right under \`You \u2B24\` and Claude's replies on the left under \`\u2B24 Claude\`, each in a bubble of its own, like a chat app. \`promptStyle\` switches to \`framed\`, \`wide\`, \`bar\`, \`chevron\` or \`off\` in \`/config\`, which also brings back the dot before Claude's replies; \`replyStyle\` picks \`solid\`, \`framed\` or \`off\` for Claude's side, and \`bubbleLabels\` draws both labels with a \`small\` dot or turns them \`off\`. Set \`clock\` to \`24h\` or \`12h\` and each prompt shows when you sent it, and each turn's last line when it finished. A paste of 4 lines or more draws in a double frame of its own, folded to one button that opens it as highlighted code.
 
 ### Tool rows
 
@@ -527,6 +529,8 @@ A line that holds only a tag draws dim, so wrapper tags show the reply's structu
 ---
 
 ### Code
+
+Set \`codeStyle\` in \`/config\` for the look: \`plain\`, \`framed\`, \`filled\` or \`card\`.
 
 \`\`\`json
 { "theme": "dracula", "headingStyle": "banner", "mermaid": true }

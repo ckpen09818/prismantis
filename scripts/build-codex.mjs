@@ -8,10 +8,10 @@ const out = join(root, 'codex')
 
 const bundled = await build({
   stdin: {
-    contents: `export { HINT, showcaseText } from './hooks/help'
-export { FIGURE_HINT } from './hooks/figure'
-export { PRESETS, PRESET_NAMES, PRESET_BACKGROUNDS } from './hooks/presets'
-export { PRISM_COLORS } from './hooks/render'`,
+    contents: `export { HINT, showcaseText } from './plugin/hooks/help'
+export { FIGURE_HINT } from './plugin/hooks/figure'
+export { PRESETS, PRESET_NAMES, PRESET_BACKGROUNDS } from './plugin/hooks/presets'
+export { PRISM_COLORS } from './plugin/hooks/render'`,
     resolveDir: root,
     loader: 'ts',
   },
@@ -114,14 +114,16 @@ write('README.md', [
   '',
 ].join('\n'))
 
-const manifest = JSON.parse(readFileSync(join(root, '.claude-plugin/plugin.json'), 'utf8'))
+const manifest = JSON.parse(readFileSync(join(root, 'plugin/.claude-plugin/plugin.json'), 'utf8'))
 mkdirSync(join(root, '.codex-plugin'), { recursive: true })
 writeFileSync(join(root, '.codex-plugin/plugin.json'), `${JSON.stringify({ name: manifest.name, version: manifest.version, description: `Themeable Codex replies: ${cc.PRESET_NAMES.length} prismantis syntax themes for code, inline code, table headers and mermaid, and a session note that gets tables, diagrams and figures into replies.`, hooks: './codex/hooks.json', skills: './codex/skills' }, null, 2)}\n`)
 
 const market = JSON.parse(readFileSync(join(root, '.claude-plugin/marketplace.json'), 'utf8'))
-const plugins = market.plugins.map(({ source, ...plugin }) => ({ ...plugin, source: { source: 'url', url: `https://github.com/${source.repo}.git`, ref: source.ref, sha: source.sha } }))
 mkdirSync(join(root, '.agents/plugins'), { recursive: true })
-writeFileSync(join(root, '.agents/plugins/marketplace.json'), `${JSON.stringify({ ...market, plugins }, null, 2)}\n`)
+const pinned = JSON.parse(readFileSync(join(root, '.agents/plugins/marketplace.json'), 'utf8')).plugins
+const codexSource = p => (p.source.source === 'archive' ? pinned.find(c => c.name === p.name).source : { ...p.source, source: 'url', path: undefined })
+const codexMarket = { ...market, plugins: market.plugins.map(p => ({ ...p, source: codexSource(p) })) }
+writeFileSync(join(root, '.agents/plugins/marketplace.json'), `${JSON.stringify(codexMarket, null, 2)}\n`)
 
 const opencode = join(root, 'opencode')
 rmSync(opencode, { recursive: true, force: true })

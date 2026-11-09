@@ -416,7 +416,7 @@ for (const rtl of ['warp', 'iterm'] as const) {
   test(`a Hebrew line draws a clickable named link and a file link that shows its path once, like an English line, ${rtl}`, { options: { rtl } }, async ($, on) => {
     claudeAt(on, '2.1.289')
     mock.env(on, { FORCE_HYPERLINK: '1', HOME: '/home/me' })
-    if (!(await linksHttp($.ui.mount(mount('[/x](file:///x)'))))) return
+    if (!(await linksHttp($.ui.mount(mount('[/x.md](file:///x.md)'))))) return
     const ui = await $.ui.mount(mount('שלום [קישור להודעה](https://x.dev/archives/p1) ו [/tmp/notes.md](file:///tmp/notes.md) ו [המסמך](file:///tmp/setup.command) עולם'))
     const texts = (await ui.findAll({ type: 'Text' })).map(t => t.text)
     expect((await ui.findAll({ type: 'Link' })).map(l => String(l.props.href)).sort()).toEqual(['file:///tmp/notes.md', 'https://x.dev/archives/p1'])
@@ -916,6 +916,16 @@ test('on iTerm a long Hebrew line in a code block wraps into rows that each open
   await ui.unmount()
 })
 
+for (const [codeStyle, widest] of [['plain', 35], ['framed', 32], ['filled', 34], ['card', 32]] as const) test(`on iTerm a long Hebrew line wraps at ${widest} columns with codeStyle ${codeStyle}, so it stays inside the block`, { options: { rtl: 'iterm', codeStyle, replyStyle: 'off' } }, async $ => {
+  const words = Array(40).fill('אב').join(' ')
+  const ui = await $.ui.mount(mount(`\`\`\`ts\nconst a = 1\n${words}\n\`\`\``, 40))
+  const rows = (await ui.findAll({ type: 'Box' })).map(b => b.text).filter(t => /^ ⠀/.test(t))
+  expect(rows.length).toBeGreaterThan(1)
+  expect(rows.map(r => r.slice(2).trim()).join(' ')).toBe(words)
+  expect(Math.max(...rows.map(r => r.length))).toBe(widest)
+  await ui.unmount()
+})
+
 test('on iTerm a shell block whose Hebrew comes after the command keeps its shell colors and gets no braille blank, since the row already opens with English', { options: { rtl: 'iterm' } }, async $ => {
   const ui = await $.ui.mount(mount('```bash\nls -la # רשימת הקבצים\n```'))
   expect((await ui.findAll({ type: 'Text' })).some(t => t.text.includes('⠀'))).toBe(false)
@@ -1069,4 +1079,21 @@ test('Apple Terminal outside fullscreen gets a Hebrew prompt and reply in its bu
   const rows = (await lineRows(replied)).map(afterTerminalBidi)
   expect(rows).toEqual([visual(heading), visual(item), visual('הכל תקין')])
   await replied.unmount()
+})
+
+test('a hard line break in a Hebrew paragraph keeps both lines in order in Ghostty', async ($, on) => {
+  mock.env(on, { TERM_PROGRAM: 'ghostty', TERM: 'xterm-ghostty' })
+  on('session.start', () => ({ cwd: '/tmp' }))
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount(mount('שלום עולם  \nמה נשמע'))
+  const drawn = JSON.stringify(await ui.drawn())
+  expect(drawn.indexOf('"םלוע םולש"')).toBeGreaterThan(-1)
+  expect(drawn.indexOf('"עמשנ המ"')).toBeGreaterThan(drawn.indexOf('"םלוע םולש"'))
+  await ui.unmount()
+})
+
+test('Hebrew inside a display formula draws in screen order like the prose around it', { options: { rtl: 'warp' } }, async $ => {
+  const ui = await $.ui.mount(mount('$$\\frac{\\text{מרחק כולל}}{\\text{זמן}}$$'))
+  expect(await ui.find({ type: 'Text', text: /^ןמז\/\(ללוכ קחרמ\)$/ })).toBeDefined()
+  await ui.unmount()
 })

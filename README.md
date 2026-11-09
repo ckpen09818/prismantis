@@ -72,7 +72,7 @@ prismantis also runs in OpenCode 2.2.5 and later, where it draws figure blocks i
 
 | Feature | What you get |
 | --- | --- |
-| [Themes](#themes) | `/prismantis theme <name>` switches on the spot. 17 themes and 34 color slots you can override |
+| [Themes](#themes) | `/prismantis theme <name>` switches on the spot. 17 themes and 36 color slots you can override |
 | [Tables](#tables) | colored headers, rules, column alignment, colored numbers, sized to the terminal |
 | [Code](#code) | a language header and copy button, Prism highlighting in two dozen languages, shell lines colored like a prompt |
 | [Diagrams and charts](#diagrams-and-charts) | flowcharts, sequence, state, class and ER diagrams, bar and line charts, one color per box, participant and bar |
@@ -100,7 +100,7 @@ Dark: `catppuccin-mocha` (default), `dracula`, `nord`, `tokyo-night`, `gruvbox-d
 
 Light: `catppuccin-latte`, `gruvbox-light`, `rose-pine-dawn`, `github-light`, `solarized-light`.
 
-`mono` drops the palette for bold and dim; alerts keep their colors. Switch with `/prismantis theme nord`, or run `/prismantis` for the help screen with every theme. Every palette is MIT licensed and credited in [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md).
+`mono` drops the palette for bold and dim; alerts keep their colors. Switch with `/prismantis theme nord`, or run `/prismantis` for the help screen with every theme. Every palette is MIT licensed and credited in [THIRD_PARTY_NOTICES.md](plugin/THIRD_PARTY_NOTICES.md).
 
 ### Tables
 
@@ -115,6 +115,12 @@ Header cells take the `tableHeader` color, and the default `box` style puts a do
 ![Code fold: plain Claude Code on the left, prismantis numbering and folding a 45 line block on the right](docs/compare/code-fold.png)
 
 Each code block gets a header row: the language on the left, a copy button on the right. The code sits indented below with no frame, so selecting it with the mouse copies only the code.
+
+`codeStyle` picks the look. `framed` adds a rounded box, whose characters land in a mouse selection, though the copy button leaves them out. `filled` adds a background, or the box in a theme with no colors to fill with, such as `mono`. `card` adds both. `codeBorderColor` and `codeFillColor` change their colors. The terminal draws these styles. Other surfaces keep Claude Code's own code block.
+
+| `plain` (default) | `framed` | `filled` | `card` |
+|---|---|---|---|
+| ![a code block with no frame](docs/code/plain.png) | ![a code block in a rounded box](docs/code/framed.png) | ![a code block on a filled background](docs/code/filled.png) | ![a code block in a rounded box on a filled background](docs/code/card.png) |
 
 - **Prism** highlights JavaScript, TypeScript, JSX/TSX, Python, Go, Rust, Java, Kotlin, Swift, C, C++, C#, Ruby, JSON, YAML, TOML, SQL, HTML, CSS, Dockerfile, HCL, Lua, PHP and diff.
 - **Shell** blocks (`bash`, `sh`, `zsh`, `fish`, `powershell`, unlabeled) color the command word, `--flags`, quoted strings and `# comments`, and restart after `|`, `&&` and `;`.
@@ -213,7 +219,9 @@ When tables, diagrams and figures follow each other, they share a row and wrap o
 - **Whole replies:** replies with more than one block, or any Hebrew or Arabic, end with `⧉ copy reply`, which copies the reply as Claude wrote it. Selecting right-to-left text on screen copies letters in drawn order, not reading order.
 - **No mouse:** `/prismantis copy` copies the last reply, `/prismantis copy code` its last code block.
 
-`copyButtonStyle` picks where the buttons sit. `inline`, the default, is the look above. `hover` puts a dim ⧉ beside each block's first row instead, at its left on a right-to-left block, and one in the reply's bottom-right corner for the whole reply. Pointing at a ⧉ draws its buttons over it, so they take no line and nothing moves when they show; the pointer on the block itself shows nothing. ctrl+x tab does not reach a hidden button, and the mobile app, which has no pointer, draws them inline.
+`copyButtonStyle` picks how the buttons look and where they sit. `dim`, the default, draws them beside or above each block as bare `⧉ md ⧉ art` labels, dim until the pointer or the focus is on one, which lights it up. Older Claude Code versions draw them in plain white. `inline` draws the same buttons in the theme's accent color. `hover` puts a dim ⧉ beside each block's first row instead, at its left on a right-to-left block, and one in the reply's bottom-right corner for the whole reply. Pointing at a ⧉ draws its buttons over it, so they take no line and nothing moves when they show; the pointer on the block itself shows nothing. ctrl+x tab does not reach a hidden button, and the mobile app, which has no pointer, draws them inline.
+
+![copyButtonStyle dim: a figure and a box, each with bare ⧉ source, ⧉ art and ▣ png buttons drawn dim above it](docs/copy/dim.png)
 
 ![copyButtonStyle hover: at rest a table, a bash block and the reply each show a dim ⧉; with the pointer on the table's ⧉, its ⧉ md, ⧉ art and ⧉ html buttons draw over the marker and the end of the header row](docs/copy/hover.png)
 
@@ -312,11 +320,11 @@ Task lists draw as `[ ]` and `[✓]`, with done items dimmed and struck through.
 
 ![Your prompts: plain Claude Code on the left, prismantis on the right](docs/compare/prompts.png)
 
-What you type, at the prompt or through Remote Control, draws in the theme's colors. `promptStyle` picks the look, and `off` keeps Claude Code's own. `bubble` draws it on the right like a chat app, as wide as its longest line and at most three quarters of the window, under `You ⬤`, in a rounded frame of the theme's green on a deep green fill, a pale one in a light theme, and Claude's replies in a bubble of their own. The other styles keep Claude's replies as they were. `promptFillColor` and `replyFillColor` change the two fills, and `replyBorderColor` the frame of Claude's. Task notifications and teammate messages are left alone.
+What you type, at the prompt or through Remote Control, draws in the theme's colors. `promptStyle` picks the look, and `off` keeps Claude Code's own. `bubble` draws it on the right like a chat app, as wide as its longest line and at most three quarters of the window, under `You ⬤`, in a rounded frame of the theme's green on a deep green fill, a pale one in a light theme, and Claude's replies in a bubble of their own. `framed` draws it the same way with no fill. The other styles keep Claude's replies as they were. `promptFillColor` and `replyFillColor` change the two fills, and `replyBorderColor` the frame of Claude's. Task notifications and teammate messages are left alone.
 
-| `bubble` (default) | `wide` | `bar` | `chevron` |
-|---|---|---|---|
-| ![your prompt on the right under You in a green bubble, Claude's reply on the left under Claude in an orange one](docs/prompts/bubble.png) | ![a prompt in a rounded box across the full width](docs/prompts/wide.png) | ![a prompt with an accent bar](docs/prompts/bar.png) | ![a prompt with a bold chevron](docs/prompts/chevron.png) |
+| `bubble` (default) | `framed` | `wide` | `bar` | `chevron` |
+|---|---|---|---|---|
+| ![your prompt on the right under You in a green bubble, Claude's reply on the left under Claude in an orange one](docs/prompts/bubble.png) | ![a prompt on the right under You in a green frame with no fill](docs/prompts/framed.png) | ![a prompt in a rounded box across the full width](docs/prompts/wide.png) | ![a prompt with an accent bar](docs/prompts/bar.png) | ![a prompt with a bold chevron](docs/prompts/chevron.png) |
 
 `clock` adds the time: each prompt shows when you sent it, and the line that closes each turn when it finished (`✻ Baked for 1m 55s · 14:32`). It reads `24h` or `12h`, and a time from another day gets its date. With `promptStyle: off` the time goes in front of Claude Code's own prompt row. Off by default.
 
@@ -373,7 +381,7 @@ Options sit under `options`, keyed by the plugin's install name. Project setting
 | `tableStyle` | `box`, `rules`, `grid`, `minimal` | `box` |
 | `taskStyle` | `checks` (`[ ]` `[✓]`, done struck through), `ticks` (`○` `✓`), `box` (`□` `✓`), `progress` (ticks with a done-count bar) | `checks` |
 | `listMarker` | `dots` (`•` then `◦` nested), `dash` (`-` at every level, pastes as a markdown list) | `dots` |
-| `promptStyle` | `bubble`, `wide`, `bar`, `chevron`, `off` | `bubble` |
+| `promptStyle` | `bubble`, `framed`, `wide`, `bar`, `chevron`, `off` | `bubble` |
 | `promptSide` | `right` (as wide as the text, at most three quarters of the window, under `You ⬤`), `left` (across the full width under `⬤ You`, like Claude's reply bubble, with the `clock` time beside `⬤ You`). Only for `promptStyle: bubble` | `right` |
 | `sentImages` | `thumbnail` (a pasted image shows as a picture in your sent prompt, with a `⤢` button that opens it large in a pane; Esc closes it), `text` (the `[Image #N]` tag as Claude Code draws it). Pictures need a terminal that draws images and a PNG of at most 2 MB | `thumbnail` |
 | `replyStyle` | `auto` (`bubble` while `promptStyle` is `bubble`, else `off`), `bubble`, `solid`, `framed`, `off` | `auto` |
@@ -389,13 +397,14 @@ Options sit under `options`, keyed by the plugin's install name. Project setting
 | `runningDot` | `ring` (a still `◌`), `blink` (`●` on and off every half second) | `ring` |
 | `unreadPrompts` | `true` (a prompt stays grey and blinks until the model starts on it), `false` | `false` |
 | `copyButtons` | `true`, `false` | `true` |
-| `copyButtonStyle` | `inline`, `hover` | `inline` |
+| `copyButtonStyle` | `dim`, `inline`, `hover`, `click` | `dim` |
 | `textCopyButtons` | `true`, `false` | `true` |
 | `diagramHints` | `true`, `false` | `true` |
 | `issueHint` | `true`, `false` | `true` |
 | `rtl` | `auto`, a terminal (`warp`, `kitty`, `apple-terminal`, `iterm`, `ghostty`, `wezterm`, `vscode`, `alacritty`, `windows-terminal`, `gnome`, `konsole`), `off` | `auto` |
 | `mermaid` | `true`, `false` | `true` |
 | `mermaidAscii` | `true`, `false` | `false` |
+| `codeStyle` | `plain` (no frame), `framed` (a rounded box), `filled` (a background, or the box in a theme with no colors), `card` (a rounded box on a background) | `plain` |
 | `pieStyle` | `round` (a circle with a legend), `bars` (one bar per slice) | `round` |
 | `latex` | `true`, `false` | `false` |
 | `<token>Color` | any color, see below | theme |
@@ -410,6 +419,8 @@ A color is hex (`#a6e3a1`, `#fc0`), `rgb(166,227,161)`, `ansi256(114)` or a name
 | `emphasis` | *italic* text, variables, attribute names |
 | `inlineCode` | `inline code` |
 | `codeText` | code block text |
+| `codeFill` | the fill behind code blocks with `codeStyle: filled` or `card` (a shade a step off the background) |
+| `codeBorder` | the frame around code blocks with `codeStyle: framed` or `card` (the `rule` color) |
 | `codeCommand` | shell commands, functions, class names, keys |
 | `codeFlag` | `--flags`, keywords, failures |
 | `codeString` | strings |
@@ -428,8 +439,8 @@ A color is hex (`#a6e3a1`, `#fc0`), `rgb(166,227,161)`, `ansi256(114)` or a name
 | `diffAdded` | added diff lines: their tint, `+` marks and count (the theme's own green) |
 | `diffRemoved` | removed diff lines: their tint, `−` marks and count (the theme's own red) |
 | `promptFill` | the fill behind your prompts with `promptStyle: bubble` (a deep shade of the theme's green, a pale one in a light theme) |
-| `promptBorder` | the frame and `You ⬤` label of your prompts with `promptStyle: bubble`, and the hue of their default fill (the `diffAdded` green) |
-| `promptText` | the text of your prompts with `promptStyle: bubble` (the `heading` color, or `codeText` where that would not read on the fill) |
+| `promptBorder` | the frame and `You ⬤` label of your prompts with `promptStyle: bubble` or `framed`, and the hue of their default fill (the `diffAdded` green) |
+| `promptText` | the text of your prompts with `promptStyle: bubble` or `framed` (the `heading` color, or `codeText` where that would not read on the fill) |
 | `replyFill` | the fill behind Claude's replies with `replyStyle: bubble` or `solid` (a midnight blue a step off the background, a pale one in a light theme) |
 | `alertNote` | the box, bar and label of `> [!NOTE]` alerts (the terminal's blue) |
 | `alertTip` | the box, bar and label of `> [!TIP]` alerts (the terminal's green) |
@@ -450,6 +461,10 @@ A color is hex (`#a6e3a1`, `#fc0`), `rgb(166,227,161)`, `ansi256(114)` or a name
 - **Fills look flat gray in tmux:** Claude Code draws 256 colors inside tmux, which turns dark fills gray. Set `CLAUDE_CODE_TMUX_TRUECOLOR=1` in the environment Claude Code starts in.
 - **`You ●` instead of `You ⬤` in tmux, screen or Zellij:** on purpose. The large dot can draw across two cells in the terminal outside, which leaves half dots behind and over the next letter.
 
+## What it runs, reads and changes
+
+No network calls. The programs it runs, the files it reads and the settings it writes are listed in [plugin/README.md](plugin/README.md#what-it-runs-reads-and-changes).
+
 ## Limits
 
 - The parser covers what Claude writes (headings, lists, tables, fences, quotes, emphasis, links). It's not full CommonMark: HTML draws as plain text, and a quote ends at the first line without `>`.
@@ -464,10 +479,10 @@ To change the code, read [AGENTS.md](AGENTS.md) instead.
 
 - **What it is:** a Claude Code mod (function hooks in TypeScript) that redraws assistant replies, slash-command output, tool rows, the turn footer and user prompts. It changes how things look, and with `diagramHints` on (the default) it also asks Claude to build a reply around pictures when they make it easier to grasp, with the core on the first screen as a picture or a sentence. The one thing it sends the model is the optional diagram hint below.
 - **Install:** `/plugin marketplace add NahumLitvin/prismantis`, then `/plugin install prismantis@prismantis`. Needs Claude Code 2.1.287+. Changes apply after `/reload`.
-- **Configure:** `/prismantis theme <name>` and `/prismantis setup` set options at runtime. Every option is a key under `pluginConfigs["prismantis@prismantis"].options` in `~/.claude/settings.json` (or a row in `/config`), then `/reload`. Options and defaults are in the [Configure](#configure) table; the machine-readable source is `userConfig` in [.claude-plugin/plugin.json](.claude-plugin/plugin.json). Color values that don't parse are ignored.
+- **Configure:** `/prismantis theme <name>` and `/prismantis setup` set options at runtime. Every option is a key under `pluginConfigs["prismantis@prismantis"].options` in `~/.claude/settings.json` (or a row in `/config`), then `/reload`. Options and defaults are in the [Configure](#configure) table; the machine-readable source is `userConfig` in [.claude-plugin/plugin.json](plugin/.claude-plugin/plugin.json). Color values that don't parse are ignored.
 - **Side effects:** no network. Programs it runs: the `⧉ html` and `▣ png` clipboard helper (`/usr/bin/osascript` on macOS, `powershell.exe` on Windows, `copyq` on Linux for `⧉ html` only, 5 second timeout, 15 on Windows, only on a click), and `ratex-render` while `latex` is on. With `diagramHints` on, it adds about 630 tokens of model-only context (about 710 while `latex` is on) to each prompt you type and each prompt another plugin sends, as broken down under [Diagram hints](#diagram-hints).
 - **Turning it off:** `"enabled": false`, or disable the plugin in `/plugin`. To keep it in one app only, like the terminal but not the desktop app, set `"surfaces": "terminal"`.
-- **For other mods:** `$.prismantis.markdown({ surface, text, columns })`, typed in [types/index.d.ts](types/index.d.ts). See [Other mods](#other-mods).
+- **For other mods:** `$.prismantis.markdown({ surface, text, columns })`, typed in [plugin/types/index.d.ts](plugin/types/index.d.ts). See [Other mods](#other-mods).
 
 </details>
 
@@ -479,10 +494,10 @@ Planned features are on the [roadmap board](https://github.com/users/NahumLitvin
 
 ```bash
 git clone https://github.com/NahumLitvin/prismantis
-claude --plugin-dir ./prismantis
+claude --plugin-dir ./prismantis/plugin
 ```
 
-Edits hot-reload in that session. Before a PR run `claude plugin validate .` and `claude plugin test .`, and print [docs/demo.md](docs/demo.md) to check the look. `npm --prefix scripts run bench` times a full render of the demo reply, so speed claims can be checked on any machine. The full rules and verify loop are in [AGENTS.md](AGENTS.md).
+Edits hot-reload in that session. Before a PR run `claude plugin validate plugin` and `npm --prefix scripts test`, and print [docs/demo.md](docs/demo.md) to check the look. `npm --prefix scripts run bench` times a full render of the demo reply, so speed claims can be checked on any machine. The full rules and verify loop are in [AGENTS.md](AGENTS.md).
 
 ### Other mods
 
@@ -500,7 +515,7 @@ try {
 return drawn ?? <Markdown text={text} />
 ```
 
-The types are in [types/index.d.ts](types/index.d.ts). List prismantis under `dependencies` in your `plugin.json` and Claude Code lays them into your `.claude-plugin/types/`. When prismantis is optional, declare the noun in your own contract instead:
+The types are in [plugin/types/index.d.ts](plugin/types/index.d.ts). List prismantis under `dependencies` in your `plugin.json` and Claude Code lays them into your `.claude-plugin/types/`. When prismantis is optional, declare the noun in your own contract instead:
 
 ```ts
 declare module 'claude-code' {
@@ -518,4 +533,4 @@ Built by [Nahum Litvin](https://github.com/NahumLitvin), who writes about runnin
 
 ## License
 
-[MIT](LICENSE). Bundled third-party code is listed in [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md).
+[MIT](LICENSE). Bundled third-party code is listed in [THIRD_PARTY_NOTICES.md](plugin/THIRD_PARTY_NOTICES.md).

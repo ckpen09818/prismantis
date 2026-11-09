@@ -1,8 +1,9 @@
 import { expect, test } from 'claude-code/testing'
+import type { TestBody } from 'claude-code/testing'
 
-import { parse } from '../hooks/markdown'
+import { displayText, parse } from '../hooks/markdown'
 import { PRESETS } from '../hooks/presets'
-import { MARK } from '../hooks/render'
+import { MARK, diffTint, replyFill } from '../hooks/render'
 import { width } from '../hooks/layout'
 import { resolveStyle } from '../hooks/theme'
 import { clipboardEnv, startSession } from './clipboard-env'
@@ -34,10 +35,24 @@ test('parses tables, code, lists and inline decorations', async () => {
   expect(list.items[0]?.inline.some(n => n.kind === 'path' && n.text === '~/git/app.ts')).toBe(true)
 })
 
+test('a code span drops the one space that pads it on both sides, so a span can show backticks', async () => {
+  const [p] = parse('`` `c` `` and `  x  ` and ` y` and `   `', { numbers: false, paths: false })
+  if (p?.kind !== 'paragraph') throw new Error('not a paragraph')
+  expect(p.inline.filter(n => n.kind === 'code').map(n => (n as { text: string }).text)).toEqual(['`c`', ' x ', ' y', '   '])
+})
+
 test('escaped pipes stay inside a cell', async () => {
   const [t] = parse('| a | b |\n|---|---|\n| x \\| y | z |', { numbers: false, paths: false })
   if (t?.kind !== 'table') throw new Error('not a table')
   expect(t.rows[0]?.length).toBe(2)
+})
+
+test('a separator shorter than the header pads align to the header columns', async () => {
+  const [t] = parse('| a | b | c |\n|:---|---:|\n| x | y |', { numbers: false, paths: false })
+  if (t?.kind !== 'table') throw new Error('not a table')
+  expect(t.align).toEqual(['left', 'right', 'left'])
+  expect(t.rows[0]).toHaveLength(3)
+  expect(t.rows[0]?.[2]).toEqual([])
 })
 
 test('user colors override the theme, bad colors are ignored', async () => {
@@ -46,6 +61,12 @@ test('user colors override the theme, bad colors are ignored', async () => {
   expect(s.theme.number).toBe(PRESETS['catppuccin-mocha'].number)
   expect(s.theme.path).toBe('cyan')
   expect(s.theme.link).toBe(PRESETS['catppuccin-mocha'].link)
+})
+
+test('a short #abc color reaches the theme as six digits, so a tint built from it still draws', () => {
+  const t = resolveStyle({ diffAddedColor: '#0a0', tableRuleColor: ' #ABC ' }).theme
+  expect([t.diffAdded, t.tableRule]).toEqual(['#00aa00', '#AABBCC'])
+  expect(diffTint(t.codeText, t.diffAdded)).toBeDefined()
 })
 
 test('draws a colored table on terminal and desktop', async $ => {
@@ -71,6 +92,41 @@ test('shell blocks color command and flags', async $ => {
   const ui = await $.ui.mount({ ...draw('```bash\ngh pr review 45 --approve\n```'), surface: 'terminal' })
   expect((await ui.find({ type: 'Text', text: /^gh$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].codeCommand)
   expect((await ui.find({ type: 'Text', text: /^--approve$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].codeFlag)
+  await ui.unmount()
+})
+
+const DIAGRAM = [
+  'why prod runs a new chart',
+  '',
+  'A prod app is two knobs.',
+  '      ┌──────────────┐',
+  '      │ chart ref    │',
+  '      └──────┬───────┘',
+  'moves when the branch tip moves',
+  '             ▼',
+].join('\n')
+
+test('an untagged block holding a box diagram draws no line in shell colors', async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(['```', DIAGRAM, '```'].join('\n')), surface: 'terminal' })
+  const inks = (await ui.findAll({ type: 'Text' })).map(n => n.props.color)
+  expect(inks).not.toContain(t.codeCommand)
+  expect(inks).not.toContain(t.codeFlag)
+  for (const line of ['why prod runs a new chart', 'A prod app is two knobs.', 'moves when the branch tip moves']) {
+    expect((await ui.find({ type: 'Text', text: new RegExp(`^${line}$`) }))?.props.color).toBe(t.codeText)
+  }
+  await ui.unmount()
+})
+
+test('a tagged shell block keeps its command color when a box glyph shares the block', async $ => {
+  const ui = await $.ui.mount({ ...draw('```bash\ntree src\n├── a.ts\n└── b.ts\n```'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^tree$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].codeCommand)
+  await ui.unmount()
+})
+
+test('an untagged block without a box glyph still reads as shell', async $ => {
+  const ui = await $.ui.mount({ ...draw('```\nnpm run build --silent\n```'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^npm$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].codeCommand)
   await ui.unmount()
 })
 
@@ -269,7 +325,7 @@ test('code blocks, tables and quotes get a copy button, tables an art button, th
   const ui = await $.ui.mount({ ...draw(text), surface: 'terminal' })
   const buttons = await ui.findAll({ type: 'Button' })
   expect(buttons.length).toBe(5)
-  expect(buttons.every(b => b.props.variant === "primary")).toBe(true)
+  expect(buttons.every(b => b.props.plain === true && b.props.dimColor === true)).toBe(true)
   await ui.press({ key: 'copy1' })
   expect(copied).toEqual(['ls -la'])
   await ui.unmount()
@@ -421,10 +477,10 @@ for (const surface of SURFACES) test(`copyButtonStyle hover shows nothing while 
 
 const WIDE = `| A | B |\n|---|---|\n| ${'alpha '.repeat(12)}| ${'bravo '.repeat(12)}|\n\nx\n\n\`\`\`mermaid\nflowchart LR\n  A[${'a'.repeat(12)}] --> B[${'b'.repeat(12)}] --> C[${'c'.repeat(12)}]\n\`\`\`\n\ny\n\n\`\`\`mermaid\nflowchart LR\n  A[${'a'.repeat(7)}] --> B[${'b'.repeat(7)}] --> C[${'c'.repeat(7)}] --> D[${'d'.repeat(7)}]\n\`\`\``
 const widest = (node: DrawnNode): number => (node.type === 'Text' ? width(shownText(node)) : Math.max(0, ...drawnKids(node).map(widest)))
-for (const copyButtonStyle of ['inline', 'hover'] as const) test(`copyButtonStyle ${copyButtonStyle} lays a full-width table and diagram out ${copyButtonStyle === 'hover' ? 'two columns narrower, so the ⧉ fits beside them' : 'to the whole width'}`, { options: { replyStyle: 'off', copyButtonStyle } }, async $ => {
+for (const copyButtonStyle of ['dim', 'inline', 'hover'] as const) test(`copyButtonStyle ${copyButtonStyle} lays a full-width table and diagram out ${copyButtonStyle === 'hover' ? 'two columns narrower, so the ⧉ fits beside them' : 'to the whole width'}`, { options: { replyStyle: 'off', copyButtonStyle } }, async $ => {
   const ui = await $.ui.mount({ ...draw(WIDE), viewport: { columns: 60, rows: 40 }, surface: 'terminal' })
   const [table, wide, wider] = await Promise.all(['c0', 'c2', 'c4'].map(async key => widest((await ui.find({ key })) as DrawnNode)))
-  if (copyButtonStyle === 'inline') expect({ table, wide: wide! > 56 - MARK - 2 }).toEqual({ table: 56, wide: true })
+  if (copyButtonStyle !== 'hover') expect({ table, wide: wide! > 56 - MARK - 2 }).toEqual({ table: 56, wide: true })
   else expect({ table, fits: [wide!, wider!].every(w => w + MARK <= 56) }).toEqual({ table: 56 - MARK, fits: true })
   await ui.unmount()
 })
@@ -439,7 +495,7 @@ test('copyButtonStyle hover drops trailing buttons a narrow terminal has no room
   }
 })
 
-test('copyButtonStyle inline, the default, keeps every copy button in the flow', async $ => {
+test('copyButtonStyle dim, the default, keeps every copy button in the flow', async $ => {
   const ui = await $.ui.mount({ ...draw(COPY_SAMPLE), surface: 'terminal' })
   expect(await ui.findAll({ type: 'Button' })).toHaveLength(5)
   expect(await floatingCopies(ui)).toHaveLength(0)
@@ -458,7 +514,7 @@ test('copyButtons off draws no buttons', { options: { copyButtons: false } }, as
   await ui.unmount()
 })
 
-for (const copyButtonStyle of ['inline', 'hover'] as const) test(`textCopyButtons off drops the ${copyButtonStyle} buttons on lists, quotes and alerts and keeps code, table and reply buttons`, { options: { textCopyButtons: false, copyButtonStyle } }, async $ => {
+for (const copyButtonStyle of ['dim', 'inline', 'hover'] as const) test(`textCopyButtons off drops the ${copyButtonStyle} buttons on lists, quotes and alerts and keeps code, table and reply buttons`, { options: { textCopyButtons: false, copyButtonStyle } }, async $ => {
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...draw(`- one\n- two\n\n> quoted\n\n> [!NOTE]\n> noted\n\n${TABLE}\n\n\`\`\`bash\nls\n\`\`\``), surface })
     const labels = (await ui.findAll({ type: 'Button' })).map(b => String(b.props.label))
@@ -533,6 +589,17 @@ test('Prism colors PHP variables, properties and comments', async $ => {
   await ui.unmount()
 })
 
+test('a highlighted code line draws each run of one color as one span', async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw('```ts\nconst name = await fetch("/api/0", { retries: 1 }) // app\n```'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^ name = $/ }))?.props.color).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^, \{ retries: $/ })).toBeDefined()
+  expect((await ui.find({ type: 'Text', text: /^const$/ }))?.props.color).toBe(t.codeFlag)
+  expect((await ui.find({ type: 'Text', text: /^"\/api\/0"$/ }))?.props.color).toBe(t.codeString)
+  expect((await ui.find({ type: 'Text', text: /^\/\/ app$/ }))?.props.italic).toBe(true)
+  await ui.unmount()
+})
+
 test('fence languages that name Prism internals fall back to plain code', async $ => {
   for (const lang of ['extend', 'toString', 'constructor', '__proto__']) {
     const ui = await $.ui.mount({ ...draw(`\`\`\`${lang}\nhello\n\`\`\``), surface: 'terminal' })
@@ -566,6 +633,14 @@ test('tables draw boxed by default in the terminal, with a double line under the
   expect(lines.every(l => l.length === top.length && l.length > 0)).toBe(true)
   expect((await ui.find({ type: 'Text', text: /^Service$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].tableHeader)
   await ui.unmount()
+})
+
+test('a table row with a link beside a column of only line breaks still draws as a table', async $ => {
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...draw('| Link | |\n|---|---|\n| https://x.com | <br> |'), surface })
+    expect(await ui.find({ type: 'Text', text: /^Link$/ })).toBeDefined()
+    await ui.unmount()
+  }
 })
 
 const percent = (width: unknown) => (typeof width === 'string' && /^\d+%$/.test(width) ? Number(width.slice(0, -1)) : NaN)
@@ -687,6 +762,75 @@ test('folds open starts a long code block open, folds it on press and opens it a
   }
 })
 
+const nodeCount = (n: unknown): number =>
+  n == null || n === false ? 0 : Array.isArray(n) ? n.reduce((a: number, c) => a + nodeCount(c), 0) : typeof n !== 'object' ? 1 : 1 + nodeCount((n as { children?: unknown[] }).children)
+
+const hugeCode = (name = 'v') => `\`\`\`ts\n${Array.from({ length: 900 }, (_, i) => `const ${name}${i} = await fetch("/api/${i}", { retries: ${i % 5}, cache: false })`).join('\n')}\n\`\`\``
+
+const takesLongCode = ($: Parameters<TestBody>[0]) =>
+  $.ui.mount({ ...draw(`\`\`\`ts\n${'x'.repeat(10001)}\n\`\`\``), surface: 'desktop' }).then(ui => ui.unmount().then(() => true), () => false)
+
+test('an opened 900-line code block shows 400 lines, counts the rest and keeps show less under the node ceiling', async $ => {
+  for (const surface of ['terminal', 'desktop'] as const) {
+    if (surface === 'desktop' && !(await takesLongCode($))) continue
+    const ui = await $.ui.mount({ ...draw(hugeCode(surface)), surface })
+    await ui.press({ key: 'fold0' })
+    expect(nodeCount(await ui.drawn())).toBeLessThan(20000)
+    expect((await ui.find({ key: 'fold0' }))?.props.label).toBe('show less')
+    expect(await ui.find({ type: 'Text', text: /^… \+500 lines$/ })).toBeDefined()
+    if (surface === 'terminal') expect([!!(await ui.find({ type: 'Text', text: /^const terminal399 / })), !!(await ui.find({ type: 'Text', text: /^const terminal400 / }))]).toEqual([true, false])
+    else expect(String((await ui.find({ type: 'Code' }))!.props.source).split('\n').length).toBe(400)
+    await ui.unmount()
+  }
+})
+
+const textIn = (n: unknown): number =>
+  Array.isArray(n) ? n.reduce((a: number, c) => a + textIn(c), 0) : typeof n === 'string' ? n.length : n !== null && typeof n === 'object' ? textIn((n as { children?: unknown }).children) : 0
+
+test('a reply past the node budget draws its remaining blocks as dim source, ends on a copy note and stays under the engine ceilings', async $ => {
+  const items = (n: number, mark: string, gap: string) => Array.from({ length: n }, (_, i) => `${mark}**item** ${i} with \`code\` and some words`).join(gap)
+  for (const [surface, n, mark, gap] of [['terminal', 3000, '- ', '\n'], ['desktop', 3000, '- ', '\n'], ['terminal', 5000, '', '\n\n']] as const) {
+    const ui = await $.ui.mount({ ...draw(`# Inventory\n\n${items(n, mark, gap)}`), surface })
+    const drawn = await ui.drawn()
+    expect(nodeCount(drawn)).toBeLessThan(20000)
+    expect(textIn(drawn)).toBeLessThan(60000)
+    expect(await ui.find({ type: 'Text', text: /^Inventory$/ })).toBeDefined()
+    const texts = await ui.findAll({ type: 'Text' })
+    const last = texts[texts.length - 1]!
+    expect(last.text).toMatch(/^… \+\d+ lines · \/prismantis copy for the whole reply$/)
+    expect(last.props.dimColor).toBe(true)
+    expect(Math.max(...texts.map(t => (t.text ?? '').length))).toBeLessThanOrEqual(10000)
+    await ui.unmount()
+  }
+})
+
+test('a reply of long paragraphs under the node budget still stops under the engine text ceiling and keeps its copy button', async $ => {
+  const words = 'word '.repeat(80)
+  const ui = await $.ui.mount({ ...draw(`# Notes\n\n${Array.from({ length: 300 }, (_, i) => `Note ${i}: ${words}`).join('\n\n')}`), surface: 'terminal' })
+  const drawn = await ui.drawn()
+  expect(textIn(drawn)).toBeLessThan(100000)
+  const texts = await ui.findAll({ type: 'Text' })
+  expect(texts[texts.length - 1]!.text).toMatch(/^… \+\d+ lines · \/prismantis copy for the whole reply$/)
+  expect((await ui.findAll({ type: 'Button' })).some(b => b.props.label === '⧉ copy reply')).toBe(true)
+  await ui.unmount()
+})
+
+test('folds open caps a 900-line code block at 400 lines', { options: { folds: 'open' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(hugeCode()), surface: 'terminal' })
+  expect(nodeCount(await ui.drawn())).toBeLessThan(20000)
+  expect((await ui.find({ key: 'fold0' }))?.props.label).toBe('show less')
+  expect(await ui.find({ type: 'Text', text: /^… \+500 lines$/ })).toBeDefined()
+})
+
+test('a folded code block colors its last shown line from the whole block, so a string that runs past the fold stays a string', async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const lines = [...Array.from({ length: 19 }, (_, i) => `let a${i} = ${i}`), 'const s = `line twenty', ...Array.from({ length: 20 }, (_, i) => `more ${i}`), 'end`']
+  const ui = await $.ui.mount({ ...draw(`\`\`\`ts\n${lines.join('\n')}\n\`\`\``), surface: 'terminal' })
+  expect((await ui.findAll({ type: 'Text', text: /^ *\d+  $/ })).length).toBe(20)
+  expect((await ui.findAll({ type: 'Text' })).filter(n => n.props.color === t.codeString && /line twenty/.test(n.text ?? '')).length).toBe(1)
+  await ui.unmount()
+})
+
 test('two code blocks that differ only in where lines break fold on their own', async $ => {
   const body = Array.from({ length: 29 }, () => 'x').join('\n')
   const ui = await $.ui.mount({ ...draw(`\`\`\`text\nab\nc\n${body}\n\`\`\`\n\nand\n\n\`\`\`text\na\nbc\n${body}\n\`\`\``), surface: 'terminal' as const })
@@ -788,5 +932,159 @@ for (const rtl of ['iterm', 'apple-terminal'] as const) for (const surface of ['
     expect(holders).toHaveLength(0)
     expect(rows).toHaveLength(0)
   }
+  await ui.unmount()
+})
+
+test('a line break stays only before a tinted translation line', async () => {
+  const gray = (s: string) => `\u001b[90m${s}\u001b[39m`
+  const [plain, para, list] = parse(`one\ntwo\n\nHello world.\n${gray('你好世界。')}\n\n- item\n  ${gray('项目')}\n  more`, { numbers: false, paths: false })
+  if (plain?.kind !== 'paragraph' || para?.kind !== 'paragraph' || list?.kind !== 'list') throw new Error('unexpected blocks')
+  expect(plain.inline).toEqual([{ kind: 'text', text: 'one two' }])
+  expect(para.inline.map(n => ('text' in n ? n.text : ''))).toEqual(['Hello world.\n', '你好世界。'])
+  expect(list.items[0]?.inline.map(n => ('text' in n ? n.text : ''))).toEqual(['item\n', '项目', ' more'])
+})
+
+test('translation colors from BBilingual survive, other escape codes do not', async () => {
+  const gray = (s: string) => `\u001b[90m${s}\u001b[39m`
+  const [para, heading, other] = parse(`Hi **all**.\n${gray('你好')}**${gray('大家')}**\n\n## Results / ${gray('结果')}\n\nkeep \u001b[31mred\u001b[0m \u001b[36mcyan\u001b[39m`, { numbers: false, paths: false })
+  if (para?.kind !== 'paragraph' || heading?.kind !== 'heading' || other?.kind !== 'paragraph') throw new Error('unexpected blocks')
+  expect(para.inline.at(-2)).toEqual({ kind: 'dim', text: '你好', tint: 'gray' })
+  expect(para.inline.at(-1)).toEqual({ kind: 'strong', children: [{ kind: 'dim', text: '大家', tint: 'gray' }] })
+  expect(heading.inline.at(-1)).toEqual({ kind: 'dim', text: '结果', tint: 'gray' })
+  expect(other.inline).toEqual([{ kind: 'text', text: 'keep red ' }, { kind: 'dim', text: 'cyan', tint: 'cyan' }])
+  expect(JSON.stringify([para, heading, other])).not.toMatch(/[\u001b\uE000-\uE1FF]/)
+  expect(para.raw).toBe('Hi **all**.\n你好**大家**')
+})
+
+test('a tinted translation is drawn in its color', async $ => {
+  for (const [code, look] of [['90', { color: 'gray' }], ['36', { color: 'cyan' }], ['3', { italic: true }], ['2', { dimColor: true }]] as const) {
+    const ui = await $.ui.mount({ ...draw(`Hello.\n\u001b[${code}m你好\u001b[${code === '2' ? '22' : code === '3' ? '23' : '39'}m`), surface: 'terminal' })
+    expect((await ui.find({ type: 'Text', text: /^你好$/ }))?.props).toMatchObject(look)
+    await ui.unmount()
+  }
+})
+
+const CODE = '```ts\nconst a = 1\n```'
+
+for (const surface of SURFACES) test(`copyButtonStyle dim, the default, draws a copy button dim on ${surface}`, async $ => {
+  const ui = await $.ui.mount({ ...draw(CODE), surface })
+  const button = await ui.find({ key: 'copy0' })
+  expect(button?.props.plain).toBe(true)
+  expect(button?.props.dimColor).toBe(true)
+  expect(button?.props.label).toBe('⧉ copy')
+  await ui.unmount()
+})
+
+for (const surface of SURFACES) test(`copyButtonStyle inline draws a copy button in the accent color on ${surface}`, { options: { copyButtonStyle: 'inline' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(CODE), surface })
+  const button = await ui.find({ key: 'copy0' })
+  expect(button?.props.variant).toBe('primary')
+  expect(button?.props.dimColor).toBe(undefined)
+  await ui.unmount()
+})
+
+const FILL = '#1c2233'
+
+const codeLooks = [
+  { options: { codeStyle: 'plain' }, border: undefined, fill: undefined, padding: undefined },
+  { options: { codeStyle: 'framed' }, border: 'round', fill: undefined, padding: 1 },
+  { options: { codeStyle: 'filled' }, border: undefined, fill: FILL, padding: 1 },
+  { options: { codeStyle: 'card' }, border: 'round', fill: FILL, padding: 1 },
+  { options: { codeStyle: 'fancy' }, border: undefined, fill: undefined, padding: undefined },
+] as const
+
+for (const look of codeLooks) test(`codeStyle ${look.options.codeStyle} draws its frame and fill`, { options: { ...look.options, codeFillColor: FILL, replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(CODE), surface: 'terminal' })
+  const block = await ui.find({ key: 'b0' })
+  expect(block?.props.borderStyle).toBe(look.border)
+  expect(block?.props.backgroundColor).toBe(look.fill)
+  expect(block?.props.paddingX).toBe(look.padding)
+  await ui.unmount()
+})
+
+test('a code block is plain by default, so a code color alone draws nothing', { options: { codeFillColor: FILL, codeBorderColor: '#123456', replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(CODE), surface: 'terminal' })
+  const block = await ui.find({ key: 'b0' })
+  expect(block?.props.borderStyle).toBe(undefined)
+  expect(block?.props.backgroundColor).toBe(undefined)
+  expect(block?.props.paddingX).toBe(undefined)
+  await ui.unmount()
+})
+
+for (const codeStyle of ['framed', 'filled', 'card'] as const) test(`codeStyle ${codeStyle} leaves the native code block alone off the terminal`, { options: { codeStyle, replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(CODE), surface: 'desktop' })
+  const block = await ui.find({ key: 'b0' })
+  expect(block?.props.borderStyle).toBe(undefined)
+  expect(block?.props.backgroundColor).toBe(undefined)
+  await ui.unmount()
+})
+
+test('a code block fill defaults to a shade that differs from the reply fill', { options: { codeStyle: 'filled', replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(CODE), surface: 'terminal' })
+  const style = resolveStyle({})
+  const fill = (await ui.find({ key: 'b0' }))?.props.backgroundColor
+  expect(typeof fill).toBe('string')
+  expect(fill).not.toBe(replyFill(style.theme, style.background))
+  await ui.unmount()
+})
+
+test('codeStyle filled draws the frame in a theme with no colors to fill with', { options: { theme: 'mono', codeStyle: 'filled', replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(CODE), surface: 'terminal' })
+  const block = await ui.find({ key: 'b0' })
+  expect(block?.props.borderStyle).toBe('round')
+  expect(block?.props.backgroundColor).toBe(undefined)
+  await ui.unmount()
+})
+
+test('a code block frame takes the rule color', { options: { codeStyle: 'framed', ruleColor: '#654321', replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(CODE), surface: 'terminal' })
+  expect((await ui.find({ key: 'b0' }))?.props.borderColor).toBe('#654321')
+  await ui.unmount()
+})
+
+test('codeBorderColor colors a code block frame apart from the rule color', { options: { codeStyle: 'framed', ruleColor: '#654321', codeBorderColor: '#123456', replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(CODE), surface: 'terminal' })
+  expect((await ui.find({ key: 'b0' }))?.props.borderColor).toBe('#123456')
+  await ui.unmount()
+})
+
+test('a framed code block with hover buttons stays wide enough for its head inside the frame', { options: { codeStyle: 'framed', copyButtonStyle: 'hover', replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw('```\nx\n```'), surface: 'terminal' })
+  expect((await ui.find({ key: 'b0' }))?.props.minWidth).toBe('── code [ ⧉ copy ]'.length + 4)
+  await ui.unmount()
+})
+
+test('two trailing spaces or a backslash end a paragraph line', async $ => {
+  const [spaces, slash, soft, rtl] = parse('🟩🟩  \n ✅ DELIVERED  \n🟩🟩\n\none\\\ntwo\n\nthree  \nfour\\\n\nשלום  \nעולם', { numbers: false, paths: false })
+  const text = (b: typeof spaces) => (b?.kind === 'paragraph' ? b.inline.map(n => ('text' in n ? n.text : '')).join('') : '')
+  expect([text(spaces), text(slash), text(soft), text(rtl)]).toEqual(['🟩🟩\n✅ DELIVERED\n🟩🟩', 'one\ntwo', 'three\nfour\\', 'שלום\nעולם'])
+  expect(spaces?.raw).toBe('🟩🟩  \n ✅ DELIVERED  \n🟩🟩')
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...draw('🟩🟩  \n✅ DELIVERED  \n🟩🟩'), surface })
+    expect(await ui.find({ type: 'Text', text: /^🟩🟩\n✅ DELIVERED\n🟩🟩$/ })).toBeTruthy()
+    await ui.unmount()
+  }
+})
+
+test('two trailing spaces or a backslash end a list item line', async $ => {
+  const [list] = parse('- one  \n  two\\\n  three\n  four\n- שלום  \n  עולם\n  ```\n  c\n  ```\n  para  \n  next', { numbers: false, paths: false })
+  if (list?.kind !== 'list') throw new Error('not a list')
+  expect(list.items.map(it => displayText(it.inline))).toEqual(['one\ntwo\nthree four', 'שלום\nעולם'])
+  const para = list.items[1]?.blocks?.[1]
+  expect(para?.kind === 'paragraph' && displayText(para.inline)).toBe('para\nnext')
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...draw('- one  \n  two\n- שלום  \n  עולם'), surface })
+    expect(await ui.find({ type: 'Text', text: /^one\ntwo$/ })).toBeTruthy()
+    expect(await ui.find({ type: 'Text', text: /^שלום\nעולם$/ })).toBeTruthy()
+    await ui.unmount()
+  }
+})
+
+test('a deeply nested list stops indenting at half the width, so its deepest items keep room for their text', { options: { replyStyle: 'off' } }, async $ => {
+  const nest = Array.from({ length: 50 }, (_, i) => `${'  '.repeat(i)}- level ${i + 1}`).join('\n')
+  const ui = await $.ui.mount({ ...draw(nest), viewport: { columns: 60, rows: 40 }, surface: 'terminal' })
+  const pads = (await ui.findAll({ type: 'Box' })).map(b => Number(b.props.paddingLeft ?? 0))
+  expect(Math.max(...pads)).toBeLessThanOrEqual(28)
+  expect(await ui.find({ type: 'Text', text: /^level 50$/ })).toBeDefined()
   await ui.unmount()
 })
