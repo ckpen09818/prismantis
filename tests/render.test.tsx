@@ -207,6 +207,8 @@ test('every preset defines every token with a valid color', async () => {
 test('picks a named theme and falls back on unknown names', async () => {
   expect(resolveStyle({ theme: 'dracula' }).theme.tableHeader).toBe('#f1fa8c')
   expect(resolveStyle({ theme: 'neon' }).theme.tableHeader).toBe('#00e5ff')
+  expect(resolveStyle({ theme: 'kanagawa-wave' }).theme.tableHeader).toBe('#e6c384')
+  expect(resolveStyle({ theme: 'morning-haze' }).theme.tableHeader).toBe('#f8e6d2')
   expect(resolveStyle({ theme: 'nope' }).theme.tableHeader).toBe(PRESETS['catppuccin-mocha'].tableHeader)
 })
 
@@ -358,10 +360,11 @@ for (const surface of SURFACES) test(`copyButtonStyle hover hides every copy but
   expect(await ui.findAll({ type: 'Button' })).toHaveLength(5)
   expect(await floatingCopies(ui)).toEqual(['⧉ md ⧉ art', '⧉ copy', '⧉ copy', '⧉ copy reply'])
   expect(reveals(tree).flatMap(({ node }) => withParents(node).filter(({ node: n }) => n.type === 'Button'))).toHaveLength(5)
-  for (const { node } of reveals(tree)) {
+  for (const { node, parent } of reveals(tree)) {
     const scope = node.hover?.scope ?? ''
     expect(node.hover).toEqual({ scope, display: 'flex' })
-    expect(markersOf(tree, scope).map(({ node: marker }) => ({ text: shownText(marker), flows: inFlow(marker) }))).toEqual([{ text: '⧉', flows: !scope.endsWith(':reply') }])
+    expect(parent?.hover?.scope).toBe(scope)
+    expect(markersOf(tree, scope).map(({ node: marker }) => ({ text: drawnKids(marker).filter(inFlow).map(shownText).join(''), flows: inFlow(marker) }))).toEqual([{ text: '⧉', flows: !scope.endsWith(':reply') }])
   }
   await ui.press({ key: 'copy1' })
   expect(copied).toEqual(['ls -la'])
@@ -374,8 +377,7 @@ for (const surface of SURFACES) test(`copyButtonStyle hover draws a block's butt
   const floats = reveals(tree).filter(({ node }) => labelsOf(node) !== '⧉ copy reply')
   expect(floats.map(({ node }) => labelsOf(node))).toEqual(['⧉ md ⧉ art', '⧉ copy', '⧉ copy', '⧉ copy'])
   for (const { node, parent } of floats) {
-    const flow = drawnKids(parent!).filter(inFlow)
-    const marker = flow.at(-1)!
+    const marker = parent!
     expect(marker.hover?.scope).toBe(node.hover?.scope)
     expect(['flex-start', 'flex-end']).toContain(marker.props?.alignSelf)
     expect({ right: node.props?.right, left: node.props?.left, width: node.props?.width, minWidth: node.props?.minWidth }).toEqual({ right: 0, left: undefined, width: undefined, minWidth: undefined })
@@ -469,8 +471,8 @@ test('copyButtonStyle dim, the default, keeps every copy button in the flow', as
   await ui.unmount()
 })
 
-test('copyButtonStyle hover draws inline on mobile, which has no pointer', { options: { copyButtonStyle: 'hover' } }, async $ => {
-  const ui = await $.ui.mount({ ...draw(COPY_SAMPLE), surface: 'mobile' })
+for (const surface of ['mobile', 'vscode'] as const) test(`copyButtonStyle hover draws inline on ${surface}, ${surface === 'mobile' ? 'which has no pointer' : 'whose panel reveals nothing on hover'}`, { options: { copyButtonStyle: 'hover' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(COPY_SAMPLE), surface })
   expect(await floatingCopies(ui)).toHaveLength(0)
   await ui.unmount()
 })
@@ -490,6 +492,50 @@ for (const copyButtonStyle of ['dim', 'inline', 'hover'] as const) test(`textCop
     expect(labels).toContain('⧉ copy reply')
     await ui.unmount()
   }
+})
+
+const SECTIONS = '## Message\n\nHello team.\n\n- one\n- two\n\n### Detail\n\nMore.\n\n## Notes\n\nNot copied.'
+
+test('headings draw no copy button by default', async $ => {
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...draw(SECTIONS), surface })
+    const labels = (await ui.findAll({ type: 'Button' })).map(b => String(b.props.label))
+    expect(labels.filter(l => l === '⧉ copy')).toHaveLength(1)
+    await ui.unmount()
+  }
+})
+
+for (const copyButtonStyle of ['dim', 'inline', 'hover'] as const) test(`sectionCopyButtons puts a ${copyButtonStyle} button on each heading that copies its section up to the next heading of its level`, { options: { sectionCopyButtons: true, copyButtonStyle } }, async ($, on) => {
+  const copied: string[] = []
+  on('ui.copy', (_, e) => {
+    copied.push(e.text)
+    return { value: { isCopied: true as const } }
+  })
+  for (const surface of SURFACES) {
+    copied.length = 0
+    const ui = await $.ui.mount({ ...draw(SECTIONS), surface })
+    const buttons = (await ui.findAll({ type: 'Button' })).filter(b => b.props.label === '⧉ copy')
+    expect(buttons).toHaveLength(4)
+    await ui.press({ key: buttons[0]!.key! })
+    expect(copied).toEqual(['Hello team.\n\n- one\n- two\n\n### Detail\n\nMore.'])
+    await ui.unmount()
+  }
+})
+
+test('sectionCopyButtons skips a heading whose section is one block with its own button, or nothing', { options: { sectionCopyButtons: true } }, async $ => {
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...draw('## Steps\n\n- one\n- two\n\n## Empty\n\n## Code\n\n```bash\nls\n```'), surface })
+    const labels = (await ui.findAll({ type: 'Button' })).map(b => String(b.props.label))
+    expect(labels.filter(l => l === '⧉ copy')).toHaveLength(2)
+    await ui.unmount()
+  }
+})
+
+test('sectionCopyButtons draws no button on a heading inside a quote', { options: { sectionCopyButtons: true, textCopyButtons: false } }, async $ => {
+  const ui = await $.ui.mount({ ...draw('> ## Inside\n>\n> Quoted text.\n\nAfter.'), surface: 'terminal' })
+  const labels = (await ui.findAll({ type: 'Button' })).map(b => String(b.props.label))
+  expect(labels.filter(l => l === '⧉ copy')).toHaveLength(0)
+  await ui.unmount()
 })
 
 test('lists copy as markdown', async ($, on) => {
@@ -612,6 +658,219 @@ test('a table row with a link beside a column of only line breaks still draws as
 
 const percent = (width: unknown) => (typeof width === 'string' && /^\d+%$/.test(width) ? Number(width.slice(0, -1)) : NaN)
 
+const STACKS = '| Scroll | Checksum |\n|:-------|:---------|\n| ~/jade-palace/noodle-scrolls/scrolls/scroll-07-training-notes.md | 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 |\n| /srv/dojo/moves.md | 2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae |'
+
+for (const tableLayout of ['classic', 'auto', 'compact', 'stacked'] as const) test(`tableLayout ${tableLayout} in the terminal ${(tableLayout === 'classic' ? "keeps today's look" : tableLayout === 'auto' ? 'stretches the columns and stacks only a table too wide for even its longest words' : tableLayout === 'compact' ? 'sits every column at its longest word' : 'draws every row as label and value pairs')}`, { options: { tableLayout } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(tableLayout === 'stacked' ? STACKS : TABLE), surface: 'terminal' })
+  if (tableLayout === 'stacked') {
+    expect((await ui.findAll({ type: 'Text', text: /^Scroll *$/ }))).toHaveLength(2)
+    expect((await ui.findAll({ type: 'Text', text: /^Checksum$/ }))).toHaveLength(2)
+    expect(await ui.find({ type: 'Text', text: /^┌[─┬]+┐$/ })).toBeUndefined()
+  } else {
+    const boxes = await ui.findAll({ type: 'Box' })
+    expect(['Service', 'Regions', 'Version'].map(name => {
+      const cell = boxes.find(b => b.text === name && typeof b.props.width === 'number')
+      if (!cell) throw new Error(`column ${name} not drawn`)
+      return cell.props.width as number
+    })).toEqual(tableLayout === 'compact' ? [11, 7, 7] : [11, 10, 13])
+  }
+  await ui.unmount()
+})
+
+test('tableLayout auto stacks in the terminal when not even the longest words fit', { options: { tableLayout: 'auto' } }, async $ => {
+  const narrow = await $.ui.mount({ ...draw(STACKS), surface: 'terminal', viewport: { columns: 40, rows: 40 } })
+  expect((await narrow.findAll({ type: 'Text', text: /^Checksum$/ }))).toHaveLength(2)
+  expect(await narrow.find({ type: 'Text', text: /^┌[─┬]+┐$/ })).toBeUndefined()
+  await narrow.unmount()
+})
+
+test('tableLayout stacked on desktop falls back to the shared percent layout', { options: { tableLayout: 'stacked' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(TABLE), surface: 'desktop' })
+  expect(await ui.findAll({ type: 'Text', text: /^Checksum$/ })).toHaveLength(0)
+  const headers = (await ui.findAll({ type: 'Box' })).filter(b => /^(Service|Regions|Version)$/.test(b.text ?? '') && b.props.width !== undefined)
+  expect(headers.map(b => percent(b?.props.width)).reduce((sum, n) => sum + n, 0)).toBe(100)
+  await ui.unmount()
+})
+
+const STATUS = [
+  '| Suite | Cases | Result |',
+  '|-------|------:|--------|',
+  '| Unit | 412 | ✓ |',
+  '| Propagation | 88 | failed |',
+  '| Smoke | 24 | pending |',
+  '| Regression | 130 | ✓ |',
+  '| Cache | 15 | degraded |',
+].join('\n')
+
+for (const surface of ['terminal', 'desktop'] as const) test(`statusMatrix ${surface} colors the status cells of a table in theme colors`, { options: { statusMatrix: 'color' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(STATUS), surface })
+  expect((await ui.find({ type: 'Text', text: /^failed$/ }))?.props.color).toBe(t.diffRemoved)
+  expect((await ui.find({ type: 'Text', text: /^pending$/ }))?.props.color).toBe(t.codeComment)
+  expect((await ui.find({ type: 'Text', text: /^degraded$/ }))?.props.color).toBe(t.tableHeader)
+  expect(t.tableHeader).not.toBe(t.diffRemoved)
+  expect(t.tableHeader).not.toBe(t.codeString)
+  const checks = await ui.findAll({ type: 'Text', text: /^✓$/ })
+  expect(checks.length >= 2).toBe(true)
+  expect(checks.filter(n => n.props.color === t.codeString).length >= 2).toBe(true)
+  expect((await ui.find({ type: 'Text', text: /^Propagation$/ }))?.props.color).toBe(surface === 'desktop' ? PRESETS['catppuccin-mocha'].codeText : undefined)
+  await ui.unmount()
+})
+
+const REPORT = [
+  '| Check | Time | Result |',
+  '|:------|-----:|:-------|',
+  '| parse | 120 ms | ✓ |',
+  '| draw | 4 s | ✓ |',
+  '| scan | 130 ms | failed |',
+  '| typeset | 2.6 s | pending |',
+].join('\n')
+const BENCH = [
+  '| Benchmark | Before | After | Change |',
+  '|:----------|-------:|------:|:-------|',
+  '| parse | 12.4 ms | 11.1 ms | -10% |',
+  '| layout | 19.6 ms | 22.4 ms | +14% |',
+  '| paint | 2.1 ms | 0.8 ms | -62% |',
+  '| typeset | 0.9 ms | 0.9 ms | 0% |',
+].join('\n')
+
+const SCHEMA = [
+  '| Column | Type | Key | Default |',
+  '|:-------|:-----|:----|:--------|',
+  '| id | uuid | PK | |',
+  '| email | varchar(255) | UNIQUE | |',
+  '| org_id | bigint | FK | |',
+  '| created_at | timestamp | | now() |',
+].join('\n')
+
+const KEYLESS = [
+  '| Column | Type | Notes |',
+  '|:-------|:-----|:------|',
+  '| id | uuid | PK |',
+  '| org_id | bigint | FK |',
+].join('\n')
+
+const GROUPED = [
+  '| Service | Region | Requests |',
+  '|:--------|:-------|---------:|',
+  '| api | us-east | 1.2M |',
+  '| api | us-west | 900k |',
+  '| worker | us-east | 2.4M |',
+  '| worker | us-west | 1.8M |',
+  '| cron | us-east | 96k |',
+].join('\n')
+
+
+test('statusMatrix off keeps tables as written', async $ => {
+  const ui = await $.ui.mount({ ...draw(STATUS), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^failed$/ }))?.props.color).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^ · $/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a Color column and a none column are not a status column', { options: { statusMatrix: 'summary' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw('| Thing | Color | Default |\n|---|---|---|\n| a | red | none |\n| b | green | n/a |'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^red$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^green$/ }))?.props.color).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^ · $/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('statusMatrix summary draws a count line under the table, like `✓ 2 · ✗ 1 · ● 1`', { options: { statusMatrix: 'summary' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(STATUS), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^✓ 2$/ }))?.props.color).toBe(t.codeString)
+  expect((await ui.find({ type: 'Text', text: /^✗ 1$/ }))?.props.color).toBe(t.diffRemoved)
+  expect((await ui.find({ type: 'Text', text: /^⚠ 1$/ }))?.props.color).toBe(t.tableHeader)
+  expect((await ui.find({ type: 'Text', text: /^● 1$/ }))?.props.color).toBe(t.codeComment)
+  const seps = await ui.findAll({ type: 'Text', text: /^ · $/ })
+  expect(seps).toHaveLength(3)
+  expect(seps.every(n => n.props.dimColor)).toBe(true)
+  await ui.unmount()
+})
+
+test('statusMatrix group reorders rows by status and draws a heavy rule where the status changes', { options: { statusMatrix: 'group' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(STATUS), surface: 'terminal' })
+  expect((await ui.findAll({ type: 'Text', text: /^╞[═╪]+╡$/ }))).toHaveLength(4)
+  const suite = await ui.findAll({ type: 'Text', text: /^(Unit|Regression|Propagation|Smoke|Cache)$/ })
+  expect([...new Set(suite.map(n => n.text))]).toEqual(['Unit', 'Regression', 'Propagation', 'Cache', 'Smoke'])
+  expect((await ui.findAll({ type: 'Text', text: /^failed$/ })).some(n => n.props.color === t.diffRemoved)).toBe(true)
+  expect((await ui.findAll({ type: 'Text', text: /^pending$/ })).some(n => n.props.color === t.codeComment)).toBe(true)
+  expect((await ui.findAll({ type: 'Text', text: /^degraded$/ })).some(n => n.props.color === t.tableHeader)).toBe(true)
+  await ui.unmount()
+})
+
+test('a table without a status column draws unchanged', { options: { statusMatrix: 'summary' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(TABLE), surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: / · / })).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^api-gateway$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('statusMatrix stays off stacked tables', { options: { statusMatrix: 'summary', tableLayout: 'stacked' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(STATUS), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^failed$/ }))?.props.color).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^✓ 2$/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+for (const surface of ['terminal', 'desktop'] as const) test(`testMatrix ${surface} draws the pass share, other results and the total time under a results table`, { options: { testMatrix: 'report' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(REPORT), surface })
+  expect((await ui.find({ type: 'Text', text: /^✓ 2$/ }))?.props.color).toBe(t.codeString)
+  expect(await ui.find({ type: 'Text', text: /^ of 4 \(50%\)$/ })).toBeTruthy()
+  expect((await ui.find({ type: 'Text', text: /^✗ 1$/ }))?.props.color).toBe(t.diffRemoved)
+  expect((await ui.find({ type: 'Text', text: /^● 1$/ }))?.props.color).toBe(t.codeComment)
+  const seps = await ui.findAll({ type: 'Text', text: /^ · $/ })
+  expect(seps).toHaveLength(3)
+  expect(seps.every(x => x.props.dimColor)).toBe(true)
+  expect((await ui.find({ type: 'Text', text: /^6\.9s total$/ }))?.props.dimColor).toBe(true)
+  expect((await ui.find({ type: 'Text', text: /^failed$/ }))?.props.color).toBe(surface === 'desktop' ? PRESETS['catppuccin-mocha'].codeText : undefined)
+  await ui.unmount()
+})
+
+test('testMatrix totals a run under a millisecond in microseconds', { options: { testMatrix: 'report' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw('| Check | Time | Result |\n|:------|-----:|:-------|\n| parse | 250 µs | ✓ |\n| draw | 550 µs | failed |'), surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^800µs total$/ })).toBeTruthy()
+  await ui.unmount()
+})
+
+test('testMatrix off keeps tables as written', { options: { testMatrix: 'off' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(REPORT), surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^ of 4 / })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^ · $/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a status column with no time column draws no report', { options: { testMatrix: 'report' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(STATUS), surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^ of / })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a time column whose cells do not mostly read like durations draws no report', { options: { testMatrix: 'report' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw('| Check | Time | Result |\n|:------|-----:|:-------|\n| parse | 120 ms | ✓ |\n| draw | a lot | ✓ |\n| scan | hard | failed |'), surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^ of / })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('testMatrix report replaces the statusMatrix summary count line', { options: { statusMatrix: 'summary', testMatrix: 'report' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(REPORT), surface: 'terminal' })
+  expect(await ui.findAll({ type: 'Text', text: /^✓ 2$/ })).toHaveLength(1)
+  expect((await ui.findAll({ type: 'Text', text: /^✓ 2$/ })).every(x => x.props.color === t.codeString)).toBe(true)
+  expect(await ui.findAll({ type: 'Text', text: /^ · $/ })).toHaveLength(3)
+  expect(await ui.find({ type: 'Text', text: /^6\.9s total$/ })).toBeTruthy()
+  await ui.unmount()
+})
+
+test('testMatrix stays off stacked tables', { options: { testMatrix: 'report', tableLayout: 'stacked' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(REPORT), surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^ of 4 / })).toBeUndefined()
+  await ui.unmount()
+})
+
 for (const tableStyle of ['box', 'rules', 'grid', 'minimal'] as const) test(`tableStyle ${tableStyle} in the terminal keeps its character rules in fixed columns`, { options: { tableStyle } }, async $ => {
   const ui = await $.ui.mount({ ...draw(TABLE), surface: 'terminal' })
   const boxes = await ui.findAll({ type: 'Box' })
@@ -623,8 +882,8 @@ for (const tableStyle of ['box', 'rules', 'grid', 'minimal'] as const) test(`tab
   await ui.unmount()
 })
 
-for (const tableStyle of ['box', 'rules', 'grid', 'minimal'] as const) test(`tableStyle ${tableStyle} on desktop draws its lines as thin colored boxes that share the percent widths of their columns`, { options: { tableStyle } }, async $ => {
-  const ui = await $.ui.mount({ ...draw(TABLE), surface: 'desktop' })
+for (const surface of ['desktop', 'vscode'] as const) for (const tableStyle of ['box', 'rules', 'grid', 'minimal'] as const) test(`tableStyle ${tableStyle} on ${surface} draws its lines as thin colored boxes that share the percent widths of their columns`, { options: { tableStyle } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(TABLE), surface })
   const ink = PRESETS['catppuccin-mocha'].tableRule
   const boxes = await ui.findAll({ type: 'Box' })
   expect(await ui.find({ type: 'Text', text: /[┌┐└┘│╞╡├┤┬┴┼╪─━═]/ })).toBeUndefined()
@@ -634,6 +893,8 @@ for (const tableStyle of ['box', 'rules', 'grid', 'minimal'] as const) test(`tab
   expect(headers.map(b => [b?.props.flexShrink, b?.props.minWidth])).toEqual([[1, 'api-gateway'.length], [1, 'Regions'.length], [1, 'Version'.length]])
   expect((await ui.find({ key: 'b0' }))?.props.alignSelf).toBe('flex-start')
   expect(headers.every(b => b?.props.alignItems === 'flex-start')).toBe(true)
+  const cellRows = boxes.filter(b => b.props.flexDirection === 'row' && ['Service', 'api-gateway', 'billing'].filter(cell => (b.text ?? '').includes(cell)).length === 1)
+  expect(cellRows.map(b => b.props.flexWrap)).toEqual(Array(3).fill('nowrap'))
   const lines = boxes.filter(b => b.props.backgroundColor === ink)
   const walls = lines.filter(b => b.props.width === 0.12)
   const runs = lines.filter(b => typeof b.props.width === 'string')
@@ -647,10 +908,17 @@ for (const tableStyle of ['box', 'rules', 'grid', 'minimal'] as const) test(`tab
     expect(walls).toHaveLength(0)
     expect(spans).toHaveLength(0)
     const rows = tableStyle === 'minimal' ? 1 : 2
+    expect(boxes.filter(b => b.props.marginY === 1).map(b => b.props.flexWrap)).toEqual(Array(rows).fill('nowrap'))
     expect(runs.map(b => percent(b.props.width))).toEqual(Array.from({ length: rows }, () => shares).flat())
     expect(runs.map(b => b.props.minWidth)).toEqual(Array.from({ length: rows }, () => headers.map(h => h?.props.minWidth)).flat())
     expect(runs.slice(0, 3).map(b => b.props.height)).toEqual(Array(3).fill(tableStyle === 'grid' ? 0.12 : 0.06))
   }
+  await ui.unmount()
+})
+
+for (const surface of ['terminal', 'desktop', 'vscode'] as const) test(`two tables in a row on ${surface} ${surface === 'terminal' ? 'keep the width they are drawn at' : 'shrink to the reply instead of running past it'}`, async $ => {
+  const ui = await $.ui.mount({ ...draw(`${TABLE}\n\n${TABLE}`), surface })
+  expect([(await ui.find({ key: 'f0' }))?.props.flexShrink, (await ui.find({ key: 'f1' }))?.props.flexShrink]).toEqual(surface === 'terminal' ? [0, 0] : [1, 1])
   await ui.unmount()
 })
 
@@ -807,17 +1075,19 @@ test('two code blocks that differ only in where lines break fold on their own', 
   await ui.unmount()
 })
 
-for (const surface of ['terminal', 'desktop'] as const) test(`a list item on ${surface} ${surface === 'desktop' ? 'keeps its marker on the first line, unshrunk, when its text wraps' : 'draws its marker as plain text beside its text'}`, async $ => {
+for (const surface of ['terminal', 'desktop', 'vscode'] as const) test(`a list item on ${surface} ${surface !== 'terminal' ? 'keeps its marker on the first line, unshrunk, when its text wraps' : 'draws its marker as plain text beside its text'}`, async $ => {
   const ui = await $.ui.mount({ ...draw(`1. ${'long words '.repeat(30).trim()}\n2. Short`), surface })
   const rows = (await ui.findAll({ type: 'Box' })).filter(b => b.props.flexDirection === 'row' && /^1\. long/.test(b.text ?? ''))
   const row = rows[rows.length - 1]
   expect(row).toBeDefined()
   const holders = (await ui.findAll({ type: 'Box' })).filter(b => b.props.flexShrink === 0 && b.text === '1. ')
-  if (surface === 'desktop') {
+  if (surface !== 'terminal') {
     expect(row!.props.alignItems).toBe('flex-start')
+    expect(row!.props.flexWrap).toBe('nowrap')
     expect(holders).toHaveLength(1)
   } else {
     expect(row!.props.alignItems).toBeUndefined()
+    expect(row!.props.flexWrap).toBeUndefined()
     expect(holders).toHaveLength(0)
   }
   await ui.unmount()
@@ -1022,5 +1292,463 @@ test('a deeply nested list stops indenting at half the width, so its deepest ite
   const pads = (await ui.findAll({ type: 'Box' })).map(b => Number(b.props.paddingLeft ?? 0))
   expect(Math.max(...pads)).toBeLessThanOrEqual(28)
   expect(await ui.find({ type: 'Text', text: /^level 50$/ })).toBeDefined()
+  await ui.unmount()
+})
+
+for (const surface of ['terminal', 'desktop'] as const) test(`benchTable ${surface} colors changes in theme colors`, { options: { benchTable: 'color' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(BENCH), surface })
+  expect((await ui.find({ type: 'Text', text: /^-10%$/ }))?.props.color).toBe(t.diffAdded)
+  expect((await ui.find({ type: 'Text', text: /^\+14%$/ }))?.props.color).toBe(t.diffRemoved)
+  expect((await ui.find({ type: 'Text', text: /^-62%$/ }))?.props.color).toBe(t.diffAdded)
+  expect((await ui.find({ type: 'Text', text: /^0%$/ }))?.props.color).toBe(surface === 'desktop' ? PRESETS['catppuccin-mocha'].codeText : undefined)
+  expect((await ui.find({ type: 'Text', text: /^parse$/ }))?.props.color).toBe(surface === 'desktop' ? PRESETS['catppuccin-mocha'].codeText : undefined)
+  await ui.unmount()
+})
+
+test('benchTable trend draws a sparkline of the runs under the table', { options: { benchTable: 'trend' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(BENCH), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^\u2585$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^\u2588$/ }))?.props.color).toBe(t.diffRemoved)
+  expect((await ui.findAll({ type: 'Text', text: /^\u2581$/ })).every(x => x.props.color === t.diffAdded)).toBe(true)
+  expect(await ui.findAll({ type: 'Text', text: /^\u2581$/ })).toHaveLength(2)
+  await ui.unmount()
+})
+
+test('benchTable off keeps tables as written', { options: { benchTable: 'off' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(BENCH), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^-10%$/ }))?.props.color).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^\u2585$/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a table without a change column draws no sparkline either', { options: { benchTable: 'trend' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(STATUS), surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^\u2585$/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a rate header makes higher changes the improvement', { options: { benchTable: 'color' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw('| Suite | Score | Change |\n|---|---:|:---|\n| parse | 82 | +3% |\n| layout | 88 | +6% |'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^\+3%$/ }))?.props.color).toBe(t.diffAdded)
+  expect((await ui.find({ type: 'Text', text: /^\+6%$/ }))?.props.color).toBe(t.diffAdded)
+  await ui.unmount()
+})
+
+test('benchTable stays off stacked tables', { options: { benchTable: 'trend', tableLayout: 'stacked', theme: 'dracula' } }, async $ => {
+  const t = PRESETS['dracula']
+  const ui = await $.ui.mount({ ...draw(BENCH), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^-10%$/ }))?.props.color).toBe(t.number)
+  expect(await ui.find({ type: 'Text', text: /^\u2585$/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+for (const surface of ['terminal', 'desktop'] as const) test(`schemaTable ${surface} colors type cells by their family`, { options: { schemaTable: 'types' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(SCHEMA), surface })
+  expect((await ui.find({ type: 'Text', text: /^uuid$/ }))?.props.color).toBe(t.codeString)
+  expect((await ui.find({ type: 'Text', text: /^bigint$/ }))?.props.color).toBe(t.number)
+  expect((await ui.find({ type: 'Text', text: /^timestamp$/ }))?.props.color).toBe(t.link)
+  await ui.unmount()
+})
+
+test('schemaTable keys marks the constraint cells', { options: { schemaTable: 'keys' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(SCHEMA), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^PK$/ }))?.props.color).toBe(t.accent)
+  expect((await ui.find({ type: 'Text', text: /^UNIQUE$/ }))?.props.color).toBe(t.codeComment)
+  expect((await ui.find({ type: 'Text', text: /^FK/ }))?.props.color).toBe(t.link)
+  await ui.unmount()
+})
+
+test('schemaTable full colors the types and marks the keys', { options: { schemaTable: 'full' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(SCHEMA), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^uuid$/ }))?.props.color).toBe(t.codeString)
+  expect((await ui.find({ type: 'Text', text: /^PK$/ }))?.props.color).toBe(t.accent)
+  await ui.unmount()
+})
+
+test('schemaTable keys finds a key column with no header to name it', { options: { schemaTable: 'keys' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(KEYLESS), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^PK$/ }))?.props.color).toBe(t.accent)
+  expect((await ui.find({ type: 'Text', text: /^uuid$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('schemaTable off keeps tables as written', async $ => {
+  const ui = await $.ui.mount({ ...draw(SCHEMA), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^uuid$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^PK$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a table with no column and type header draws no schema colors', { options: { schemaTable: 'full' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw('| Name | Type |\n|:-----|:-----|\n| id | uuid |'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^uuid$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('schemaTable stays off stacked tables', { options: { schemaTable: 'full', tableLayout: 'stacked' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(SCHEMA), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^uuid$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('schemaTable types tells the families apart in a theme where they differ', { options: { schemaTable: 'types', theme: 'dracula' } }, async $ => {
+  const t = PRESETS['dracula']
+  const ui = await $.ui.mount({ ...draw(SCHEMA), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^uuid$/ }))?.props.color).toBe(t.codeString)
+  expect((await ui.find({ type: 'Text', text: /^bigint$/ }))?.props.color).toBe(t.number)
+  expect(t.codeString).not.toBe(t.number)
+  await ui.unmount()
+})
+
+const COMPARE = [
+  '| Option | Score | Rank |',
+  '|:-------|------:|-----:|',
+  '| mantis | 9.2 | 1 |',
+  '| origami | 7.8 | 2 |',
+  '| noodle | 6.1 | 3 |',
+  '| tofu | 4.4 | 4 |',
+].join('\n')
+
+for (const surface of ['terminal', 'desktop'] as const) test(`compareTable ${surface} colors the rank cells as a medal`, { options: { compareTable: 'rank' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(COMPARE), surface })
+  expect((await ui.find({ type: 'Text', text: /^1$/ }))?.props.color).toBe(t.accent)
+  expect((await ui.find({ type: 'Text', text: /^2$/ }))?.props.color).toBe(t.link)
+  expect((await ui.find({ type: 'Text', text: /^3$/ }))?.props.color).toBe(t.link)
+  expect((await ui.find({ type: 'Text', text: /^4$/ }))?.props.color).toBe(surface === 'desktop' ? PRESETS['catppuccin-mocha'].codeText : undefined)
+  const ones = await ui.findAll({ type: 'Text', text: /^1$/ })
+  expect(ones.every(n => n.props.color !== t.number)).toBe(true)
+  await ui.unmount()
+})
+
+test('compareTable rank leaves the score cells as written', { options: { compareTable: 'rank' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(COMPARE), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^9\.2$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^9\.2$/ }))?.props.bold).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^4\.4$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('compareTable pick marks the top score and bolds it, so it stands out where the improvement green is the number color', { options: { compareTable: 'pick' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(COMPARE), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^9\.2$/ }))?.props.color).toBe(t.diffAdded)
+  expect((await ui.find({ type: 'Text', text: /^9\.2$/ }))?.props.bold).toBe(true)
+  expect((await ui.find({ type: 'Text', text: /^7\.8$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^7\.8$/ }))?.props.bold).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^6\.1$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^4\.4$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('compareTable pick leaves the rank cells as written', { options: { compareTable: 'pick' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(COMPARE), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^1$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^2$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('compareTable full colors the medal and marks the top score', { options: { compareTable: 'full' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(COMPARE), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^1$/ }))?.props.color).toBe(t.accent)
+  expect((await ui.find({ type: 'Text', text: /^2$/ }))?.props.color).toBe(t.link)
+  expect((await ui.find({ type: 'Text', text: /^9\.2$/ }))?.props.color).toBe(t.diffAdded)
+  expect((await ui.find({ type: 'Text', text: /^9\.2$/ }))?.props.bold).toBe(true)
+  await ui.unmount()
+})
+
+test('compareTable pick marks every row that ties the top score', { options: { compareTable: 'pick', theme: 'dracula' } }, async $ => {
+  const t = PRESETS['dracula']
+  const ui = await $.ui.mount({ ...draw('| Option | Score | Rank |\n|:-------|------:|-----:|\n| mantis | 9.2 | 1 |\n| clone | 9.2 | 1 |\n| tofu | 4.4 | 4 |'), surface: 'terminal' })
+  expect((await ui.findAll({ type: 'Text', text: /^9\.2$/ })).some(n => n.props.color === t.diffAdded)).toBe(true)
+  expect((await ui.findAll({ type: 'Text', text: /^4\.4$/ })).every(n => n.props.color !== t.diffAdded)).toBe(true)
+  await ui.unmount()
+})
+
+test('compareTable reads a score through its stars', { options: { compareTable: 'pick' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw('| Option | Score | Rank |\n|:-------|------:|-----:|\n| mantis | ★ 4.5 | 1 |\n| tofu | ★ 3.1 | 2 |'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^★ 4\.5$/ }))?.props.color).toBe(t.diffAdded)
+  expect((await ui.find({ type: 'Text', text: /^★ 3\.1$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('compareTable off keeps tables as written', async $ => {
+  const ui = await $.ui.mount({ ...draw(COMPARE), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^1$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^9\.2$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^9\.2$/ }))?.props.bold).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a table with a score column and no rank header draws no comparison colors', { options: { compareTable: 'full' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw('| Option | Score |\n|:-------|------:|\n| mantis | 9.2 |\n| tofu | 4.4 |'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^9\.2$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('compareTable stays off stacked tables', { options: { compareTable: 'full', tableLayout: 'stacked' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(COMPARE), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^1$/ }))?.props.color).not.toBe(t.accent)
+  expect((await ui.find({ type: 'Text', text: /^2$/ }))?.props.color).not.toBe(t.link)
+  await ui.unmount()
+})
+
+test('compareTable tells the medal and the pick apart in a theme where they differ', { options: { compareTable: 'full', theme: 'dracula' } }, async $ => {
+  const t = PRESETS['dracula']
+  const ui = await $.ui.mount({ ...draw(COMPARE), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^1$/ }))?.props.color).toBe(t.accent)
+  expect((await ui.find({ type: 'Text', text: /^2$/ }))?.props.color).toBe(t.link)
+  expect((await ui.find({ type: 'Text', text: /^9\.2$/ }))?.props.color).toBe(t.diffAdded)
+  expect((await ui.findAll({ type: 'Text', text: /^9\.2$/ })).every(n => n.props.color !== t.number)).toBe(true)
+  expect(t.accent).not.toBe(t.link)
+  expect(t.accent).not.toBe(t.diffAdded)
+  await ui.unmount()
+})
+
+const API = [
+  '| Method | Endpoint | Auth | Description |',
+  '|:-------|:---------|:-----|:------------|',
+  '| GET | /v1/scrolls | Bearer | List the scrolls |',
+  '| POST | /v1/scrolls | Bearer | Add a scroll |',
+  '| DELETE | /v1/scrolls/:id | API key | Remove a scroll |',
+  '| OPTIONS | /v1/health | none | Liveness check |',
+].join('\n')
+
+for (const surface of ['terminal', 'desktop'] as const) test(`apiTable ${surface} colors the method cells by what the verb does`, { options: { apiTable: 'verbs' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(API), surface })
+  expect((await ui.find({ type: 'Text', text: /^GET$/ }))?.props.color).toBe(t.link)
+  expect((await ui.find({ type: 'Text', text: /^POST$/ }))?.props.color).toBe(t.codeString)
+  expect((await ui.find({ type: 'Text', text: /^DELETE$/ }))?.props.color).toBe(t.diffRemoved)
+  expect((await ui.find({ type: 'Text', text: /^OPTIONS$/ }))?.props.color).toBe(t.codeComment)
+  expect((await ui.find({ type: 'Text', text: /^\/v1\/scrolls$/ }))?.props.color).toBe(surface === 'desktop' ? PRESETS['catppuccin-mocha'].codeText : undefined)
+  await ui.unmount()
+})
+
+test('apiTable auth marks the scheme cells of an auth column', { options: { apiTable: 'auth' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(API), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^Bearer$/ }))?.props.color).toBe(t.accent)
+  expect((await ui.find({ type: 'Text', text: /^API key$/ }))?.props.color).toBe(t.accent)
+  expect((await ui.find({ type: 'Text', text: /^none$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^GET$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('apiTable full colors the verbs and marks the schemes', { options: { apiTable: 'full' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(API), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^GET$/ }))?.props.color).toBe(t.link)
+  expect((await ui.find({ type: 'Text', text: /^Bearer$/ }))?.props.color).toBe(t.accent)
+  await ui.unmount()
+})
+
+test('apiTable verbs finds a verb column with no header to name it', { options: { apiTable: 'verbs' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw('| | Path |\n|---|---|\n| GET | /a |\n| POST | /b |'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^GET$/ }))?.props.color).toBe(t.link)
+  expect((await ui.find({ type: 'Text', text: /^\/a$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('apiTable off keeps tables as written', async $ => {
+  const ui = await $.ui.mount({ ...draw(API), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^GET$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^Bearer$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a table with no verb cells draws no api colors', { options: { apiTable: 'full' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw('| Name | Kind |\n|---|---|\n| fetch | fast |\n| send | slow |'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^fast$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('apiTable stays off stacked tables', { options: { apiTable: 'full', tableLayout: 'stacked' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(API), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^GET$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('apiTable verbs tells the verbs apart in a theme where they differ', { options: { apiTable: 'verbs', theme: 'dracula' } }, async $ => {
+  const t = PRESETS['dracula']
+  const ui = await $.ui.mount({ ...draw(API), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^GET$/ }))?.props.color).toBe(t.link)
+  expect((await ui.find({ type: 'Text', text: /^POST$/ }))?.props.color).toBe(t.codeString)
+  expect(t.link).not.toBe(t.codeString)
+  expect(t.codeString).not.toBe(t.diffRemoved)
+  await ui.unmount()
+})
+
+const KV = [
+  '| Option | Value | Source | Default |',
+  '|:-------|:------|:-------|:--------|',
+  '| retries | 5 | env | 3 |',
+  '| format | json | config | json |',
+  '| timeout | 30s | default | 30s |',
+  '| token | abc123 | env | unset |',
+].join('\n')
+
+for (const surface of ['terminal', 'desktop'] as const) test(`kvTable ${surface} colors source cells by where the value comes from`, { options: { kvTable: 'sources' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(KV), surface })
+  expect((await ui.find({ type: 'Text', text: /^env$/ }))?.props.color).toBe(t.link)
+  expect((await ui.find({ type: 'Text', text: /^config$/ }))?.props.color).toBe(t.codeString)
+  expect((await ui.find({ type: 'Text', text: /^default$/ }))?.props.color).toBe(t.codeComment)
+  await ui.unmount()
+})
+
+test('kvTable sources leaves the value cells as written', { options: { kvTable: 'sources' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(KV), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^5$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^abc123$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('kvTable overrides marks the value cells that moved off their default', { options: { kvTable: 'overrides' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(KV), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^5$/ }))?.props.color).toBe(t.accent)
+  expect((await ui.find({ type: 'Text', text: /^abc123$/ }))?.props.color).toBe(t.accent)
+  expect((await ui.find({ type: 'Text', text: /^json$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^30s$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('kvTable overrides leaves the source cells as written', { options: { kvTable: 'overrides' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(KV), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^env$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^config$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('kvTable full colors the sources and marks the overrides', { options: { kvTable: 'full' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(KV), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^env$/ }))?.props.color).toBe(t.link)
+  expect((await ui.find({ type: 'Text', text: /^5$/ }))?.props.color).toBe(t.accent)
+  await ui.unmount()
+})
+
+test('kvTable overrides marks rows in a table with no source column', { options: { kvTable: 'full' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw('| Option | Value | Default |\n|:-------|:------|:--------|\n| retries | 5 | 3 |\n| format | json | json |'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^5$/ }))?.props.color).toBe(t.accent)
+  expect((await ui.find({ type: 'Text', text: /^json$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('kvTable off keeps tables as written', async $ => {
+  const ui = await $.ui.mount({ ...draw(KV), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^env$/ }))?.props.color).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /^5$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a table with no option header draws no key-value colors', { options: { kvTable: 'full' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw('| Name | Value | Default |\n|:-----|:------|:--------|\n| retries | 5 | 3 |'), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^5$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('kvTable stays off stacked tables', { options: { kvTable: 'full', tableLayout: 'stacked' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(KV), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^env$/ }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
+test('kvTable tells the source tokens apart in a theme where they differ', { options: { kvTable: 'sources', theme: 'dracula' } }, async $ => {
+  const t = PRESETS['dracula']
+  const ui = await $.ui.mount({ ...draw(KV), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^env$/ }))?.props.color).toBe(t.link)
+  expect((await ui.find({ type: 'Text', text: /^config$/ }))?.props.color).toBe(t.codeString)
+  expect(t.link).not.toBe(t.codeString)
+  await ui.unmount()
+})
+
+for (const surface of ['terminal', 'desktop'] as const) test(`groupTable ${surface} merges a repeated label into its first row in the accent color`, { options: { groupTable: 'merge' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(GROUPED), surface })
+  expect((await ui.findAll({ type: 'Text', text: /^api$/ })).filter(n => n.props.color === t.accent)).toHaveLength(1)
+  expect((await ui.findAll({ type: 'Text', text: /^worker$/ })).filter(n => n.props.color === t.accent)).toHaveLength(1)
+  expect((await ui.findAll({ type: 'Text', text: /^cron$/ })).filter(n => n.props.color === t.accent)).toHaveLength(1)
+  expect((await ui.findAll({ type: 'Text', text: /^us-east$/ })).filter(n => n.props.color === t.accent)).toHaveLength(0)
+  await ui.unmount()
+})
+
+test('groupTable count adds each group size to its label', { options: { groupTable: 'count' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(GROUPED), surface: 'terminal' })
+  expect((await ui.findAll({ type: 'Text', text: /^api$/ })).filter(n => n.props.color === t.accent)).toHaveLength(0)
+  expect((await ui.findAll({ type: 'Text', text: /^api \(2\)$/ })).filter(n => n.props.color === t.accent)).toHaveLength(1)
+  expect((await ui.findAll({ type: 'Text', text: /^worker \(2\)$/ })).filter(n => n.props.color === t.accent)).toHaveLength(1)
+  expect((await ui.findAll({ type: 'Text', text: /^cron \(1\)$/ })).filter(n => n.props.color === t.accent)).toHaveLength(1)
+  await ui.unmount()
+})
+
+test('groupTable full draws a heavy rule where one group ends and the next begins', { options: { groupTable: 'full' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(GROUPED), surface: 'terminal' })
+  expect(await ui.findAll({ type: 'Text', text: /^╞[═╪]+╡$/ })).toHaveLength(3)
+  expect(await ui.find({ type: 'Text', text: /^api \(2\)$/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('groupTable merge draws no heavy rules beyond the header', { options: { groupTable: 'merge' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(GROUPED), surface: 'terminal' })
+  expect(await ui.findAll({ type: 'Text', text: /^╞[═╪]+╡$/ })).toHaveLength(1)
+  await ui.unmount()
+})
+
+test('groupTable off keeps tables as written', { options: { groupTable: 'off' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(GROUPED), surface: 'terminal' })
+  expect((await ui.findAll({ type: 'Text', text: /^api$/ })).filter(n => n.props.color === t.accent)).toHaveLength(0)
+  expect(await ui.find({ type: 'Text', text: /^api \(2\)$/ })).toBeUndefined()
+  expect(await ui.findAll({ type: 'Text', text: /^╞[═╪]+╡$/ })).toHaveLength(1)
+  await ui.unmount()
+})
+
+test('a table whose labels never repeat draws no groups', { options: { groupTable: 'full' } }, async $ => {
+  const ui = await $.ui.mount({ ...draw(SCHEMA), surface: 'terminal' })
+  expect(await ui.findAll({ type: 'Text', text: /^╞[═╪]+╡$/ })).toHaveLength(1)
+  await ui.unmount()
+})
+
+test('a column of numbers never groups', { options: { groupTable: 'merge' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw('| Step | Name |\n|-----:|:-----|\n| 1 | load |\n| 1 | parse |\n| 2 | draw |\n| 2 | paint |'), surface: 'terminal' })
+  expect((await ui.findAll({ type: 'Text', text: /^1$/ })).filter(n => n.props.color === t.number)).toHaveLength(2)
+  expect((await ui.findAll({ type: 'Text' })).filter(n => n.props.color === t.accent)).toHaveLength(0)
+  await ui.unmount()
+})
+
+test('a table with a single repeated run draws no groups', { options: { groupTable: 'merge' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw('| Name | Team |\n|:-----|:-----|\n| aa | core |\n| bb | core |\n| cc | web |\n| dd | ops |'), surface: 'terminal' })
+  expect((await ui.findAll({ type: 'Text' })).filter(n => n.props.color === t.accent)).toHaveLength(0)
+  await ui.unmount()
+})
+
+test('groupTable keeps off a table that statusMatrix already groups', { options: { groupTable: 'full', statusMatrix: 'group' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw('| Service | Region | Result |\n|:--------|:-------|:-------|\n| api | us-east | ✓ |\n| api | us-west | ✓ |\n| worker | us-east | ✓ |\n| worker | us-west | failed |'), surface: 'terminal' })
+  expect((await ui.findAll({ type: 'Text', text: /^(api|worker)$/ })).filter(n => n.props.color === t.accent)).toHaveLength(0)
+  await ui.unmount()
+})
+
+test('groupTable stays off stacked tables', { options: { groupTable: 'merge', tableLayout: 'stacked' } }, async $ => {
+  const t = PRESETS['catppuccin-mocha']
+  const ui = await $.ui.mount({ ...draw(GROUPED), surface: 'terminal' })
+  expect((await ui.findAll({ type: 'Text' })).filter(n => n.props.color === t.accent)).toHaveLength(0)
   await ui.unmount()
 })

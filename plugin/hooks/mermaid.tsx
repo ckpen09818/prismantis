@@ -3,6 +3,7 @@ import type { ElementTable, RenderElement } from 'claude-code'
 import type { ChartArt, Pie, Rgb } from './charts'
 import { ganttText, pieRgba, pieText } from './charts'
 import type { Ink } from './clipboard'
+import { artColors, artPicture } from './clipboard'
 import { drawFigure, isFigureLang } from './figure'
 import { ratexColor } from './latex'
 import type { Block } from './markdown'
@@ -12,9 +13,17 @@ import { cells, graphemes, width } from './layout'
 import { artFace, heldLtr, mirrored, remember } from './render'
 import { asIs, hasRtl, holdEngine, holdRow, holdVisual, led } from './rtl'
 import type { Style, Theme } from './theme'
+import { gitGraphText } from './gitgraph'
+import { journeyText } from './journey'
+import { kanbanText } from './kanban'
+import { mindmapText } from './mindmap'
+import { quadrantText } from './quadrant'
+import { SVG_CELL_ASPECT, artSvg } from './svg'
+import { ARROW_HUE, BAD_HUE, GOOD_HUE, LINE_HUE, oneLine } from './textart'
 import { renderMermaidAscii, setChartSize } from './vendor/mermaid-text.js'
 
 const MAX_LINES = 80
+const MAX_CHARS = 8000
 const PAD = '\uFDD0'
 const textCache = new Map<string, string | null>()
 
@@ -64,9 +73,9 @@ const labelBars = (art: string, source: string): string => {
 
 const SIDEWAYS = /^(\s*(?:flowchart|graph)[ \t]+)(LR|RL)\b/
 
-const SUPPORTED = /^(flowchart|graph|statediagram(-v2)?|xychart(-beta)?|sequencediagram|classdiagram|erdiagram|pie|gantt)$/i
+const SUPPORTED = /^(flowchart|graph|statediagram(-v2)?|xychart(-beta)?|sequencediagram|classdiagram|erdiagram|pie|gantt|quadrantchart|mindmap|journey|kanban|gitgraph)$/i
 
-const kindOf = (source: string) => source.replace(/^(\s*%%[^\n]*\n)+/, '').trim().split(/\s/)[0] ?? ''
+const kindOf = (source: string) => source.replace(/^(\s*%%[^\n]*\n)+/, '').trim().split(/[\s:]/)[0] ?? ''
 
 const unsupportedKind = (source: string): string | undefined => {
   const kind = kindOf(source)
@@ -79,6 +88,11 @@ const OWN: Record<string, typeof pieText> = {
     const text = ganttText(source, ascii, columns)
     return text === null ? null : { text }
   },
+  quadrantchart: quadrantText,
+  mindmap: mindmapText,
+  journey: journeyText,
+  kanban: kanbanText,
+  gitgraph: gitGraphText,
 }
 
 const INLINE_TAG = /<\/?(?:b|i|u|s|em|strong|del|code|small|sub|sup|span|mark)\b[^<>\n]*>/gi
@@ -96,14 +110,16 @@ const artWidth = (art: string) => remember(artWidths, art, () => Math.max(...art
 
 export const mermaidText = (source: string, ascii: boolean, columns: number, pieColors = 0): string | null => mermaidArt(source, ascii, columns, pieColors)?.text ?? null
 
-const mermaidArt = (source: string, ascii: boolean, columns: number, pieColors: number): ChartArt | null =>
-  remember(fitted, `${ascii}:${columns}:${pieColors}:${source}`, () => {
+const mermaidArt = (source: string, ascii: boolean, columns: number, pieColors: number, aspect = 2): ChartArt | null =>
+  remember(fitted, `${ascii}:${columns}:${pieColors}:${aspect}:${source}`, () => {
     source = source.replace(INLINE_TAG, '')
-    if (source.length > 8000 || source.split('\n').length > MAX_LINES) return null
+    if (source.length > MAX_CHARS || source.split('\n').length > MAX_LINES) return null
     const own = OWN[kindOf(source).toLowerCase()]
-    if (own) return own(labelEntities(source, false), ascii, columns, pieColors)
-    const art = draw(source, ascii, columns)
-    const text = art === null || artWidth(art) <= columns - 2 || !SIDEWAYS.test(source) ? art : (draw(source.replace(SIDEWAYS, '$1TD'), ascii, columns) ?? art)
+    if (own) return own(labelEntities(source, false), ascii, columns, pieColors, aspect)
+    const fits = (art: string | null) => art === null || artWidth(art) <= columns - 2
+    const wide = draw(source, ascii, columns)
+    const art = fits(wide) ? wide : (draw(source, ascii, columns, 1) ?? wide)
+    const text = fits(art) || !SIDEWAYS.test(source) ? art : (draw(source.replace(SIDEWAYS, '$1TD'), ascii, columns) ?? art)
     return text === null ? null : { text, series: chartSeries(source, ascii, columns) }
   })
 
@@ -162,15 +178,15 @@ const chartSeries = (source: string, ascii: boolean, columns: number): number[][
   }) ?? undefined
 }
 
-const draw = (source: string, ascii: boolean, columns: number): string | null => {
+const draw = (source: string, ascii: boolean, columns: number, gap = 3): string | null => {
   const isChart = /^\s*xychart/.test(source)
   const padded = padWide(source)
   const size = chartSize(columns, isChart ? padded : '')
-  const key = `${ascii}:${isChart ? size.width : 0}:${source}`
+  const key = `${ascii}:${isChart ? size.width : 0}:${gap}:${source}`
   return remember(textCache, key, () => {
     try {
       if (isChart) setChartSize(size.width, size.height)
-      const art = renderMermaidAscii(prepared(padded), { useAscii: ascii, colorMode: 'none', paddingX: 3, paddingY: 1 }).replace(/[ \t]+$/gm, '').trimEnd().replace(/▶/g, '►').replace(/◀/g, '◄')
+      const art = renderMermaidAscii(prepared(padded), { useAscii: ascii, colorMode: 'none', paddingX: gap, paddingY: 1 }).replace(/[ \t]+$/gm, '').trimEnd().replace(/▶/g, '►').replace(/◀/g, '◄')
       return unshield((isChart ? labelBars(art, padded) : art.split('\n').filter(l => !/^[\s│|]*$/.test(l)).join('\n')).replaceAll(PAD, ''))
     } catch {
       return null
@@ -193,10 +209,35 @@ const barStart = (row: string[], c: number): number => {
 
 type Painted = { grid: string[][]; colors: (string | undefined)[][] }
 
+const hueOf = (hex: string): number | undefined => {
+  const [r, g, b] = [1, 3, 5].map(i => Number.parseInt(hex.slice(i, i + 2), 16) / 255) as [number, number, number]
+  const max = Math.max(r, g, b)
+  const spread = max - Math.min(r, g, b)
+  if (!max || spread / max < 0.25) return undefined
+  const sector = max === r ? (g - b) / spread : max === g ? 2 + (b - r) / spread : 4 + (r - g) / spread
+  return (sector * 60 + 360) % 360
+}
+
+const clashes = (color: string, kept: string[]): boolean => {
+  const hue = hueOf(color)
+  return hue !== undefined && kept.some(other => {
+    const near = hueOf(other)
+    return near !== undefined && Math.min(Math.abs(hue - near), 360 - Math.abs(hue - near)) < 25
+  })
+}
+
+export const distinctHues = (colors: string[], reserve: string[]): string[] => {
+  const pool = [...reserve]
+  return colors.reduce<string[]>((kept, color) => {
+    if (!clashes(color, kept)) return [...kept, color]
+    const free = pool.findIndex(spare => !clashes(spare, kept))
+    return [...kept, free < 0 ? color : pool.splice(free, 1)[0]!]
+  }, [])
+}
+
 export const diagramPalette = (t: Theme): string[] => [...new Set([t.link, t.number, t.heading, t.emphasis, t.path, t.codeFlag, t.accent])].filter((c): c is string => c !== undefined)
 
-const paint = (art: string, style: Style, series?: number[][]): Painted => {
-  const t = style.theme
+const paint = (art: string, t: Theme, series?: number[][]): Painted => {
   const grid = art.split('\n').map(cells)
   const cell = (r: number, c: number) => grid[r]?.[c] ?? ''
   const color: (string | undefined)[][] = grid.map(row => row.map(() => undefined))
@@ -255,11 +296,11 @@ const paint = (art: string, style: Style, series?: number[][]): Painted => {
   return { grid, colors: color }
 }
 
-const paintPie = (art: string, slices: number[][], style: Style): Painted => {
-  const t = style.theme
+const paintPie = (art: string, slices: number[][], t: Theme): Painted => {
   const palette = diagramPalette(t)
   const grid = art.split('\n').map(cells)
-  const hue = (slice: number) => (slice < 0 ? t.diagramText : palette[slice % palette.length])
+  const named: Record<number, string | undefined> = { [LINE_HUE]: t.diagram, [ARROW_HUE]: t.accent, [GOOD_HUE]: t.diffAdded, [BAD_HUE]: t.diffRemoved }
+  const hue = (slice: number) => (slice in named ? named[slice] : slice < 0 ? t.diagramText : palette[slice % palette.length])
   return { grid, colors: grid.map((row, r) => row.map((_, c) => hue(slices[r]?.[c] ?? -1))) }
 }
 
@@ -267,21 +308,21 @@ const painted = new WeakMap<Theme, Map<string, Painted>>()
 
 const piePainted = new WeakMap<Theme, WeakMap<number[][], Painted>>()
 
-const painting = (style: Style, art: string, slices?: number[][], series?: number[][]): Painted => {
+const painting = (theme: Theme, art: string, slices?: number[][], series?: number[][]): Painted => {
   if (!slices) {
-    const cache = painted.get(style.theme) ?? new Map<string, Painted>()
-    painted.set(style.theme, cache)
-    return remember(cache, art, () => paint(art, style, series))
+    const cache = painted.get(theme) ?? new Map<string, Painted>()
+    painted.set(theme, cache)
+    return remember(cache, art, () => paint(art, theme, series))
   }
-  const cache = piePainted.get(style.theme) ?? new WeakMap<number[][], Painted>()
-  piePainted.set(style.theme, cache)
-  const done = cache.get(slices) ?? paintPie(art, slices, style)
+  const cache = piePainted.get(theme) ?? new WeakMap<number[][], Painted>()
+  piePainted.set(theme, cache)
+  const done = cache.get(slices) ?? paintPie(art, slices, theme)
   cache.set(slices, done)
   return done
 }
 
 export const boxArt = ({ Box, Text }: ElementTable, style: Style, art: string, key: string, marks: [string[], Mark][] = [], slices?: number[][], series?: number[][]): RenderElement => {
-  const { grid, colors } = painting(style, art, slices, series)
+  const { grid, colors } = painting(style.theme, art, slices, series)
   const visual = style.reorder && style.shape === 'visual' && hasRtl(art)
   return (
     <Box key={key} flexDirection="column" paddingLeft={mirrored(style) ? 0 : 2}>
@@ -312,9 +353,9 @@ export const boxArt = ({ Box, Text }: ElementTable, style: Style, art: string, k
 const EDGE_LABEL = /(-[-.=]+\s*)"([^"\n]+)"(\s*[-.=]+>)|\|([^|\n]+)\|/g
 
 const cap = (label: string, max: number) => {
-  const flat = label.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim()
-  const chars = graphemes(flat)
-  return chars.length > max ? `${chars.slice(0, max - 1).join('').trimEnd()}…` : flat
+  const text = oneLine(label)
+  const chars = graphemes(text)
+  return chars.length > max ? `${chars.slice(0, max - 1).join('').trimEnd()}…` : text
 }
 
 export const shortenEdgeLabels = (source: string, max: number): string =>
@@ -342,6 +383,8 @@ const base64 = (bytes: Uint8Array) => {
 
 const pictures = new Map<string, string>()
 
+const cellAspect = (style: Style) => (style.svgArt ? SVG_CELL_ASPECT : style.gridFace ? 2.5 : 2)
+
 const piePicture = (el: ElementTable, style: Style, pie: Pie, key: string): RenderElement | null => {
   const Image = 'Image' in el ? el.Image : null
   const palette = diagramPalette(style.theme)
@@ -368,31 +411,41 @@ const piePicture = (el: ElementTable, style: Style, pie: Pie, key: string): Rend
   )
 }
 
+export const chartCells = (source: string, columns: number, theme: Theme): Painted | null => {
+  const art = mermaidArt(source, false, columns, diagramPalette(theme).length)
+  return art && artWidth(art.text) <= columns ? painting(theme, art.text, art.slices, art.series) : null
+}
+
 const chartHues = ({ grid, colors }: Painted): Ink[][] => colors.map((row, r) => row.map((color, c) => color ?? (grid[r]![c] === '·' ? { dim: true } : undefined)))
 
 const chartElement = (el: ElementTable, style: Style, art: ChartArt, block: Extract<Block, { kind: 'code' }>, key: string): RenderElement =>
   (art.pie && style.images && !block.isOpen && !mirrored(style) && !hasRtl(art.text) ? piePicture(el, style, art.pie, key) : null) ??
   boxArt(el, style, art.text, key, inlineMarks(block.lines.join('\n')), art.slices, art.series)
 
-export const drawDiagrams = (el: ElementTable, style: Style, blocks: Block[], columns: number): Drawn => {
+const capNote = (source: string) => {
+  const lines = source.split('\n').length
+  return lines > MAX_LINES ? `diagram too long to render (${lines} lines, max ${MAX_LINES})` : source.length > MAX_CHARS ? `diagram too long to render (${source.length} characters, max ${MAX_CHARS})` : 'diagram failed to render'
+}
+
+const drawnArt = (el: ElementTable, style: Style, blocks: Block[], columns: number): Drawn => {
   const drawn: Drawn = new Map()
   const pieColors = pieColorsOf(style)
   if (style.mermaid) {
     for (const [i, block] of blocks.entries()) {
-      if (block.kind !== 'code' || block.lang.toLowerCase() !== 'mermaid') continue
+      if (block.kind !== 'code' || !/^(mermaid|chart)$/i.test(block.lang)) continue
       const source = block.lines.join('\n')
       let narrowest = Infinity
       for (const max of [Infinity, 24, 12]) {
-        const art = mermaidArt(max === Infinity ? source : shortenEdgeLabels(source, max), style.mermaidAscii, columns, pieColors)
+        const art = mermaidArt(max === Infinity ? source : shortenEdgeLabels(source, max), style.mermaidAscii, columns, pieColors, cellAspect(style))
         const wide = art === null ? Infinity : artWidth(art.text)
         narrowest = Math.min(narrowest, wide)
         if (art === null || wide > columns - 2) continue
-        drawn.set(i, { element: chartElement(el, style, art, block, `b${i}`), art: art.text, hues: () => chartHues(painting(style, art.text, art.slices, art.series)) })
+        drawn.set(i, { element: chartElement(el, style, art, block, `b${i}`), art: art.text, hues: () => chartHues(painting(style.theme, art.text, art.slices, art.series)) })
         break
       }
       if (!drawn.has(i) && !block.isOpen) {
         const kind = unsupportedKind(source)
-        drawn.set(i, { note: kind ? `${kind} diagrams draw as source for now` : narrowest === Infinity ? 'diagram failed to render' : `diagram is ${narrowest} cols, ${columns - 2} fit` })
+        drawn.set(i, { note: kind ? `${kind} diagrams draw as source for now` : narrowest === Infinity ? capNote(source) : `diagram too wide to render (${narrowest} cols, ${columns - 2} fit)` })
       }
     }
   }
@@ -403,3 +456,20 @@ export const drawDiagrams = (el: ElementTable, style: Style, blocks: Block[], co
   }
   return drawn
 }
+
+const MAX_SVG_CHARS = 131072
+const SVG_COLUMNS = 200
+
+const pictured = (el: ElementTable, style: Style, drawn: Drawn): Drawn => {
+  if (!('Svg' in el)) return drawn
+  const colors = artColors(style)
+  for (const [i, entry] of drawn) {
+    if (!entry.element || entry.art === undefined) continue
+    const source = artSvg(artPicture(entry.art, colors, entry.hues?.()))
+    if (source.length <= MAX_SVG_CHARS) drawn.set(i, { ...entry, scales: true, element: <el.Box key={`b${i}`} paddingLeft={2}><el.Svg source={source} alt={entry.art} /></el.Box> })
+  }
+  return drawn
+}
+
+export const drawDiagrams = (el: ElementTable, style: Style, blocks: Block[], columns: number): Drawn =>
+  style.svgArt ? pictured(el, style, drawnArt(el, style, blocks, Math.max(columns, SVG_COLUMNS))) : drawnArt(el, style, blocks, columns)

@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { pieRgba } from '../hooks/charts'
+import { pieRgba, pieText } from '../hooks/charts'
 import { showcaseText } from '../hooks/help'
 import { fitImage, imageFile } from '../hooks/latex'
 import { parse } from '../hooks/markdown'
@@ -238,4 +238,41 @@ test('the image cache keeps about 32 MB of pictures and reads an evicted one aga
 
   expect(reads.filter(path => path === paths[0])).toHaveLength(2)
   expect(reads.filter(path => path === paths[17])).toHaveLength(1)
+})
+
+const disc = (art: string) => {
+  const lines = art.split('\n').slice(1).map(line => line.split('   ██')[0]!.trimEnd())
+  return { rows: lines.length, columns: Math.max(...lines.map(line => line.length)) - Math.min(...lines.filter(line => line.trim()).map(line => line.search(/\S/))) }
+}
+
+for (const aspect of [undefined, 2.5]) test(`a round pie is as wide as it is tall for a ${aspect ?? 2}:1 cell`, () => {
+  const { rows, columns } = disc(pieText(PIE.split('\n').slice(1, -1).join('\n'), false, 120, 6, aspect)!.text)
+  expect(rows).toBeGreaterThan(6)
+  expect(Math.abs(columns - rows * (aspect ?? 2))).toBeLessThanOrEqual(1)
+})
+
+test('a round pie on the desktop draws wider than in a terminal, for its taller cells', async ($, on) => {
+  mock.env(on, { TERM: 'xterm-256color', HOME: '/home/me' })
+  await startSession($, on)
+  const glyphs = async (surface: 'terminal' | 'desktop') => {
+    const ui = await $.ui.mount({ ...reply(PIE), surface })
+    const count = (JSON.stringify(await ui.drawn()).match(/[▖▗▘▙▚▛▜▝▞▟▌▐▀▄]/g) ?? []).length
+    await ui.unmount()
+    return count
+  }
+  expect(await glyphs('desktop')).toBeGreaterThan(await glyphs('terminal'))
+})
+
+test('a round pie in VS Code is as wide as it is tall in its picture, whose cells are 2:1', async $ => {
+  const ui = await $.ui.mount({ ...reply(PIE), surface: 'vscode' })
+  const { rows, columns } = disc(String((await ui.find({ type: 'Svg' }))?.props.alt))
+  expect(rows).toBeGreaterThan(6)
+  expect(Math.abs(columns - rows * 2)).toBeLessThanOrEqual(1)
+  await ui.unmount()
+})
+
+test('a quoted pie title draws without its quotes, on the pie line or its own line', () => {
+  for (const source of ['pie title "Punchy\'s kills"\n  "shells" : 3\n  "crabs" : 1', 'pie showData\n  title "Punchy\'s kills"\n  "shells" : 3\n  "crabs" : 1']) {
+    expect(pieText(source, false, 80)!.text.split('\n')[0]).toBe("Punchy's kills")
+  }
 })

@@ -21,12 +21,13 @@
 
 ![Plain Claude Code replies wiping into prismantis: the chat layout, a table and a line chart](docs/tour.gif)
 
-<sub>Same prompt, same model: plain Claude Code, then with prismantis. <a href="https://github.com/user-attachments/assets/6a7f627c-3270-46f5-8a9d-2703fc4b9f50">▶ Watch the full 49-second tour</a> (chat layout, tables, charts, diagrams, pie charts, diffs, callouts).</sub>
+<sub>Same prompt, same model: plain Claude Code, then with prismantis. <a href="https://www.catchkill9.dev/video/prismantis-why.mp4">▶ Watch the 1:44 film</a> (tables, charts, diagrams, tool rows, and what people use it for).</sub>
 
 ## TL;DR
 
 - Claude Code prints mermaid as source and tool calls as walls of text. prismantis draws them: real charts and flowcharts, typeset LaTeX math in kitty and Ghostty, colored tables and code, and quiet tool rows.
-- 16 palettes plus `mono`, and copy buttons on everything.
+- 18 palettes plus `mono`, and copy buttons on everything.
+- Full app themes for Claude Code desktop: set `desktopColors` to `match` and the whole Code tab takes the palette too (Claude Code 2.1.324+).
 - Two commands to install, `/plugin` to turn it off. Claude Code's own renderer comes back the moment you do.
 - No network calls. It runs a program only when you click `⧉ html` or `▣ png` (the clipboard helper) or turn on LaTeX (RaTeX's renderer).
 
@@ -38,7 +39,7 @@
 /plugin install prismantis@prismantis
 ```
 
-Then run `/prismantis setup` to pick a theme and styles from drawn samples, and `/prismantis demo` for a tour of the main features. In a terminal, setup opens a pane: the arrows or Tab move through the styles of a step with a preview of the one in focus, Enter saves it and shows the next step. Where the session has no terminal, as in the desktop app, it walks the same steps in the transcript.
+Then run `/prismantis setup` to pick a theme and the five styles that change every session (prompts, replies, tables, code blocks and tool output) from drawn samples, and `/prismantis demo` for a tour of the main features. `/prismantis setup more` goes on through the other 19 styles, from diffs and headings to tables of test results. In a terminal, setup opens a pane: the arrows or Tab move through the styles of a step with a preview of the one in focus, Enter saves it and shows the next step. Where the session has no terminal, as in the desktop app, it walks the same steps in the transcript.
 
 ## Install
 
@@ -60,13 +61,21 @@ For LaTeX math, install RaTeX's renderer and set `latex` to `true`; see [LaTeX m
 
 ### Codex
 
-prismantis also runs in Codex, with themes for code, tables and diagrams and the same session note. Install, what works today, and the two Codex issues it waits on for parity: [codex/README.md](codex/README.md).
+prismantis also runs in Codex, with themes for code, prose, tables and diagrams and the same session note. Install, what works today, and the Codex issue it waits on for parity: [codex/README.md](codex/README.md).
 
 ### OpenCode
 
-prismantis also runs in OpenCode 2.2.5 and later, where it draws figure blocks in color, ships its themes for code and prose, and adds the same session note. Install and what works: [opencode/README.md](opencode/README.md).
+prismantis also runs in OpenCode 2.2.5 and later, where it draws figure blocks in color and every mermaid kind OpenCode leaves as source, ships its themes for code and prose, and adds the same session note. Install and what works: [opencode/README.md](opencode/README.md).
 
-![OpenCode in prismantis-dracula](docs/compare/opencode.png)
+![prismantis in OpenCode drawing a line chart, a pie, a kanban board and a figure](docs/opencode/demo.gif)
+
+<sub><a href="https://www.catchkill9.dev/video/prismantis-opencode.mp4">▶ Watch it with sound</a> (22 seconds).</sub>
+
+### Antigravity
+
+prismantis also runs in Antigravity, where it adds the same session note and a `/prismantis` demo. Antigravity draws the tables and flowcharts itself in its own color scheme, and prints figure blocks as the text pictures they are. Install and what works: [antigravity/README.md](antigravity/README.md).
+
+![Antigravity drawing a table, a flowchart and a figure from a prismantis reply](docs/compare/antigravity.png)
 
 ## Features
 
@@ -96,17 +105,69 @@ prismantis also runs in OpenCode 2.2.5 and later, where it draws figure blocks i
 
 ![Random theme: plain Claude Code on the left, prismantis with theme random on the right](docs/compare/random-theme.png)
 
-Dark: `catppuccin-mocha` (default), `dracula`, `nord`, `tokyo-night`, `gruvbox-dark`, `rose-pine`, `everforest`, `github-dark`, `one-dark`, `solarized-dark`, `neon`.
+Dark: `catppuccin-mocha` (default), `dracula`, `nord`, `tokyo-night`, `gruvbox-dark`, `rose-pine`, `everforest`, `github-dark`, `one-dark`, `solarized-dark`, `neon`, `kanagawa-wave`, `morning-haze`.
 
 Light: `catppuccin-latte`, `gruvbox-light`, `rose-pine-dawn`, `github-light`, `solarized-light`.
 
 `mono` drops the palette for bold and dim; alerts keep their colors. Switch with `/prismantis theme nord`, or run `/prismantis` for the help screen with every theme. Every palette is MIT licensed and credited in [THIRD_PARTY_NOTICES.md](plugin/THIRD_PARTY_NOTICES.md).
 
+#### Full app themes for Claude Code desktop
+
+In the Claude Code desktop app, prismantis can paint the whole Code tab in the theme, not only the replies: background, panels, text, borders, accent, and the success, warning and danger colors. A light theme switches the app to light mode, a dark one to dark mode. It's off until you turn it on:
+
+1. Update Claude Code to **2.1.324** or later (in the desktop app, the version the Code tab runs).
+2. Run `/prismantis setup desktop match`, or set `desktopColors` to `match` in `/config`.
+3. Start a new session in the Code tab, or `/reload`. From then on `/prismantis theme <name>` repaints the app as well.
+
+To go back, run `/prismantis setup desktop off` (or set it to `off` in `/config`): prismantis clears its colors once and the app's own look returns. The colors come from each palette through prismantis's own mapper, which holds text to a contrast floor so the app doesn't refuse the theme. Your `*Color` overrides carry over, like `accentColor`.
+
+There's one desktop theme per session, so with `match` on, prismantis and another mod that sets desktop colors or a backdrop replace each other; use one at a time. The terminal, VS Code and older Claude Code versions keep their own colors, and prismantis skips the call there without a message.
+
 ### Tables
 
 ![Tables: plain Claude Code on the left, prismantis on the right](docs/compare/tables.png)
 
-Header cells take the `tableHeader` color, and the default `box` style puts a double line under the header. `tableStyle` picks `box` (the default, every cell boxed), `rules`, `grid` or `minimal`. `:---:` and `---:` alignment is honored, numbers in cells get the number color, and columns shrink to fit the terminal. In the desktop app, which sets text in a proportional font, the lines of every style are drawn as thin colored boxes instead of characters, and columns take a share of the reply's width so long cells wrap inside them.
+Header cells take the `tableHeader` color, and the default `box` style puts a double line under the header. `tableStyle` picks `box` (the default, every cell boxed), `rules`, `grid` or `minimal`. `:---:` and `---:` alignment is honored, numbers in cells get the number color, and columns shrink to fit the terminal. `tableLayout` picks `classic` (the default: today's look, columns share the width and shrink to the terminal), `auto` (the same, and a table that cannot even fit its longest words stacks each row as a card of label and value pairs), `compact` (every column sits at its longest word, so long cells wrap inside a narrow table) or `stacked` (always cards). In the desktop app, which sets text in a proportional font, the lines of every style are drawn as thin colored boxes instead of characters, and columns take a share of the reply's width so long cells wrap inside them; the layouts keep that there. `statusMatrix` reads a table's status column — the one whose cells are things like ✓, passed, failed or pending — and draws those cells in theme colors, green for a pass, red for a failure, amber for a warning and gray for a wait; `summary` adds a count line under the table, like `✓ 2 · ✗ 1 · ● 1`, and `group` reorders rows by status and draws a heavy rule where the status changes. The default `off` keeps tables as written. `testMatrix` reads a table that draws a run — a status column of things like ✓ or failed next to durations like 120 ms — and `report` adds a line under the table with how much of the run passed, a count of every other kind of result and the time all of it took, in the theme's status colors; the report replaces the `statusMatrix` count line when both draw. The default `off` keeps that line away. `benchTable` reads a table that compares benchmarks — a column of changes like -10% or +3% beside two columns of runs — and draws the changes in the theme's colors, green for an improvement and red for a regression; timings read as lower is better unless a header speaks of req/s, throughput or a score. `trend` also draws a sparkline of the runs under the table, each step colored by whether it improved. The default `off` keeps tables as written. `schemaTable` reads a table that describes a database schema — a column of fields beside a column of types — and draws the type cells in theme colors by their family, text types like varchar in the string color, numeric types like int in the number color, booleans in the emphasis color, time types like timestamp in the link color; `keys` draws the constraint cells, PK in the accent color, FK in the link color, unique and index cells in gray, and `full` does both. The default `off` keeps tables as written. `compareTable` reads a table that compares options — a column of scores beside a column of ranks — and draws the rank cells as a medal, 1 in the accent color and 2 and 3 in the link color; `pick` draws the score cell of the top score in the improvement green, the hue `benchTable` gives an improvement, and bolds it so it stands out even in a theme where that green is also the number color, and `full` does both. The default `off` keeps tables as written. `apiTable` reads a table that documents an API — a method column whose cells are HTTP verbs — and draws the method cells by what the verb does, reads like GET and HEAD in the link color, writes like POST, PUT and PATCH in the string color, DELETE in the removed color, other verbs in gray; `auth` draws the scheme cells of an auth column, Bearer, OAuth, API key, JWT and Basic in the accent color, and `full` does both. The default `off` keeps tables as written. `kvTable` reads a table that lists configuration — a column of options beside columns of values, sources and defaults — and draws the source cells by where they say the value comes from, env and environment in the link color, config, settings, flag and cli in the string color, default, unset and none in gray; `overrides` draws the value cell of a row whose value differs from its default in the accent color, and `full` does both. The default `off` keeps tables as written. `groupTable` reads a table that groups its rows — the first column whose cells repeat in runs, like a column of services or teams — and draws each group once: `merge` labels the group in the accent color and blanks the repeats under it, `count` also adds the group's size to the label, like `api (2)`, and `full` also draws a heavy rule where one group ends and the next begins. A column of numbers never groups, and a table already grouped by `statusMatrix` keeps its status grouping. The default `off` keeps tables as written.
+
+![The Schema demo table with its type cells in family colors and its key cells marked](docs/schema-table.png)
+
+![The Groups demo table with each group labeled once and its size beside it](docs/group-table/full.png)
+
+| `merge` | `count` | `full` |
+|---|---|---|
+| each group labeled once | the label plus the group's size | both, with a heavy rule between groups |
+| ![merge](docs/group-table/merge.png) | ![count](docs/group-table/count.png) | ![full](docs/group-table/full.png) |
+
+![The Test report demo table with the report line under it](docs/test-report.png)
+
+| `color` | `summary` | `group` |
+|---|---|---|
+| status cells in theme colors | a count line under the table | rows reordered by status, a heavy rule between |
+| ![color](docs/status/color.png) | ![summary](docs/status/summary.png) | ![group](docs/status/group.png) |
+
+| `classic` (default), 50 columns | `auto`, 50 columns | `compact`, 72 columns | `stacked`, 72 columns |
+|---|---|---|---|
+| columns share the width, a long path splits | the path cannot fit, so rows stack as cards | columns at their longest word | cards even when the table fits |
+| ![classic](docs/tables/classic.png) | ![auto](docs/tables/auto.png) | ![compact](docs/tables/compact.png) | ![stacked](docs/tables/stacked.png) |
+
+![The Comparison demo table with its medals colored and its top score marked](docs/compare/full.png)
+
+| `rank` | `pick` | `full` |
+|---|---|---|
+| ranks colored as a medal | the top score in the improvement green, bold | both |
+| ![rank](docs/compare/rank.png) | ![pick](docs/compare/pick.png) | ![full](docs/compare/full.png) |
+![The API reference demo table with its method cells colored by verb and its auth cells marked](docs/api/full.png)
+
+| `verbs` | `auth` | `full` |
+|---|---|---|
+| method cells by verb | scheme cells in the accent color | both |
+| ![verbs](docs/api/verbs.png) | ![auth](docs/api/auth.png) | ![full](docs/api/full.png) |
+![The Key-value demo table with its source cells colored by origin and its moved values marked](docs/kv/full.png)
+
+| `sources` | `overrides` | `full` |
+|---|---|---|
+| source cells by origin | moved values in the accent color | both |
+| ![sources](docs/kv/sources.png) | ![overrides](docs/kv/overrides.png) | ![full](docs/kv/full.png) |
 
 ### Code
 
@@ -138,6 +199,11 @@ Code blocks tagged `mermaid` draw as colored text art:
 - flowcharts (`graph LR`, `graph TD`, decisions), sequence, state, class and ER diagrams
 - bar and line charts with `xychart-beta`, sized to the terminal width
 - `pie` charts as a circle with a colored legend, largest slice first, drawn as a smooth picture in kitty and Ghostty, and `gantt` schedules as bars on a shared date or time axis, starting on a half cell and ending on an eighth so close durations draw apart
+- `quadrantChart` grids with the quadrant names in their corners and numbered points listed under the grid; points that land on one cell are moved apart within their own quadrant
+- `mindmap` trees drawn from the root to the right, each branch in its own color, switching to an indented outline when the map is wider than the terminal
+- `journey` maps with the sections over their tasks and a mood line from score 1 to 5, green dots for good steps and red for bad ones; with too many tasks for the width each task becomes a row with its score drawn as a bar
+- `kanban` boards with the columns side by side and a card count in each header, each card a rounded box in its column's color holding the wrapped task and its assigned, ticket and priority metadata (high priorities in red); columns stack when the terminal is too narrow
+- `gitGraph` histories drawn top to bottom with one colored lane per branch, forks and merges joined by box lines, commit ids and `[tags]` beside each row, highlight and reverse commits marked, and cherry-picks labeled
 - each box and participant gets its own theme color, the same at both ends of a sequence diagram
 - bars in a multi-series chart get their own colors; a single-series chart prints each value above its bar and colors the tallest one
 - gridlines stay dim, axis numbers use the number color
@@ -214,6 +280,7 @@ When tables, diagrams and figures follow each other, they share a row and wrap o
 
 - **Tables:** `⧉ md` copies the original Markdown and `⧉ art` a boxed table that pastes well into Slack. `⧉ html` copies a formatted table (headers, alignment, inline formatting) plus a tab-separated plain-text copy.
 - **Code, lists and quotes:** `[ ⧉ copy ]` on each. Code copies without its fences, lists as markdown, quotes without their `> ` markers. Set `textCopyButtons` to `false` to drop the buttons on lists, quotes and alerts and keep the rest.
+- **Sections:** set `sectionCopyButtons` to `true` and each heading gets `[ ⧉ copy ]`, which copies its section as markdown, up to the next heading of the same or a higher level. Off by default.
 - **Diagrams and figures:** `⧉ source` copies the mermaid or figure source, `⧉ art` the drawn art.
 - **As an image:** `▣ png` on tables, diagrams and figures puts a PNG of the drawn art on the clipboard, monospace in the theme's text and background colors, ready to paste into Slack, docs or slides. It shows in a local macOS or Windows terminal and draws with the OS's own fonts (`osascript` on macOS, `powershell.exe` on Windows), so it needs nothing installed. If that fails, it copies the drawn text and the toast says why.
 - **Whole replies:** replies with more than one block, or any Hebrew or Arabic, end with `⧉ copy reply`, which copies the reply as Claude wrote it. Selecting right-to-left text on screen copies letters in drawn order, not reading order.
@@ -255,7 +322,7 @@ Collapsed groups draw one line too: `Ran 3 commands, read 2 files · last: npm t
 | dimmed on the right, capped at 60% of the width | tucked under the sentence with `⎿`, dimmed | `tree-dim` with one-line sentences in bold | bold verb and status dot, full brightness |
 | ![chat](docs/tools/chat.png) | ![tree-dim](docs/tools/tree-dim.png) | ![tree-bold](docs/tools/tree-bold.png) | ![classic](docs/tools/classic.png) |
 
-`toolOutput: quiet` shows what Claude did, not what it read: reads, searches and read-only shell commands draw one plain row like `Read src/report.py lines 1–10` and nothing under it. Edits keep their diff and failures show their real error; the full rules are in [docs/tool-output.md](docs/tool-output.md).
+`toolOutput: quiet` shows what Claude did, not what it read: reads, searches and read-only shell commands draw one plain row like `Read src/report.py lines 1–10` and nothing under it. Edits keep their diff and failures show their real error; the full rules are in [docs/tool-output.md](docs/tool-output.md). `toolOutput: rows` goes further: a call that worked draws only its row, so `npm test` shows no output under it, while edits keep their diff and failures their error.
 
 ![quiet: rows say what was read, nothing drawn under reads](docs/tools/quiet.png)
 
@@ -275,6 +342,8 @@ Claude rarely writes a chart unless it knows the terminal can draw one. With `di
 
 The note costs about 630 tokens per prompt: about 275 for the main part and about 360 for the figure part, plus about 80 while [LaTeX math](#latex-math) is on, when it also says `$$` formulas render. All three are counted with Claude's tokenizer. It's off whenever `mermaid` is off, and skipped for the prompt a headless `claude -p` run starts with and for background notifications; a prompt another plugin sends inside such a run still carries it.
 
+With `keyPointHint` on (off by default), each prompt also carries a note that asks Claude to put each reply's key points in bold: the answer, the result, the decision, or what you have to do. Bold draws in the theme's `strong` color. In a theme where that color is close to the body text, such as `catppuccin-mocha`, set `strongColor` (for example `#fab387`) so those phrases stand out. Each one is a short phrase, usually no more than three per reply. The note costs about 80 tokens per prompt, whether `diagramHints` is on or off.
+
 ### Text
 
 ![Text: plain Claude Code on the left, prismantis on the right](docs/compare/text.png)
@@ -283,7 +352,7 @@ The note costs about 630 tokens per prompt: about 275 for the main part and abou
 
 **Bold**, *italic*, ~~strikethrough~~, `inline code`, links and bare URLs, clickable as terminal hyperlinks. Numbers, versions (`v2.14.0`), durations (`250ms`, `3h`), sizes (`16Gi`) and percentages (`99.9%`) take the number color, and paths like `~/src/app.ts` the path color.
 
-Paths open their file or folder on click, as do `file://` links that show their own path, from Claude Code 2.1.289 on. A path that starts with `~/`, `./` or `../` links to its file, with `~` read as your home folder and `./` from the session's project folder. A path that starts with `/` links once it has two parts, like `/tmp/app.ts`, so a slash command like `/config` stays text, and so does a top folder like `/tmp`. A `:12` after a path stays text. The files in tool rows of Claude Code's own file tools (Read, Edit, MultiEdit, Write, NotebookEdit, Grep, Glob) and the headers of shell-edit diff cards link too, a one-part path like `/etc` included, to the whole path even where the row shortens it. A `file://` link shows its own path when its text, apart from trailing punctuation, is the link itself or the path the link opens: `/tmp/a.md`, `C:\Users\me\a.md` and `\\server\share\a.md` as written, or a `~/`, `./` or `../` path read as above. A link with any other text, such as `[the docs](file:///tmp/setup.command)`, draws as `the docs (file:///tmp/setup.command)` in plain text, so a reply cannot hide what a click opens behind a harmless name. Under WSL the link goes through `wsl.localhost`, so Windows Terminal opens the file from the Linux side; a Linux terminal under WSLg (GNOME Terminal, Konsole, kitty) gets plain `file:///` links, which it opens itself. Paths link only in a terminal that draws hyperlinks, judged the way Claude Code judges it (`FORCE_HYPERLINK`, Windows Terminal, iTerm2, WezTerm, kitty, Ghostty, VS Code 1.72 and later, and others), so a terminal without them never shows a URL after each path. In a session over SSH (`SSH_CONNECTION` or `SSH_TTY` set) paths and `file://` links stay text, since a file link would open a file on the computer the terminal runs on rather than the one Claude Code runs on. A link longer than the 2048 characters Claude Code draws stays text too. Paths in inline code stay plain, and the desktop app draws paths and `file://` links as before.
+Paths open their file or folder on click, as do `file://` links that show their own path, from Claude Code 2.1.289 on. A path that starts with `~/`, `./` or `../` links to its file, with `~` read as your home folder and `./` from the session's project folder. A path that starts with `/` links once it has two parts, like `/tmp/app.ts`, so a slash command like `/config` stays text, and so does a top folder like `/tmp`. A `:12` after a path stays text. The files in tool rows of Claude Code's own file tools (Read, Edit, MultiEdit, Write, NotebookEdit, Grep, Glob) and the headers of shell-edit diff cards link too, a one-part path like `/etc` included, to the whole path even where the row shortens it. A `file://` link shows its own path when its text, apart from trailing punctuation, is the link itself or the path the link opens: `/tmp/a.md`, `C:\Users\me\a.md` and `\\server\share\a.md` as written, or a `~/`, `./` or `../` path read as above. A link with any other text, such as `[the docs](file:///tmp/setup.command)`, draws as `the docs (file:///tmp/setup.command)` in plain text, so a reply cannot hide what a click opens behind a harmless name. Under WSL the link goes through `wsl.localhost`, so Windows Terminal opens the file from the Linux side; a Linux terminal under WSLg (GNOME Terminal, Konsole, kitty) gets plain `file:///` links, which it opens itself. Paths and `file://` links that show their own path link only in a terminal that draws hyperlinks, judged the way Claude Code judges it (`FORCE_HYPERLINK`, Windows Terminal, iTerm2, WezTerm, kitty, Ghostty, VS Code 1.72 and later, and others), so a terminal without them never shows a URL after a path. In a session over SSH (`SSH_CONNECTION` or `SSH_TTY` set) paths and `file://` links stay text, since a file link would open a file on the computer the terminal runs on rather than the one Claude Code runs on. A link longer than the 2048 characters Claude Code draws stays text too. Paths in inline code stay plain, and the desktop app draws paths and `file://` links as before.
 
 Links that open a file in an editor are clickable from Claude Code 2.1.294 on: `vscode://file/…`, `vscode-insiders://file/…`, `cursor://file/…`, `windsurf://file/…` and `zed://file/…`, with an optional `:line` or `:line:column`. Other links of these editors stay text, the label then the target, since they reach extensions or actions such as cloning a repository or opening settings.
 
@@ -378,7 +447,15 @@ Options sit under `options`, keyed by the plugin's install name. Project setting
 | `enabled` | `true`, `false` | `true` |
 | `surfaces` | `all`, or a comma-separated list of `terminal`, `desktop`, `vscode`, `mobile` (like `terminal,vscode`); the rest use Claude Code's own renderer | `all` |
 | `theme` | see [Themes](#themes), or `random` for a new dark color preset each time the mod loads | `catppuccin-mocha` |
+| `desktopColors` | `match` (the Claude Code desktop app takes the theme's colors, light mode for a light theme; Claude Code 2.1.324+, see [Full app themes for Claude Code desktop](#full-app-themes-for-claude-code-desktop)), `off` (the default, the app keeps its own look) | `off` |
 | `tableStyle` | `box`, `rules`, `grid`, `minimal` | `box` |
+| `tableLayout` | `classic` (today's look, the default), `auto` (stack to cards when the longest words do not fit), `compact` (columns at their longest word), `stacked` (always cards) | `classic` |
+| `statusMatrix` | `color` (status cells in theme colors), `summary` (adds a count line under the table), `group` (also reorders rows by status with a heavy rule), `off` (the default) | `off` |
+| `testMatrix` | `report` (a line under a table of test results with the share that passed, the other results and the total time), `off` (the default) | `off` |
+| `benchTable` | `trend` (changes colored by improvement under a sparkline of the runs), `color` (just the changes colored green for an improvement and red for a regression), `off` (the default) | `off` |
+| `schemaTable` | `full` (type cells colored by family and constraint cells marked), `types` (just the type cells), `keys` (just the constraint cells: PK in the accent color, FK in the link color, unique and index cells in gray), `off` (the default) | `off` |
+| `compareTable` | `full` (rank cells colored as a medal and the top score marked), `rank` (just the rank cells: 1 in the accent color, 2 and 3 in the link color), `pick` (just the score cell of the top score, in the improvement green and bold), `off` (the default) | `off` |  `apiTable` | `full` (method cells colored by verb and auth scheme cells marked), `verbs` (just the method cells), `auth` (just the scheme cells: Bearer, OAuth, API key, JWT and Basic in the accent color), `off` (the default) | `off` |  `kvTable` | `full` (source cells colored by origin and values that moved off their default marked), `sources` (just the source cells: env in the link color, config in the string color, default in gray), `overrides` (just the value cells that differ from their default, in the accent color), `off` (the default) | `off` |
+| `groupTable` | `full` (each group labeled once in the accent color, its size beside the label and a heavy rule between groups), `count` (the label plus the group's size), `merge` (just the label once), `off` (the default) | `off` |
 | `taskStyle` | `checks` (`[ ]` `[✓]`, done struck through), `ticks` (`○` `✓`), `box` (`□` `✓`), `progress` (ticks with a done-count bar) | `checks` |
 | `listMarker` | `dots` (`•` then `◦` nested), `dash` (`-` at every level, pastes as a markdown list) | `dots` |
 | `promptStyle` | `bubble`, `framed`, `wide`, `bar`, `chevron`, `off` | `bubble` |
@@ -388,17 +465,20 @@ Options sit under `options`, keyed by the plugin's install name. Project setting
 | `headingStyle` | `banner`, `bold`, `underline`, `uppercase` | `banner` |
 | `highlightNumbers` | `true`, `false` | `true` |
 | `highlightPaths` | `true`, `false` | `true` |
+| `fullPaths` | `true` (a path that opens on click shows as its absolute path, so `src/app.ts` reads `/work/app/src/app.ts`), `false` | `false` |
 | `folds` | `closed` (long blocks start folded to their first lines), `open` (they start whole, with `show less`) | `closed` |
 | `toolRows` | `true`, `false` | `true` |
 | `toolStyle` | `chat`, `tree-dim`, `tree-bold`, `classic` | `chat` |
-| `toolOutput` | `full`, `quiet` | `full` |
+| `toolOutput` | `full`, `quiet`, `rows` | `full` |
 | `runningDot` | `ring` (a still `◌`), `blink` (`●` on and off every half second) | `ring` |
 | `unreadPrompts` | `true` (a prompt stays grey and blinks until the model starts on it), `false` | `false` |
 | `copyButtons` | `true`, `false` | `true` |
 | `copyButtonStyle` | `dim`, `inline`, `hover` | `dim` |
 | `textCopyButtons` | `true`, `false` | `true` |
+| `sectionCopyButtons` | `true`, `false` | `false` |
 | `diagramHints` | `true`, `false` | `true` |
 | `issueHint` | `true`, `false` | `true` |
+| `keyPointHint` | `true` (each prompt carries a model-only note asking for each reply's key points in bold), `false` | `false` |
 | `rtl` | `auto`, a terminal (`warp`, `kitty`, `apple-terminal`, `iterm`, `ghostty`, `wezterm`, `vscode`, `alacritty`, `windows-terminal`, `gnome`, `konsole`), `off` | `auto` |
 | `mermaid` | `true`, `false` | `true` |
 | `mermaidAscii` | `true`, `false` | `false` |
@@ -468,6 +548,7 @@ No network calls. The programs it runs, the files it reads and the settings it w
 - The parser covers what Claude writes (headings, lists, tables, fences, quotes, emphasis, links). It's not full CommonMark: HTML draws as plain text, and a quote ends at the first line without `>`.
 - Widths count CJK and emoji as two columns. Terminals disagree on a few emoji, so those can still be off by one.
 - Languages outside the 24 above draw in `codeText`.
+- `desktopColors` needs Claude Code 2.1.324+ and paints only the desktop app's Code tab; it shares the one desktop theme per session with other mods.
 - Tested by hand in the macOS terminal; CI runs the tests on macOS, Linux and Windows. The desktop app, VS Code and mobile use the same mod API but are not checked by hand yet.
 
 <details>
@@ -475,10 +556,10 @@ No network calls. The programs it runs, the files it reads and the settings it w
 
 To change the code, read [AGENTS.md](AGENTS.md) instead.
 
-- **What it is:** a Claude Code mod (function hooks in TypeScript) that redraws assistant replies, slash-command output, tool rows, the turn footer and user prompts. It changes how things look, and with `diagramHints` on (the default) it also asks Claude to build a reply around pictures when they make it easier to grasp, with the core on the first screen as a picture or a sentence. The one thing it sends the model is the optional diagram hint below.
+- **What it is:** a Claude Code mod (function hooks in TypeScript) that redraws assistant replies, slash-command output, tool rows, the turn footer and user prompts. It changes how things look, and with `diagramHints` on (the default) it also asks Claude to build a reply around pictures when they make it easier to grasp, with the core on the first screen as a picture or a sentence. What it sends the model is the optional notes below: the diagram hint, the issue hint and, with `keyPointHint` on, the key points note.
 - **Install:** `/plugin marketplace add NahumLitvin/prismantis`, then `/plugin install prismantis@prismantis`. Needs Claude Code 2.1.287+. Changes apply after `/reload`.
 - **Configure:** `/prismantis theme <name>` and `/prismantis setup` set options at runtime. Every option is a key under `pluginConfigs["prismantis@prismantis"].options` in `~/.claude/settings.json` (or a row in `/config`), then `/reload`. Options and defaults are in the [Configure](#configure) table; the machine-readable source is `userConfig` in [.claude-plugin/plugin.json](plugin/.claude-plugin/plugin.json). Color values that don't parse are ignored.
-- **Side effects:** no network. Programs it runs: the `⧉ html` and `▣ png` clipboard helper (`/usr/bin/osascript` on macOS, `powershell.exe` on Windows, `copyq` on Linux for `⧉ html` only, 5 second timeout, 15 on Windows, only on a click), and `ratex-render` while `latex` is on. With `diagramHints` on, it adds about 630 tokens of model-only context (about 710 while `latex` is on) to each prompt you type and each prompt another plugin sends, as broken down under [Diagram hints](#diagram-hints).
+- **Side effects:** no network. Programs it runs: the `⧉ html` and `▣ png` clipboard helper (`/usr/bin/osascript` on macOS, `powershell.exe` on Windows, `copyq` on Linux for `⧉ html` only, 5 second timeout, 15 on Windows, only on a click), and `ratex-render` while `latex` is on. With `diagramHints` on, it adds about 630 tokens of model-only context (about 710 while `latex` is on) to each prompt you type and each prompt another plugin sends, as broken down under [Diagram hints](#diagram-hints). With `keyPointHint` on, it adds about 80 more.
 - **Turning it off:** `"enabled": false`, or disable the plugin in `/plugin`. To keep it in one app only, like the terminal but not the desktop app, set `"surfaces": "terminal"`.
 - **For other mods:** `$.prismantis.markdown({ surface, text, columns })`, typed in [plugin/types/index.d.ts](plugin/types/index.d.ts). See [Other mods](#other-mods).
 
