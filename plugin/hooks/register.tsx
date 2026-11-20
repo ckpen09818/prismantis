@@ -7,16 +7,17 @@ import { LATEX_DPR, LATEX_FONT_PX, MAX_IMAGE_BYTES, fitImage, fitsImage, imageFi
 import type { Block } from './markdown'
 import { nestedBlocks, parse } from './markdown'
 import type { ClipboardBackend, HelperCommand } from './clipboard'
-import { clipboardCommand, drawsImages, imageCommand } from './clipboard'
+import { artColors, clipboardCommand, drawsImages, imageCommand } from './clipboard'
 import { FIGURE_HINT } from './figure'
 import { drawDiagrams } from './mermaid'
 import type { Avatar, CopyButton, DrawPaste, Fold, Hues, TerminalEnv } from './render'
-import { MARK, agentName, markPress, rememberPress, bashEdits, lineCount, drawMath, drawsHyperlinks, editNotes, fileRoot, hasShellOutput, instanceKey, isReadOnlyCall, leftToEngine, markerRoom, mirrored, noteTip, pasteLang, pathsToProbe, toolPathsToProbe, remember, rememberCall, renderBashEdits, renderBlocks, renderDiffCard, renderExpandedShell, renderFailure, renderReply, renderShellResult, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, replyRoom, replyStyleFor, takesClickableMarks, takesEditorLinks, takesHttpLinks, takesMonoText, withoutBashEdits } from './render'
+import { MARK, agentName, markPress, rememberPress, bashEdits, lineCount, drawMath, drawsHyperlinks, editNotes, fileLinkRoot, fileRoot, hasShellOutput, instanceKey, isReadOnlyCall, leftToEngine, markerRoom, mirrored, noteTip, pasteLang, pathsToProbe, toolPathsToProbe, remember, rememberCall, renderBashEdits, renderBlocks, renderDiffCard, renderExpandedCall, renderFailure, renderReply, renderShellResult, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, replyRoom, replyStyleFor, takesClickableMarks, takesEditorLinks, takesHttpLinks, takesMonoText, withoutBashEdits } from './render'
 import type { SetupStep } from './help'
-import { HINT, ISSUE_HINT, NARROW_PANE, narrowHint, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, THEME_PREVIEW, findSetup, helpText, languageShowcase, rtlShowcaseText, setupParts, setupSteps, setupText, showcaseText } from './help'
+import { ESSENTIAL_STEPS, HINT, ISSUE_HINT, KEY_POINT_HINT, NARROW_PANE, narrowHint, SETUP_DONE, SETUP_ESSENTIALS_DONE, SETUP_MORE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, THEME_PREVIEW, findSetup, helpText, languageShowcase, rtlShowcaseText, setupParts, setupSteps, setupText, showcaseText } from './help'
 import type { PictureDraw, Pasted, SentPictures } from './paste'
 import { DROP_DIR, IMAGE_TAG, MAX_USED_DROPS, PICK_SCRIPT, PNG_BASE64_LIMIT, freshDrops, pairDrops, pickedOf, picturesFor, pngDimensions, renderPasteBand, renderSentPicture, renderZoom, sameTags, surfaceOf, tagsOf, viewerLine, withPictures, withoutTag } from './paste'
 import { PRESET_NAMES } from './presets'
+import { desktopLook } from './desktop'
 import { textRows } from './layout'
 import type { Style } from './theme'
 import { RANDOM_THEMES, pickTheme, resolveStyle } from './theme'
@@ -55,10 +56,9 @@ const detectTerminal = async ($: EngineInterface): Promise<Terminal | null> => {
 
 const applyRtl = async ($: EngineInterface, style: Style): Promise<Terminal | null> => {
   if (style.rtl === 'off') return null
-  if (style.rtl !== 'auto') return style.rtl
-  const terminal = await detectTerminal($)
-  style.reorder = terminal !== null
-  if (terminal) style.shape = TERMINALS[terminal]
+  const terminal = style.rtl === 'auto' ? await detectTerminal($) : style.rtl
+  if (style.rtl === 'auto') style.reorder = terminal !== null
+  if (terminal) style.shape = TERMINALS[terminal === 'warp' && (await $.env.get('OS')) === 'Windows_NT' ? 'windows-terminal' : terminal]
   return terminal
 }
 
@@ -369,7 +369,7 @@ const htmlBackend = async ($: EngineInterface): Promise<ClipboardBackend | null>
   return await $.env.get('WAYLAND_DISPLAY') || await $.env.get('DISPLAY') ? 'linux' : null
 }
 
-type LinkReach = { http: boolean; editor: boolean; marks: boolean; monoText: boolean; files: string | null; paths: boolean }
+type LinkReach = { http: boolean; editor: boolean; marks: boolean; monoText: boolean; files: string | null; paths: boolean; hyperlinks: boolean }
 
 type Probes = { terminal?: Promise<Terminal | null>; multiplexed?: Promise<boolean>; htmlCopy?: Promise<ClipboardBackend | null>; links?: Promise<LinkReach>; images?: Promise<boolean>; board?: Promise<Board | null> }
 
@@ -397,7 +397,8 @@ const readLinkReach = async ($: EngineInterface, style: Style): Promise<LinkReac
   const http = takesHttpLinks(base)
   if (http) await locate($, style)
   const files = http && !(await overSsh($).catch(() => true)) ? await fileRootOf($).catch(() => 'file://') : null
-  return { http, editor: takesEditorLinks(base), marks: takesClickableMarks(base), monoText: takesMonoText(base), files, paths: files !== null && drawsHyperlinks(await terminalEnv($).catch(() => ({}))) }
+  const hyperlinks = drawsHyperlinks(await terminalEnv($).catch(() => ({})))
+  return { http, editor: takesEditorLinks(base), marks: takesClickableMarks(base), monoText: takesMonoText(base), files, paths: files !== null && hyperlinks, hyperlinks }
 }
 
 const linkReach = ($: EngineInterface, probes: Probes, style: Style): Promise<LinkReach> => (probes.links ??= readLinkReach($, style))
@@ -490,7 +491,7 @@ const runHelper = async ($: EngineInterface, backend: ClipboardBackend, build: (
 }
 
 const richCommand = (style: Style, backend: ClipboardBackend, content: string, rich: (() => string) | 'png', hues?: Hues) => (systemRoot?: string): HelperCommand => rich === 'png'
-  ? imageCommand(backend, content, { foreground: style.theme.diagramText ?? style.theme.codeText, background: style.theme.pngBackground, themeBackground: style.background }, systemRoot, hues)
+  ? imageCommand(backend, content, artColors(style), systemRoot, hues)
   : clipboardCommand(backend, rich(), content, systemRoot)
 
 const offers = (style: Style, rich?: (() => string) | 'png'): boolean => !rich || (rich === 'png' ? drawsImages(style.htmlCopy) : !!style.htmlCopy)
@@ -582,9 +583,26 @@ const saveOption = ($: EngineInterface, key: SetupStep['key'], value: string): P
     (e: unknown) => `${e instanceof Error ? e.message : String(e)}. Set "${key}": "${value}" by hand in the ${$.plugin.name} options under pluginConfigs in ~/.claude/settings.json, then restart.`,
   )
 
+const paintDesktop = async ($: EngineInterface, options: PluginOptions, name: string): Promise<boolean> => {
+  if (options.desktopColors !== 'match') return false
+  const look = desktopLook(name, resolveStyle({ ...options, theme: name }).theme)
+  try {
+    return (await $.theme.set({ colors: look.colors, overrideColorScheme: look.scheme })).isDrawn
+  } catch {
+    return false
+  }
+}
+
+const clearDesktop = async ($: EngineInterface): Promise<void> => {
+  try {
+    await $.theme.clear()
+  } catch {}
+}
+
 const setTheme = async ($: EngineInterface, picked: Picked, name: string): Promise<string> => {
   const deny = await saveOption($, 'theme', name)
   if (deny) return `Could not switch theme: ${deny}`
+  if (name !== 'random') await paintDesktop($, picked.options, name)
   if (name !== 'random' || picked.options.theme !== 'random') return `Theme set to ${name}.`
   const others = RANDOM_THEMES.filter(t => t !== picked.theme)
   picked.theme = others[Math.floor(Math.random() * others.length)]!
@@ -592,6 +610,7 @@ const setTheme = async ($: EngineInterface, picked: Picked, name: string): Promi
   style.theme = resolveStyle({ ...picked.options, theme: picked.theme }).theme
   picked.latex.color = ratexColor(style.theme.diagramText ?? style.theme.codeText ?? '#808080')
   $.ui.invalidate('ui.render')
+  await paintDesktop($, picked.options, picked.theme)
   return `Theme set to random: ${picked.theme} for now.\nkeep it: /prismantis theme ${picked.theme}`
 }
 
@@ -607,8 +626,8 @@ const SETUP_HEAD_ROWS = 5
 
 const openPane = ($: EngineInterface) => $.ui.open({ id: SETUP_PANE, title: 'prismantis setup', focus: true, closeOnEscape: true, rows: 40, columns: 110 })
 
-const openSetupPane = async ($: EngineInterface): Promise<string | undefined> => {
-  await update($, setupAt, () => 0)
+const openSetupPane = async ($: EngineInterface, at: number): Promise<string | undefined> => {
+  await update($, setupAt, () => at)
   await update($, setupFocus, () => '')
   await update($, setupLand, () => '')
   const opened = await openPane($)
@@ -646,12 +665,19 @@ const landSetupFocus = ($: EngineInterface, key: string): void => {
   })
 }
 
+const setupStart = (steps: SetupStep[], stepName?: string): number => (stepName === SETUP_MORE ? ESSENTIAL_STEPS : stepName ? steps.findIndex(s => s.name === stepName) : 0)
+
+const afterSetupPick = (steps: SetupStep[], at: number): string => {
+  if (at + 1 === ESSENTIAL_STEPS) return SETUP_ESSENTIALS_DONE
+  return at + 1 < steps.length ? setupText(setupParts(PRESET_NAMES, at + 1)) : SETUP_DONE
+}
+
 const setup = async ($: EngineInterface, picked: Picked, origin: PromptOrigin, stepName?: string, pick?: string): Promise<string> => {
-  const inTerminal = !stepName && origin.kind === 'composer' && (await $.session.surfaces()).includes('terminal')
-  const opened = inTerminal ? await openSetupPane($) : undefined
-  if (opened) return opened
   const steps = setupSteps(PRESET_NAMES)
-  const at = stepName ? steps.findIndex(s => s.name === stepName) : 0
+  const at = setupStart(steps, stepName)
+  const paneable = (!stepName || stepName === SETUP_MORE) && !pick && origin.kind === 'composer'
+  const opened = paneable && (await $.session.surfaces()).includes('terminal') ? await openSetupPane($, at) : undefined
+  if (opened) return opened
   const step = steps[at]
   if (!step) return `Unknown setup step "${stepName}". Steps: ${steps.map(s => s.name).join(', ')}`
   if (!pick) return setupText(setupParts(PRESET_NAMES, at))
@@ -660,7 +686,7 @@ const setup = async ($: EngineInterface, picked: Picked, origin: PromptOrigin, s
   if (!value || !choices.includes(value)) return `Unknown ${step.name} pick "${pick}". Pick 1-${step.options.length} or one of: ${choices.join(', ')}`
   const saved = await saveSetupPick($, picked, step, value)
   if (saved.startsWith('Could not')) return saved
-  return `${saved}\n\n${at + 1 < steps.length ? setupText(setupParts(PRESET_NAMES, at + 1)) : SETUP_DONE}`
+  return `${saved}\n\n${afterSetupPick(steps, at)}`
 }
 
 const SETUP_GIT_STATUS = [
@@ -678,12 +704,22 @@ const SETUP_BUILD_ERROR = [
   'Found 10 errors in the same file, starting at: src/app.ts:3',
 ]
 
+const SETUP_NPM_TEST = [
+  '> app@1.4.0 test',
+  '> vitest run',
+  ' ✓ src/app.test.ts (12 tests) 48ms',
+  ' Test Files  1 passed (1)',
+  '      Tests  12 passed (12)',
+]
+
 const toolOutputSample = (el: ReturnType<EngineInterface['ui']['resolve']>, style: Style, value: string, id: string, columns: number): RenderElement[] => {
-  const status = { tool: 'Bash', input: { command: 'git status' }, isRunning: false, isErrored: false, isInterrupted: false }
-  const build = { tool: 'Bash', input: { command: 'npm run build', description: 'Build the app' }, isRunning: false, isErrored: true, isInterrupted: false }
-  const statusRow = <el.Box key={`${id}s`}>{renderToolRow(el, style, status, columns)}</el.Box>
-  const buildRow = <el.Box key={`${id}r`}>{renderToolRow(el, style, build, columns)}</el.Box>
-  if (value === 'quiet') return [statusRow, buildRow, renderFailure(el, style, SETUP_BUILD_ERROR.join('\n'), `${id}e`) ?? <el.Box key={`${id}e`} />]
+  const row = (key: string, input: Record<string, string>, isErrored: boolean) => <el.Box key={`${id}${key}`}>{renderToolRow(el, style, { tool: 'Bash', input, isRunning: false, isErrored, isInterrupted: false }, columns)}</el.Box>
+  const statusRow = row('s', { command: 'git status' }, false)
+  const testRow = row('t', { command: 'npm test', description: 'Run the tests' }, false)
+  const buildRow = row('r', { command: 'npm run build', description: 'Build the app' }, true)
+  const failure = renderFailure(el, style, SETUP_BUILD_ERROR.join('\n'), `${id}e`) ?? <el.Box key={`${id}e`} />
+  if (value === 'rows') return [statusRow, testRow, buildRow, failure]
+  if (value === 'quiet') return [statusRow, testRow, <el.Box key={`${id}to`}>{renderShellResult(el, style, { stdout: SETUP_NPM_TEST.join('\n'), stderr: '' })}</el.Box>, buildRow, failure]
   const folded = (lines: readonly string[], keep: number, color?: string) => [
     ...lines.slice(0, keep).map((line, i) => <el.Text key={`l${i}`} color={color}>{`${i === 0 ? '  ⎿  ' : '     '}${line}`}</el.Text>),
     <el.Text key="more" dimColor>{`     … +${lines.length - keep} lines (ctrl+o to expand)`}</el.Text>,
@@ -694,6 +730,8 @@ const toolOutputSample = (el: ReturnType<EngineInterface['ui']['resolve']>, styl
       {folded(SETUP_GIT_STATUS, 3)}
       <el.Text key="allowed" dimColor>{'  ⎿  Allowed by auto mode classifier'}</el.Text>
     </el.Box>,
+    testRow,
+    <el.Box key={`${id}to`} flexDirection="column">{folded(SETUP_NPM_TEST, 3)}</el.Box>,
     buildRow,
     <el.Box key={`${id}e`} flexDirection="column">{folded(['Error: Exit code 2', ...SETUP_BUILD_ERROR], 10, style.theme.codeFlag)}</el.Box>,
   ]
@@ -810,6 +848,7 @@ const hintsFor = (style: Style, latex: LatexSession, nth: number, sent: Map<stri
     ...(style.diagramHints ? [HINT, FIGURE_HINT].filter(due) : []),
     ...(style.diagramHints && pane !== undefined && pane < NARROW_PANE ? [narrowHint(pane)] : []),
     ...(style.diagramHints && latex.ready && !latex.stopped ? [LATEX_HINT].filter(due) : []),
+    ...(style.keyPointHint ? [KEY_POINT_HINT] : []),
     ...(style.issueHint && nth % 10 === 0 ? [ISSUE_HINT] : []),
   ]
 }
@@ -970,13 +1009,16 @@ export const register: Register = (on, options) => {
   const probes: Probes = {}
   const pathChecks: PathChecks = { asked: new Set(), batch: [], found: new Set() }
   const forSurface = (base: Style, { surface, viewport }: { surface: RenderSurface; viewport?: { isFullscreen?: boolean } }, links: LinkReach): Style => {
-    const drawn = surface === 'terminal' ? (links.http || links.editor ? { ...base, httpLinks: links.http, editorLinks: links.editor, obsidianLinks: links.editor && viewport?.isFullscreen === false, fileLinks: links.files, pathLinks: links.paths } : base) : { ...base, htmlCopy: null, nativeCode: true, gridFace: surface === 'desktop', monoFace: surface === 'desktop' && links.monoText }
-    return surface === 'mobile' && drawn.copyButtonStyle === 'hover' ? { ...drawn, copyButtonStyle: 'inline' } : drawn
+    const drawn = surface === 'terminal' ? { ...base, hyperlinks: links.hyperlinks, ...(links.http || links.editor ? { httpLinks: links.http, editorLinks: links.editor, obsidianLinks: links.editor && viewport?.isFullscreen === false, fileLinks: fileLinkRoot(links.files, viewport?.isFullscreen), pathLinks: links.paths } : {}) } : { ...base, hyperlinks: true, htmlCopy: null, nativeCode: true, gridFace: surface === 'desktop' || surface === 'vscode', monoFace: surface === 'desktop' && links.monoText, svgArt: surface === 'vscode' }
+    return (surface === 'mobile' || surface === 'vscode') && drawn.copyButtonStyle === 'hover' ? { ...drawn, copyButtonStyle: 'inline' } : drawn
   }
   const fullWidth = (text: string) => (style.reorder && hasRtl(text) ? { width: '100%' as const } : {})
 
-  const quiet = style.toolOutput === 'quiet'
+  const quiet = style.toolOutput !== 'full'
+  const rows = style.toolOutput === 'rows'
   const quietRow = (expanded: boolean | undefined) => quiet && !expanded
+  const rowOnly = (id: string) => rows || readOnlyCalls.has(id)
+  const showsAbove = (props: object, output: unknown) => hasShellOutput(output) && !(rows && !expandedRow(props))
   const shellCommands = new Map<string, string>()
   const noteCommand = (id: string | undefined, tool: string, input: unknown) => {
     const command = tool === 'Bash' && input !== null && typeof input === 'object' ? (input as { command?: unknown }).command : undefined
@@ -1005,10 +1047,9 @@ export const register: Register = (on, options) => {
       if (quiet && isReadOnlyCall(e.props.tool, e.props.input)) rememberCall(readOnlyCalls, e.props.tool_use_id)
       const dotDark = await darkDot($, style, e.props.isRunning)
       const drawn = forSurface(style, e, await linkReach($, probes, style))
-      if (expandedRow(e.props)) return next(e)
-      if (!expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), { ...(await withFound($, pathChecks, drawn, toolPathsToProbe(drawn, [e.props.input]))), dotDark }, e.props, e.viewport?.columns)
-      const shell = e.props.tool === 'Bash' || e.props.tool === 'PowerShell'
-      return shell && typeof e.props.output !== 'string' ? renderExpandedShell($.ui.resolve(e), { ...style, dotDark }, e.props, e.viewport?.columns) : next(e)
+      const grouped = expandedCalls.has(e.props.tool_use_id)
+      if (!grouped && !expandedRow(e.props)) return renderToolRow($.ui.resolve(e), { ...(await withFound($, pathChecks, drawn, toolPathsToProbe(drawn, [e.props.input]))), dotDark }, e.props, e.viewport?.columns)
+      return renderExpandedCall($.ui.resolve(e), { ...style, dotDark }, e.props, grouped, e.viewport?.columns) ?? next(e)
     })
     on('ui.render', { component: 'ToolResult', ...here }, async ($, e, next) => {
       const cards = (): Style => ({ ...style, pressPreview: e.surface === 'terminal' })
@@ -1018,7 +1059,7 @@ export const register: Register = (on, options) => {
         await locate($, style)
         const el = $.ui.resolve(e)
         const output = withoutBashEdits(e.props.output)
-        const above = !hasShellOutput(output) ? null : quiet ? renderShellResult(el, style, output) : await next({ ...e, props: { ...e.props, output } })
+        const above = !showsAbove(e.props, output) ? null : quiet ? renderShellResult(el, style, output) : await next({ ...e, props: { ...e.props, output } })
         firstEdit ??= e.props.tool_use_id
         const notes = editNotes(edits, firstEdit === e.props.tool_use_id, shellCommands.get(e.props.tool_use_id))
         const drawn = renderBashEdits(el, forSurface(cards(), e, await linkReach($, probes, style)), edits, folder($, el, await read($, unfolded), (await linkReach($, probes, style)).marks, style.folds === 'open'), e.props.tool_use_id, above !== null, notes, e.viewport?.columns)
@@ -1031,7 +1072,7 @@ export const register: Register = (on, options) => {
       const out = (e.props.output ?? {}) as Record<string, unknown>
       if (shell && (out.backgroundTaskId || out.isImage || out.interrupted)) return next(e)
       if (e.props.isErrored) return renderFailure(el, style, e.props.output) ?? next(e)
-      if (readOnlyCalls.has(e.props.tool_use_id)) return <el.Box />
+      if (rowOnly(e.props.tool_use_id)) return <el.Box />
       return shell ? renderShellResult(el, style, e.props.output) : next(e)
     })
   }
@@ -1061,10 +1102,17 @@ export const register: Register = (on, options) => {
     void latexEngine($, latex)
     void boardOf($, probes).catch(() => null)
     const started = await next(e)
+    await paintDesktop($, options, picked.theme)
     await $.command
       .register({ name: 'prismantis', description: 'Switch the prismantis theme, pick styles from samples, copy the last reply, or show the demo', argumentHint: '[theme [<name> | random] | setup [<step> [<pick>]] | copy [code] | demo]' })
       .catch(() => undefined)
     return started
+  })
+
+  on('config.set', { key: 'prismantis.desktopColors' }, async ($, e, next) => {
+    const written = await next(e)
+    if ('value' in written && options.desktopColors === 'match' && written.value !== 'match') await clearDesktop($)
+    return written
   })
 
   on('command.run', { command: 'prismantis' }, async ($, e) => {

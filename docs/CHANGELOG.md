@@ -13,6 +13,143 @@ All notable changes to this project are documented here. The format follows [Kee
 - With `bubbleLabels: off`, the `promptSide: left` time and the avatar rows go with the labels; `small` shrinks the left-side `⬤ You` and the agent name's dot too. Claude's bubble keeps the theme accent unless `replyBorderColor` is set.
 - New option `sentImages`: `thumbnail` (the default) draws an image you pasted as a picture in your sent prompt, with a `⤢` button that opens it large in the zoom pane, Esc closes it; `text` keeps the `[Image #N]` tag. The picture comes from the preview you saw before sending, or from the image Claude Code attached when there was none, so it also works over ssh. It needs a terminal that draws images and a PNG of at most 2 MB; anything else stays text.
 
+## [0.49.2] - 2026-11-19
+
+Too-wide flowcharts squeeze to fit, and a diagram that can't draw says why.
+
+### Fixed
+
+- A flowchart too wide for the reply lays out again with one-cell gaps between boxes before it falls back to its source, so a 9-step chain that took 114 columns now draws in 98. Diagrams that already fit keep their spacing ([#582](https://github.com/NahumLitvin/prismantis/pull/582)).
+- A diagram that falls back to its source says why: `diagram too wide to render (N cols, M fit)`, or `diagram too long to render (81 lines, max 80)` for a block over the 80-line or 8000-character cap, which used to say `diagram failed to render` ([#582](https://github.com/NahumLitvin/prismantis/pull/582)).
+
+## [0.49.1] - 2026-11-19
+
+Mermaid diagrams, charts and figures draw as pictures in the VS Code extension.
+
+### Fixed
+
+- VS Code extension: mermaid diagrams, charts and figures draw as aligned pictures in the theme's colors, instead of misaligned in the panel's proportional font or falling back to their source with "diagram is N cols, M fit". Hebrew labels keep their right-to-left order. The terminal and the desktop app are unchanged. Thanks @sagikakon2 ([#578](https://github.com/NahumLitvin/prismantis/pull/578)).
+
+## [0.49.0] - 2026-11-18
+
+prismantis runs in Google Antigravity, tables draw properly in the VS Code extension, and two new options.
+
+### Added
+
+- Google Antigravity: a plugin with the prismantis session note as an always-on rule and a `/prismantis` demo, so replies there come back with tables, diagrams and figures. Antigravity draws tables and mermaid flowcharts and sequence diagrams itself; for other diagrams the note asks for a figure block. No themes, since Antigravity's color schemes are built in. Thanks @buer5 ([#561](https://github.com/NahumLitvin/prismantis/pull/561)).
+- `fullPaths` (default `false`): a path that opens on click draws as the absolute path its link opens, like `src/app.ts:42` as `/work/app/src/app.ts:42`, with backslashes on Windows. Thanks @Boring206 ([#562](https://github.com/NahumLitvin/prismantis/pull/562)).
+- `keyPointHint` (default `false`): a model-only note on each prompt, about 80 tokens, asking Claude to put each reply's key points in bold, which prismantis draws in the theme's `strong` color. Thanks @Boring206 ([#563](https://github.com/NahumLitvin/prismantis/pull/563)).
+
+### Fixed
+
+- VS Code extension: tables draw as boxes that share the reply's width, like the desktop app, instead of rules that missed the columns in the panel's proportional font or stacked cards; two tables in a row both fit, and a wrapped list item keeps its marker beside its text. Side-by-side tables in the desktop app shrink to fit too. Thanks @sagikakon2 ([#557](https://github.com/NahumLitvin/prismantis/pull/557)).
+- A quoted pie title, like `pie title "Punchy's kills"`, draws without its quotes ([#574](https://github.com/NahumLitvin/prismantis/pull/574)).
+
+## [0.48.2] - 2026-11-18
+
+Gantt charts with ISO timestamps draw, and the README shows prismantis in OpenCode.
+
+### Fixed
+
+- Gantt charts whose `dateFormat` has literal letters, like the ISO `T` in `YYYY-MM-DDTHH:mm:ss`, or bracketed text, draw instead of showing the source ([#570](https://github.com/NahumLitvin/prismantis/pull/570)).
+- OpenCode: `/prismantis` counts the 18 themes OpenCode gets, not all 19 presets ([#569](https://github.com/NahumLitvin/prismantis/pull/569)).
+
+### Changed
+
+- The README links the 1:44 film, and the OpenCode section and `opencode/README.md` show a clip of prismantis drawing charts in OpenCode ([#569](https://github.com/NahumLitvin/prismantis/pull/569)).
+
+## [0.48.1] - 2026-11-18
+
+OpenCode charts stay readable in the default theme, and `/prismantis` there shows only what OpenCode draws.
+
+### Fixed
+
+- OpenCode: chart series, pie slices and kanban columns no longer share near-identical colors in themes like OpenCode's default, where links, numbers and warnings are all orange. A color whose hue repeats an earlier one is swapped for the theme's info, success or error color ([#565](https://github.com/NahumLitvin/prismantis/pull/565)).
+- OpenCode: `/prismantis` prints a demo of what OpenCode draws, with class and ER samples, instead of the Claude Code demo with its `/config` options and Claude Code-only features ([#565](https://github.com/NahumLitvin/prismantis/pull/565)).
+
+## [0.48.0] - 2026-11-17
+
+OpenCode draws every mermaid kind its own renderer leaves as source, and two fixes for Windows Terminal.
+
+### Added
+
+- OpenCode: xychart bar and line charts, pie, quadrantChart, mindmap, journey, kanban, classDiagram and erDiagram draw in the active OpenCode theme as ```` ```chart ```` blocks, with the same chart art as Claude Code. The session note tells the model which kinds to write that way, and a body that can't be drawn shows as source. Claude Code reads ```` ```chart ```` as ```` ```mermaid ````, so one reply draws in both. Designed by @buer5 in [#539](https://github.com/NahumLitvin/prismantis/issues/539) ([#558](https://github.com/NahumLitvin/prismantis/pull/558)).
+
+### Changed
+
+- The Codex README says prose colors shipped in Codex 0.169.0, so Codex parity waits on one Codex issue ([#558](https://github.com/NahumLitvin/prismantis/pull/558)).
+
+### Fixed
+
+- On Windows Terminal and Warp for Windows, a Hebrew line in a `text` or untagged code block reads right to left like the same line in a paragraph. Code with a real grammar stays left to right ([#552](https://github.com/NahumLitvin/prismantis/pull/552)).
+- In a terminal where Claude Code draws no hyperlinks, a file link whose text is its own path draws as that path alone, so a long percent-escaped `file://` URL no longer wraps and breaks Ctrl+click on Windows Terminal. Thanks @Boring206 ([#554](https://github.com/NahumLitvin/prismantis/pull/554)).
+
+## [0.47.0] - 2026-11-16
+
+The desktop app takes the theme, five more mermaid diagrams draw, and tables learn four new shapes.
+
+### Added
+
+- `desktopColors`: `match` paints the whole Claude Code desktop app (Code tab) in the theme, not only the replies, and switches it to light mode for a light theme. `*Color` overrides carry over. Needs Claude Code 2.1.324 or later; off by default, and turning it back off restores the app's own look. Also the last step of `/prismantis setup more` ([#530](https://github.com/NahumLitvin/prismantis/pull/530)).
+- Mermaid `gitGraph` draws as one colored lane per branch with forks, merges and tags. Thanks @Nanako0129 ([#528](https://github.com/NahumLitvin/prismantis/pull/528)).
+- Mermaid `kanban` draws as a board of boxed cards with owner, ticket and priority. Thanks @Nanako0129 ([#527](https://github.com/NahumLitvin/prismantis/pull/527)).
+- Mermaid `journey` draws as a mood line across the tasks, green where it goes well and red where it hurts. Thanks @Nanako0129 ([#526](https://github.com/NahumLitvin/prismantis/pull/526)).
+- Mermaid `mindmap` draws as a colored tree from its root, or an indented outline when too wide. Thanks @Nanako0129 ([#525](https://github.com/NahumLitvin/prismantis/pull/525)).
+- Mermaid `quadrantChart` draws as a colored grid with numbered points and a legend. Thanks @Nanako0129 ([#524](https://github.com/NahumLitvin/prismantis/pull/524)).
+- `groupTable`: `merge` labels each run of a repeated first column once, `count` adds the run's size like `api (2)`, `full` also draws a rule between groups. Off by default. Thanks @buer5 ([#536](https://github.com/NahumLitvin/prismantis/pull/536)).
+- `kvTable`: a config table's source cells colored by origin (env, config, default) and values that moved off their default marked. Off by default. Thanks @buer5 ([#509](https://github.com/NahumLitvin/prismantis/pull/509)).
+- `apiTable`: an API table's method cells colored by verb (GET, POST, DELETE) and its auth schemes marked. Off by default. Thanks @buer5 ([#507](https://github.com/NahumLitvin/prismantis/pull/507)).
+- `compareTable`: rank 1, 2 and 3 drawn as medals and the top score marked green and bold. Off by default. Thanks @buer5 ([#516](https://github.com/NahumLitvin/prismantis/pull/516)).
+- `sectionCopyButtons`: a `⧉ copy` beside each heading copies its section without the heading line. Off by default. Thanks @FlorianBruniaux ([#515](https://github.com/NahumLitvin/prismantis/pull/515)).
+- `toolOutput` `rows`: a call that worked shows only its row, edits keep their diff card, failures still show their last line. Thanks @FlorianBruniaux ([#522](https://github.com/NahumLitvin/prismantis/pull/522)).
+- Two presets: `kanagawa-wave` from kanagawa.nvim, thanks @mangow314 ([#540](https://github.com/NahumLitvin/prismantis/pull/540)), and `morning-haze` from coralline, thanks @Nanako0129 ([#543](https://github.com/NahumLitvin/prismantis/pull/543)).
+
+### Changed
+
+- Alerts take each theme's own blue, green, purple, yellow and red instead of the terminal's ANSI colors, so every theme's alerts look a little different now. The default `catppuccin-mocha` Tip is `#a6e3a1` instead of ANSI green. Any `alert…Color` you set still wins, and `mono` is unchanged. Thanks @Nanako0129 ([#545](https://github.com/NahumLitvin/prismantis/pull/545)).
+- A number in a table cell takes the color the table's look gives that cell instead of the number color ([#516](https://github.com/NahumLitvin/prismantis/pull/516)).
+- In the desktop app, prose and table cells use the theme's text color on its fill instead of the app's dim gray. Thanks @Jenso-DE for the report ([#542](https://github.com/NahumLitvin/prismantis/pull/542)).
+
+### Fixed
+
+- A path with Chinese, Japanese, Korean, Hebrew or accented names is colored and linked whole. Thanks @Boring206 ([#533](https://github.com/NahumLitvin/prismantis/pull/533)).
+- An absolute path in inline code, like `` `/srv/app/main.ts` ``, links to its file as in text. Thanks @Boring206 ([#538](https://github.com/NahumLitvin/prismantis/pull/538)).
+- Under WSL in fullscreen, clicking a path reaches Claude Code's opener instead of doing nothing. Thanks @Boring206 ([#534](https://github.com/NahumLitvin/prismantis/pull/534)).
+- Models no longer copy a `{role:text}` placeholder into figures and print raw braces. Thanks @edwardzhanged for the report ([#541](https://github.com/NahumLitvin/prismantis/pull/541)).
+- A fence after a bracketed prefix like a timestamp opens its block. Thanks @humanityBG for the report ([#529](https://github.com/NahumLitvin/prismantis/pull/529)).
+- Under ctrl+o and `--verbose`, shell commands show in color again. Thanks @SirFrey ([#495](https://github.com/NahumLitvin/prismantis/pull/495)).
+- Hebrew reads in order in Warp on Windows with `rtl: auto` instead of reversed ([#501](https://github.com/NahumLitvin/prismantis/pull/501)).
+- In the desktop app, a table with Chinese, Japanese or Korean cells fits the reply instead of cutting off its last column. In the terminal such a column may now wrap between characters ([#521](https://github.com/NahumLitvin/prismantis/pull/521)).
+- In the desktop app, a round pie is round instead of an upright egg. Thanks @berkay8987 for the measurements ([#494](https://github.com/NahumLitvin/prismantis/pull/494)).
+
+## [0.46.0] - 2026-11-13
+
+Tables learn to read their own content, and setup gets shorter.
+
+### Added
+
+- `tableLayout`: `classic` keeps today's look, `auto` turns rows into label and value cards when columns cannot fit their longest words, `compact` sits every column at its longest word, `stacked` always draws cards. Thanks @buer5 ([#362](https://github.com/NahumLitvin/prismantis/pull/362)).
+- `statusMatrix`: status cells like ✓, failed or pending in green, red, amber and gray, with `summary` adding a count line like `✓ 2 · ✗ 1 · ● 1` and `group` reordering rows by status. Off by default. Thanks @buer5 ([#364](https://github.com/NahumLitvin/prismantis/pull/364)).
+- `testMatrix`: `report` draws a line under a table of test results with the share that passed, the other results and the total time, like `✓ 2 of 4 (50%) · ✗ 1 · ● 1 · 6.9s total`. Off by default. Thanks @buer5 ([#474](https://github.com/NahumLitvin/prismantis/pull/474), landed in [#482](https://github.com/NahumLitvin/prismantis/pull/482)).
+- `benchTable`: change cells like -10% in green for an improvement and red for a regression, and `trend` adds a sparkline of the runs. Off by default. Thanks @buer5 ([#482](https://github.com/NahumLitvin/prismantis/pull/482)).
+- `schemaTable`: a schema table's type cells colored by family and its PK, FK and UNIQUE cells marked. Off by default. Thanks @buer5 ([#491](https://github.com/NahumLitvin/prismantis/pull/491)).
+
+### Changed
+
+- `/prismantis setup` asks 6 steps (theme, prompts, replies, tables, code blocks, tool output) instead of 20, and `/prismantis setup more` walks the other 14 ([#498](https://github.com/NahumLitvin/prismantis/pull/498)).
+
+### Fixed
+
+- A test report total under a millisecond reads `250µs` instead of `0µs` ([#498](https://github.com/NahumLitvin/prismantis/pull/498)).
+
+## [0.45.4] - 2026-11-11
+
+### Fixed
+
+- With `copyButtonStyle: hover`, a block's copy buttons stay lit while the pointer moves onto them, so they can be clicked. Thanks @t-rajic-0 ([#488](https://github.com/NahumLitvin/prismantis/pull/488)).
+- A table column of named links is as wide as their labels wherever links draw as hyperlinks, instead of leaving room for the hidden URL. Thanks @Malorn44 ([#485](https://github.com/NahumLitvin/prismantis/pull/485)).
+- An Edit or Write result with no output no longer makes the tool result hook throw on Claude Code 2.1.321 and later. Thanks @Malorn44 ([#487](https://github.com/NahumLitvin/prismantis/pull/487)).
+
 ## [0.45.3] - 2026-11-08
 
 Bug fixes from a third QA round and two reports.

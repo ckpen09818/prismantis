@@ -12,6 +12,103 @@ Type /kick to start; /srv/dojo/moves.md has the moves.
 | Mantis | Guardians of the Galaxy | empathy, awkward hugs | 168cm |
 | mantis shrimp | real life | punches at 23 m/s | 10cm |
 
+## Attachments
+
+Long paths and checksums never split mid-word, so a column cannot shrink below them. When those minimum widths no longer fit the reply, `tableLayout` `auto` and `stacked` draw the table as one card per row, and `compact` keeps the columns at their longest word:
+
+| Scroll | Checksum |
+|:-------|:---------|
+| ~/jade-palace/noodle-scrolls/scrolls/scroll-07-training-notes.md | 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 |
+| /srv/dojo/moves.md | 2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae |
+
+## Status matrix
+
+When a table has a status column — the one whose cells are things like ✓, passed, failed or pending — `statusMatrix` `color` draws those cells in theme colors: green for a pass, red for a failure, amber for a warning, gray for a wait. `summary` adds a count line under the table and `group` reorders rows by status with a heavy rule where the status changes. The default `off` keeps tables as written:
+
+| Suite | Cases | Result |
+|:------|------:|:-------|
+| Unit | 412 | ✓ |
+| Propagation | 88 | failed |
+| Smoke | 24 | pending |
+| Regression | 130 | ✓ |
+
+## Test report
+
+When a table draws a run — a status column of things like ✓ or failed next to durations like 120 ms — `testMatrix` `report` adds a line under the table with how much of the run passed, a count of every other kind of result and the time all of it took. The line reuses the status colors and replaces the `statusMatrix` count line when both draw. The default `off` keeps tables as written:
+
+| Check | Time | Result |
+|:------|-----:|:-------|
+| parse | 120 ms | ✓ |
+| draw | 4 s | ✓ |
+| scan | 130 ms | failed |
+| typeset | 2.6 s | pending |
+
+## Benchmarks
+
+When a table compares benchmarks — a column of changes like -10% or +3% beside two columns of runs — `benchTable` draws each change in theme colors, green for an improvement and red for a regression; timings read as lower is better unless a header speaks of req/s, throughput or a score. `trend` also draws a sparkline of the runs under the table, each step colored by whether it improved. The default `off` keeps tables as written:
+
+| Benchmark | Before | After | Change |
+|:----------|-------:|------:|:-------|
+| parse | 12.4 ms | 11.1 ms | -10% |
+| layout | 19.6 ms | 22.4 ms | +14% |
+| paint | 2.1 ms | 0.8 ms | -62% |
+
+## Schema
+
+When a table describes a database schema — a column of fields beside a column of types — `schemaTable` draws the type cells by their family: text types like varchar in the string color, numeric types like int in the number color, booleans in the emphasis color, time types like timestamp in the link color. `keys` draws the constraint cells — PK in the accent color, FK in the link color, unique and index cells in gray — and `full` does both. The default `off` keeps tables as written:
+
+| Column | Type | Key | Default |
+|:-------|:-----|:----|:--------|
+| id | uuid | PK | |
+| email | varchar(255) | UNIQUE | |
+| org_id | bigint | FK → orgs.id | |
+| created_at | timestamp | | now() |
+
+## Comparison
+
+When a table compares options — a column of scores beside a column of ranks — `compareTable` draws the rank cells as a medal: 1 in the accent color, 2 and 3 in the link color, the same pairing the schema table's PK and FK use. `pick` draws the score cell of the top score in the improvement green, the hue `benchTable` gives an improvement, and bolds it so it stands out even in a theme where that green is also the number color, and `full` does both. The default `off` keeps tables as written:
+
+| Option | Score | Rank |
+|:-------|------:|-----:|
+| mantis | 9.2 | 1 |
+| origami | 7.8 | 2 |
+| noodle | 6.1 | 3 |
+| tofu | 4.4 | 4 |
+
+## API reference
+
+When a table documents an API — a method column whose cells read like HTTP verbs — `apiTable` draws the method cells by what the verb does: reads like GET in the link color, writes like POST in the string color, DELETE in the removed color, other verbs in gray. `auth` draws the scheme cells of an auth column — Bearer, OAuth, API key, JWT — in the accent color, and `full` does both. The default `off` keeps tables as written:
+
+| Method | Endpoint | Auth | Description |
+|:-------|:---------|:-----|:------------|
+| GET | /v1/scrolls | Bearer | List the scrolls |
+| POST | /v1/scrolls | Bearer | Add a scroll |
+| DELETE | /v1/scrolls/:id | API key | Remove a scroll |
+| GET | /v1/health | none | Liveness check |
+
+## Key-value
+
+When a table lists configuration — a column of options beside columns of values, sources and defaults — `kvTable` draws the source cells by where it says the value comes from: env in the link color, config in the string color, default in gray. `overrides` draws the value cell in the accent color when the row's value differs from its default, and `full` does both. The default `off` keeps tables as written:
+
+| Option | Value | Source | Default |
+|:-------|:------|:-------|:--------|
+| retries | 5 | env | 3 |
+| format | json | config | json |
+| timeout | 30s | default | 30s |
+| token | abc123 | env | unset |
+
+## Groups
+
+When a table groups its rows — the first column whose cells repeat in runs, like a column of services or teams — `groupTable` draws each group once: `merge` labels the group in the accent color and blanks the repeats under it, `count` also adds the group's size to its label, and `full` also draws a heavy rule where one group ends and the next begins. A column of numbers never groups, and a table already grouped by status keeps its status grouping. The default `off` keeps tables as written:
+
+| Service | Region | Requests | p99 |
+|:--------|:-------|---------:|----:|
+| api | us-east | 1.2M | 84 ms |
+| api | us-west | 900k | 91 ms |
+| worker | us-east | 2.4M | 120 ms |
+| worker | us-west | 1.8M | 132 ms |
+| cron | us-east | 96k | 40 ms |
+
 1. Wake up, stretch all 6 legs
 2. Pray to the noodle gods
    - extra dumplings
@@ -43,6 +140,69 @@ xychart-beta
   title "Mantis hug acceptance"
   x-axis [GotG2, IW, EG, GotG3]
   line [2, 4, 6, 9]
+```
+
+```mermaid
+quadrantChart
+  title Training plan
+  x-axis Easy --> Hard
+  y-axis Dull --> Fun
+  quadrant-1 Boss fights
+  quadrant-2 Warm-ups
+  quadrant-3 Chores
+  quadrant-4 Grind
+  Dumplings: [0.15, 0.9]
+  Kicks: [0.7, 0.75]
+  Stairs: [0.8, 0.2]
+```
+
+```mermaid
+mindmap
+  root((Trip))
+    Clothes
+      Jacket
+      Boots
+    Food
+      Snacks
+      Water
+    Gear[Night gear]
+      Map
+      Torch
+```
+
+```mermaid
+journey
+  title Morning run
+  section Start
+    Alarm: 1: Me
+    Stretch: 3: Me
+  section Run
+    Park loop: 5: Me, Dog
+    Hill: 2: Me
+```
+
+```mermaid
+kanban
+  todo[To pack]
+    a[Tent poles]@{ assigned: 'Bo', priority: 'Very High' }
+    b[Stove fuel]@{ ticket: CAMP-3 }
+  doing[Packing]
+    c[First aid kit]@{ assigned: 'Mei' }
+  done[Packed]
+```
+
+```mermaid
+gitGraph
+  commit id: "draft" tag: "v0.1"
+  branch edits
+  commit id: "trim"
+  branch art
+  commit id: "cover"
+  checkout edits
+  commit id: "typos" type: HIGHLIGHT
+  merge art
+  checkout main
+  merge edits id: "print" tag: "v1.0"
 ```
 
 ```mermaid

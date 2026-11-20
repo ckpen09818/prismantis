@@ -63,3 +63,5 @@ Each preset in `hooks/presets.ts` maps a published palette onto prismantis token
 | `one-dark-pro` | [Binaryify/OneDark-Pro](https://github.com/Binaryify/OneDark-Pro) | Copyright (c) 2013-2022 Binaryify |
 | `solarized-dark`, `solarized-light` | [altercation/solarized](https://github.com/altercation/solarized) | Copyright (c) 2011 Ethan Schoonover |
 | `neon` | [wverri/neon-hud](https://github.com/wverri/neon-hud) | Copyright (c) 2026 wverri |
+| `kanagawa-wave` | [rebelot/kanagawa.nvim](https://github.com/rebelot/kanagawa.nvim) | Copyright (c) 2021 Tommaso Laurenzi |
+| `morning-haze` | [Nanako0129/coralline](https://github.com/Nanako0129/coralline) (`themes/morning-haze.conf`) | Copyright (c) 2026 Nanako0129 |

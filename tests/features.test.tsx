@@ -7,9 +7,9 @@ import { FIGURE_HINT } from '../hooks/figure'
 import { parse } from '../hooks/markdown'
 import { PRESET_BACKGROUNDS, PRESET_NAMES, PRESETS, SYNTAX } from '../hooks/presets'
 import { RANDOM_THEMES, pickTheme, resolveStyle } from '../hooks/theme'
-import { HINT, ISSUE_HINT, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, setupParts, setupSteps, setupText } from '../hooks/help'
+import { HINT, ISSUE_HINT, KEY_POINT_HINT, SETUP_DONE, SETUP_ESSENTIALS_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, setupParts, setupSteps, setupText } from '../hooks/help'
 import type { Theme } from '../hooks/theme'
-import { BAND_STEP, BUBBLE_STEP, EDIT_NOTES, PRISM_COLORS, bashEdits, bubbleFill, replyFill, contrast, describeShell, diffLines, diffTint, fullHue, movesTree, onTint, pathLanguage, previewBand, tint, wordTint, errorReason, formatDuration, groupSummary, isReadOnlyCall, programsOf, refusalReason, rememberCall, shortTarget, shortenPaths, withoutBashEdits } from '../hooks/render'
+import { BAND_STEP, BUBBLE_STEP, EDIT_NOTES, PRISM_COLORS, bashEdits, bubbleFill, replyFill, contrast, describeShell, diffLines, diffTint, fullHue, movesTree, onTint, pathLanguage, previewBand, renderDiffCard, tint, wordTint, errorReason, formatDuration, groupSummary, isReadOnlyCall, programsOf, refusalReason, rememberCall, shortTarget, shortenPaths, withoutBashEdits } from '../hooks/render'
 import { columnWidths } from '../hooks/layout'
 import { startSession } from './clipboard-env'
 import { claudeAt } from './claude-version'
@@ -209,16 +209,18 @@ test('toolOutput quiet labels skills and PowerShell, and hides the skill result'
   }
 })
 
-test('toolOutput quiet leaves background and image shell results to the engine', { options: { toolOutput: 'quiet' } }, async ($, on) => {
-  engine(on)
-  for (const [id, output] of [['b-1', { stdout: '', stderr: '', backgroundTaskId: 'task-7' }], ['b-2', { stdout: 'iVBORw0KGgo', stderr: '', isImage: true }], ['b-3', { stdout: 'partial', stderr: '', interrupted: true }]] as const) {
-    const use = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolUse', props: call('Bash', { command: 'make watch' }, id) })
-    const out = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolResult', props: { tool_use_id: id, tool: 'Bash', output, isErrored: false } })
-    expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
-    await out.unmount()
-    await use.unmount()
-  }
-})
+for (const toolOutput of ['quiet', 'rows'] as const) {
+  test(`toolOutput ${toolOutput} leaves background and image shell results to the engine`, { options: { toolOutput } }, async ($, on) => {
+    engine(on)
+    for (const [id, output] of [['b-1', { stdout: '', stderr: '', backgroundTaskId: 'task-7' }], ['b-2', { stdout: 'iVBORw0KGgo', stderr: '', isImage: true }], ['b-3', { stdout: 'partial', stderr: '', interrupted: true }]] as const) {
+      const use = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolUse', props: call('Bash', { command: 'make watch' }, id) })
+      const out = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolResult', props: { tool_use_id: id, tool: 'Bash', output, isErrored: false } })
+      expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+      await out.unmount()
+      await use.unmount()
+    }
+  })
+}
 
 const result = (tool: string, input: unknown, id: string) => [
   { plugin: 'prismantis', surface: 'terminal' as const, component: 'ToolUse' as const, props: call(tool, input, id) },
@@ -309,20 +311,22 @@ test('a refused call inside a collapsed quiet group keeps its whole reason too',
   await group.unmount()
 })
 
-test('toolOutput quiet shows the full reason of a refused call, wrapped and not cut', { options: { toolOutput: 'quiet' } }, async ($, on) => {
-  engine(on)
-  const out = await $.ui.mount({
-    plugin: 'prismantis',
-    surface: 'terminal',
-    component: 'ToolResult',
-    props: { tool_use_id: 'r-1', tool: 'Bash', output: REFUSED, isErrored: true },
+for (const toolOutput of ['quiet', 'rows'] as const) {
+  test(`toolOutput ${toolOutput} shows the full reason of a refused call, wrapped and not cut`, { options: { toolOutput } }, async ($, on) => {
+    engine(on)
+    const out = await $.ui.mount({
+      plugin: 'prismantis',
+      surface: 'terminal',
+      component: 'ToolResult',
+      props: { tool_use_id: 'r-1', tool: 'Bash', output: REFUSED, isErrored: true },
+    })
+    const text = await out.find({ type: 'Text', text: /Reason: Blocked by classifier\. If you have other tasks/ })
+    expect(text).toBeDefined()
+    expect(text?.props.wrap).toBe('wrap')
+    expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+    await out.unmount()
   })
-  const text = await out.find({ type: 'Text', text: /Reason: Blocked by classifier\. If you have other tasks/ })
-  expect(text).toBeDefined()
-  expect(text?.props.wrap).toBe('wrap')
-  expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
-  await out.unmount()
-})
+}
 
 test('the call memory is capped and forgets the oldest ids first', () => {
   const calls = new Set<string>()
@@ -365,6 +369,73 @@ test('toolOutput full leaves every result to the engine', async ($, on) => {
   expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
   await out.unmount()
   await row.unmount()
+})
+
+for (const toolOutput of ['quiet', 'rows'] as const) {
+  test(`toolOutput ${toolOutput} ${toolOutput === 'rows' ? 'draws only the row of' : 'shows the first lines of'} a successful call that changes something`, { options: { toolOutput } }, async ($, on) => {
+    engine(on)
+    const use = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolUse', props: call('Bash', { command: 'npm test' }, 'nt-1') })
+    const out = await $.ui.mount({
+      plugin: 'prismantis',
+      surface: 'terminal',
+      component: 'ToolResult',
+      props: { tool_use_id: 'nt-1', tool: 'Bash', output: { stdout: 'PASS src/app.test.ts\nTests: 12 passed\n', stderr: '' }, isErrored: false },
+    })
+    expect((await out.find({ type: 'Text', text: /^PASS src\/app\.test\.ts$/ })) !== undefined).toBe(toolOutput === 'quiet')
+    expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+    await out.unmount()
+    await use.unmount()
+  })
+}
+
+test('toolOutput rows draws nothing under a successful call of any tool', { options: { toolOutput: 'rows' } }, async ($, on) => {
+  engine(on)
+  for (const tool of ['mcp__github__create_issue', 'Agent']) {
+    const out = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolResult', props: { tool_use_id: `nt-${tool}`, tool, output: 'created #12', isErrored: false } })
+    expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+    expect(await out.find({ type: 'Text', text: /created #12/ })).toBeUndefined()
+    await out.unmount()
+  }
+})
+
+test('toolOutput rows still shows why a call failed', { options: { toolOutput: 'rows' } }, async ($, on) => {
+  engine(on)
+  const out = await $.ui.mount({
+    plugin: 'prismantis',
+    surface: 'terminal',
+    component: 'ToolResult',
+    props: { tool_use_id: 'ne-1', tool: 'Bash', output: 'Error: Exit code 1\ncat: missing.txt: No such file or directory', isErrored: true },
+  })
+  expect(await out.find({ type: 'Text', text: /No such file or directory$/ })).toBeDefined()
+  expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  await out.unmount()
+})
+
+test('toolOutput rows hands an expanded call back to the engine and hides it again once collapsed', { options: { toolOutput: 'rows' } }, async ($, on) => {
+  engine(on)
+  const output = { stdout: 'PASS src/app.test.ts\n', stderr: '' }
+  const row = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolUse', props: { ...call('Bash', { command: 'npm test' }, 'nx-1'), ...{ isExpanded: true }, output } as never })
+  expect(await row.find({ type: 'Text', text: /^npm$/ })).toBeDefined()
+  await row.unmount()
+  const open =await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolResult', props: { tool_use_id: 'nx-1', tool: 'Bash', output, isErrored: false, ...{ isExpanded: true } } as never })
+  expect(await open.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  await open.unmount()
+  const back = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolResult', props: { tool_use_id: 'nx-1', tool: 'Bash', output, isErrored: false, ...{ isExpanded: false } } as never })
+  expect(await back.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  expect(await back.find({ type: 'Text', text: /PASS src/ })).toBeUndefined()
+  await back.unmount()
+})
+
+test('a collapsed rows group shows no shell results, only its rows and failures', { options: { toolOutput: 'rows', toolStyle: 'classic' } }, async $ => {
+  const read = { ...call('Bash', { command: 'sed -n 1,4p app.py' }, 'ng-1'), output: { stdout: 'file contents\n', stderr: '' } }
+  const tests = { ...call('Bash', { command: 'python3 -m unittest -v', description: 'Run the unit tests' }, 'ng-2'), output: { stdout: '', stderr: 'test_one ... ok\ntest_two ... ok\n\nOK\n' } }
+  const failed = { ...call('Bash', { command: 'cat missing.txt' }, 'ng-3'), isErrored: true, output: 'Exit code 1\ncat: missing.txt: No such file or directory' }
+  const group = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolGroup', props: { calls: [read, tests, failed], isActive: false, isExpanded: false } })
+  expect(await group.find({ type: 'Text', text: /^Read app\.py lines 1–4 · Run the unit tests · python3 · Read missing\.txt$/ })).toBeDefined()
+  expect(await group.find({ type: 'Text', text: /cat: missing\.txt: No such file or directory$/ })).toBeDefined()
+  expect(await group.find({ type: 'Text', text: /test_one/ })).toBeUndefined()
+  expect(await group.find({ type: 'Text', text: /file contents/ })).toBeUndefined()
+  await group.unmount()
 })
 
 const expand = async ($: Parameters<TestBody>[0], id: string) => {
@@ -1137,6 +1208,15 @@ test('a dark theme leaves a reply\'s plain text in the terminal\'s own color', a
   await ui.unmount()
 })
 
+test('on desktop a dark theme draws a reply\'s plain text and table cells in its own text color, readable on its fill', async $ => {
+  const mocha = PRESETS['catppuccin-mocha']
+  const fill = replyFill(mocha, PRESET_BACKGROUNDS['catppuccin-mocha'])!
+  const ui = await $.ui.mount(answer('A plain sentence.\n\n- a list item\n\n| a | b |\n|---|---|\n| cell | 2 |', true, 'desktop'))
+  for (const text of [/^A plain sentence\.$/, /^a list item$/, /^cell/]) expect((await ui.find({ type: 'Text', text }))?.props.color).toBe(mocha.codeText)
+  expect(contrast(mocha.codeText!, fill)).toBeGreaterThanOrEqual(4.5)
+  await ui.unmount()
+})
+
 test('promptFillColor and replyFillColor set the fills of the bubbles', { options: { promptFillColor: '#1e3a28', replyFillColor: '#1c2233' } }, async $ => {
   const mine = await $.ui.mount(prompt('how many frog raids?'))
   expect((await mine.findAll({ type: 'Box' })).find(b => b.props.borderStyle === 'round')?.props.backgroundColor).toBe('#1e3a28')
@@ -1164,9 +1244,9 @@ test('a bubble keeps the theme green frame and heading text while promptBorderCo
   await ui.unmount()
 })
 
-test('alert color options set each alert kind, and an empty one keeps the terminal color', { options: { alertNoteColor: '#a1b5d8', alertCautionColor: '#e3968f', replyStyle: 'off' } }, async $ => {
+test('alert color options set each alert kind, and an empty one keeps the theme color', { options: { alertNoteColor: '#a1b5d8', alertCautionColor: '#e3968f', replyStyle: 'off' } }, async $ => {
   for (const surface of ['terminal', 'desktop'] as const) {
-    for (const [kind, color] of [['NOTE', '#a1b5d8'], ['CAUTION', '#e3968f'], ['TIP', 'green']] as const) {
+    for (const [kind, color] of [['NOTE', '#a1b5d8'], ['CAUTION', '#e3968f'], ['TIP', PRESETS['catppuccin-mocha'].alertTip]] as const) {
       const ui = await $.ui.mount(answer(`> [!${kind}]\n> careful`, true, surface))
       const label = kind[0] + kind.slice(1).toLowerCase()
       expect((await ui.find({ type: 'Text', text: new RegExp(`^${label}$`) }))?.props.color).toBe(color)
@@ -1766,7 +1846,7 @@ test('diff lines number old and new sides', () => {
   expect(diffLines('Updated file')).toBeUndefined()
 })
 
-for (const toolOutput of ['full', 'quiet'] as const) {
+for (const toolOutput of ['full', 'quiet', 'rows'] as const) {
   test(`edits draw a diff card with counts and colored lines (toolOutput ${toolOutput})`, { options: { toolOutput } }, async ($, on) => {
     engine(on)
     for (const surface of ['terminal', 'desktop'] as const) {
@@ -1830,6 +1910,24 @@ test('edits the card cannot parse, failed edits and other tools go to the engine
       await ui.unmount()
     }
   }
+})
+
+test('an edit result that is not an object gets no diff card, without throwing', async ($, on) => {
+  let drawn: unknown[] = []
+  on('ui.render', ($, e) => {
+    const el = $.ui.resolve(e)
+    drawn = [null, undefined, 'File updated', 3].map(output => {
+      try {
+        return renderDiffCard(el, resolveStyle({}), output, () => null, 'd')
+      } catch (error) {
+        return String(error)
+      }
+    })
+    return <el.Text>engine</el.Text>
+  })
+  const ui = await $.ui.mount(editResult('terminal', 'Read', 'x'))
+  await ui.unmount()
+  expect(drawn).toEqual([undefined, undefined, undefined, undefined])
 })
 
 test('edits keep the engine diff when tool rows are off', { options: { toolRows: false } }, async ($, on) => {
@@ -1916,6 +2014,20 @@ test('toolOutput quiet keeps a shell edit diff under the first lines of its outp
   expect(await ui.find({ type: 'Text', text: /^\+2$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
   await ui.unmount()
+})
+
+test('toolOutput rows keeps a shell edit diff without the output lines above it', { options: { toolOutput: 'rows' } }, async ($, on) => {
+  engine(on)
+  const ui = await $.ui.mount(editResult('terminal', 'Bash', bashEdit('patched 2 files')))
+  expect(await ui.find({ type: 'Text', text: /^\+2$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /patched 2 files/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  await ui.unmount()
+  const open = editResult('terminal', 'Bash', bashEdit('patched 2 files'))
+  const expanded = await $.ui.mount({ ...open, props: { ...open.props, ...{ isExpanded: true } } as never })
+  expect(await expanded.find({ type: 'Text', text: /^patched 2 files$/ })).toBeDefined()
+  expect(await expanded.find({ type: 'Text', text: /^\+2$/ })).toBeDefined()
+  await expanded.unmount()
 })
 
 test('each shell edit card folds on its own', async ($, on) => {
@@ -3040,7 +3152,7 @@ test('an expanded shell row whose output is an error string shows that string', 
 
 const setupRun = ($: Parameters<TestBody>[0], args: string) => $.command.run({ command: 'prismantis', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } })
 
-test('/prismantis setup walks every step, saves each pick through config, and can restart or jump to a step', async ($, on) => {
+test('/prismantis setup walks the essential steps, then more styles, saves each pick through config, and can restart or jump to a step', async ($, on) => {
   const writes: { key: string; value: unknown }[] = []
   paneStandIn(on, [])
   on('config.set', (_, e) => {
@@ -3048,51 +3160,77 @@ test('/prismantis setup walks every step, saves each pick through config, and ca
     return { value: e.value }
   })
   const steps = setupSteps(PRESET_NAMES)
-  expect(steps.map(s => s.key)).toEqual(['theme', 'tableStyle', 'taskStyle', 'listMarker', 'headingStyle', 'copyButtonStyle', 'promptStyle', 'promptSide', 'replyStyle', 'bubbleLabels', 'clock', 'toolStyle', 'toolOutput', 'diffStyle', 'codeStyle', 'pieStyle'])
+  expect(steps.map(s => s.key)).toEqual(['theme', 'promptStyle', 'promptSide', 'replyStyle', 'tableStyle', 'codeStyle', 'toolOutput', 'diffStyle', 'toolStyle', 'headingStyle', 'tableLayout', 'taskStyle', 'listMarker', 'copyButtonStyle', 'bubbleLabels', 'clock', 'pieStyle', 'statusMatrix', 'testMatrix', 'benchTable', 'schemaTable', 'compareTable', 'apiTable', 'kvTable', 'groupTable', 'desktopColors'])
   for (const step of steps.slice(1)) for (const value of step.options) expect(resolveStyle({ [step.key]: value })[step.key]).toBe(value === 'click' ? 'hover' : value)
   expect(steps[0]!.options).toEqual(PRESET_NAMES)
   expect(steps.find(s => s.key === 'copyButtonStyle')?.note).toContain('`hover` puts a dim ⧉ beside each block instead and shows its buttons only while the pointer is on that ⧉')
+  const at = (name: string) => steps.findIndex(s => s.name === name)
+  const after = (name: string) => setupText(setupParts(PRESET_NAMES, at(name) + 1))
+  expect(setupParts(PRESET_NAMES, 0).head.startsWith('## Setup 1/7: Theme')).toBe(true)
+  expect(setupParts(PRESET_NAMES, at('output')).head.startsWith('## Setup 7/7: Tool output')).toBe(true)
+  expect(setupParts(PRESET_NAMES, at('output')).tail).not.toContain('Skip with')
+  expect(setupParts(PRESET_NAMES, at('diffs')).head.startsWith('## More styles 1/19: Diffs')).toBe(true)
+  expect(SETUP_ESSENTIALS_DONE).toContain('walks 19 more styles')
   expect((await setupRun($, 'setup')).text).toBe(SETUP_PANE_OPENED)
+  expect((await setupRun($, 'setup more')).text).toBe(SETUP_PANE_OPENED)
   expect((await setupRun($, 'setup theme')).text).toBe(setupText(setupParts(PRESET_NAMES, 0)))
-  expect((await setupRun($, 'setup theme nord')).text).toBe(`Theme set to nord.\n\n${setupText(setupParts(PRESET_NAMES, 1))}`)
-  expect((await setupRun($, 'setup tables 3')).text).toBe(`Tables set to grid.\n\n${setupText(setupParts(PRESET_NAMES, 2))}`)
+  expect((await setupRun($, 'setup theme nord')).text).toBe(`Theme set to nord.\n\n${after('theme')}`)
+  expect((await setupRun($, 'setup prompts bar')).text).toBe(`Your prompts set to bar.\n\n${after('prompts')}`)
+  expect((await setupRun($, 'setup side left')).text).toBe(`Your bubble side set to left.\n\n${after('side')}`)
+  expect((await setupRun($, 'setup replies solid')).text).toBe(`Claude's replies set to solid.\n\n${after('replies')}`)
+  expect((await setupRun($, 'setup tables 3')).text).toBe(`Tables set to grid.\n\n${after('tables')}`)
+  expect((await setupRun($, 'setup code framed')).text).toBe(`Code blocks set to framed.\n\n${after('code')}`)
+  expect((await setupRun($, 'setup output 2')).text).toBe(`Tool output set to quiet.\n\n${SETUP_ESSENTIALS_DONE}`)
+  expect((await setupRun($, 'setup diffs 4')).text).toBe(`Diffs set to bar.\n\n${after('diffs')}`)
+  expect((await setupRun($, 'setup tools tree-bold')).text).toBe(`Tool rows set to tree-bold.\n\n${after('tools')}`)
+  expect((await setupRun($, 'setup headings uppercase')).text).toBe(`Headings set to uppercase.\n\n${after('headings')}`)
   expect((await setupRun($, 'setup tasks progress')).text?.startsWith('Tasks set to progress.')).toBe(true)
-  expect((await setupRun($, 'setup lists dash')).text).toBe(`List bullets set to dash.\n\n${setupText(setupParts(PRESET_NAMES, 4))}`)
-  expect((await setupRun($, 'setup headings uppercase')).text).toBe(`Headings set to uppercase.\n\n${setupText(setupParts(PRESET_NAMES, 5))}`)
+  expect((await setupRun($, 'setup lists dash')).text).toBe(`List bullets set to dash.\n\n${after('lists')}`)
   expect((await setupRun($, 'setup copy hover')).text?.startsWith('Copy buttons set to hover.')).toBe(true)
-  expect((await setupRun($, 'setup prompts bar')).text?.startsWith('Your prompts set to bar.')).toBe(true)
-  expect((await setupRun($, 'setup side left')).text).toBe(`Your bubble side set to left.\n\n${setupText(setupParts(PRESET_NAMES, 8))}`)
-  expect((await setupRun($, 'setup replies solid')).text).toBe(`Claude's replies set to solid.\n\n${setupText(setupParts(PRESET_NAMES, 9))}`)
-  expect((await setupRun($, 'setup labels small')).text).toBe(`Bubble labels set to small.\n\n${setupText(setupParts(PRESET_NAMES, 10))}`)
-  expect((await setupRun($, 'setup clock 24h')).text).toBe(`Times set to 24h.\n\n${setupText(setupParts(PRESET_NAMES, 11))}`)
-  expect((await setupRun($, 'setup tools tree-bold')).text).toBe(`Tool rows set to tree-bold.\n\n${setupText(setupParts(PRESET_NAMES, 12))}`)
-  expect((await setupRun($, 'setup output 2')).text).toBe(`Tool output set to quiet.\n\n${setupText(setupParts(PRESET_NAMES, 13))}`)
-  expect((await setupRun($, 'setup diffs 4')).text).toBe(`Diffs set to bar.\n\n${setupText(setupParts(PRESET_NAMES, 14))}`)
-  expect((await setupRun($, 'setup code framed')).text).toBe(`Code blocks set to framed.\n\n${setupText(setupParts(PRESET_NAMES, 15))}`)
-  expect((await setupRun($, 'setup pies bars')).text).toBe(`Pie charts set to bars.\n\n${SETUP_DONE}`)
+  expect((await setupRun($, 'setup labels small')).text).toBe(`Bubble labels set to small.\n\n${after('labels')}`)
+  expect((await setupRun($, 'setup clock 24h')).text).toBe(`Times set to 24h.\n\n${after('clock')}`)
+  expect((await setupRun($, 'setup pies bars')).text).toBe(`Pie charts set to bars.\n\n${after('pies')}`)
+  expect((await setupRun($, 'setup schema-table full')).text).toBe(`Schema set to full.\n\n${after('schema-table')}`)
+  expect((await setupRun($, 'setup compare-table full')).text).toBe(`Comparison set to full.\n\n${after('compare-table')}`)
+  expect((await setupRun($, 'setup api-table full')).text).toBe(`API reference set to full.\n\n${after('api-table')}`)
+  expect((await setupRun($, 'setup kv-table full')).text).toBe(`Key-value set to full.\n\n${after('kv-table')}`)
+  expect((await setupRun($, 'setup group-table count')).text).toBe(`Groups set to count.\n\n${after('group-table')}`)
+  expect((await setupRun($, 'setup desktop match')).text).toBe(`Desktop app colors set to match.\n\n${SETUP_DONE}`)
   expect(writes).toEqual([
     { key: 'prismantis.theme', value: 'nord' },
-    { key: 'prismantis.tableStyle', value: 'grid' },
-    { key: 'prismantis.taskStyle', value: 'progress' },
-    { key: 'prismantis.listMarker', value: 'dash' },
-    { key: 'prismantis.headingStyle', value: 'uppercase' },
-    { key: 'prismantis.copyButtonStyle', value: 'hover' },
     { key: 'prismantis.promptStyle', value: 'bar' },
     { key: 'prismantis.promptSide', value: 'left' },
     { key: 'prismantis.replyStyle', value: 'solid' },
-    { key: 'prismantis.bubbleLabels', value: 'small' },
-    { key: 'prismantis.clock', value: '24h' },
-    { key: 'prismantis.toolStyle', value: 'tree-bold' },
+    { key: 'prismantis.tableStyle', value: 'grid' },
+    { key: 'prismantis.codeStyle', value: 'framed' },
     { key: 'prismantis.toolOutput', value: 'quiet' },
     { key: 'prismantis.diffStyle', value: 'bar' },
-    { key: 'prismantis.codeStyle', value: 'framed' },
+    { key: 'prismantis.toolStyle', value: 'tree-bold' },
+    { key: 'prismantis.headingStyle', value: 'uppercase' },
+    { key: 'prismantis.taskStyle', value: 'progress' },
+    { key: 'prismantis.listMarker', value: 'dash' },
+    { key: 'prismantis.copyButtonStyle', value: 'hover' },
+    { key: 'prismantis.bubbleLabels', value: 'small' },
+    { key: 'prismantis.clock', value: '24h' },
     { key: 'prismantis.pieStyle', value: 'bars' },
+    { key: 'prismantis.schemaTable', value: 'full' },
+    { key: 'prismantis.compareTable', value: 'full' },
+    { key: 'prismantis.apiTable', value: 'full' },
+    { key: 'prismantis.kvTable', value: 'full' },
+    { key: 'prismantis.groupTable', value: 'count' },
+    { key: 'prismantis.desktopColors', value: 'match' },
   ])
-  expect((await setupRun($, 'setup tasks')).text).toBe(setupText(setupParts(PRESET_NAMES, 2)))
+  expect((await setupRun($, 'setup tasks')).text).toBe(setupText(setupParts(PRESET_NAMES, at('tasks'))))
+  expect((await setupRun($, 'setup table-layout')).text).toBe(setupText(setupParts(PRESET_NAMES, at('table-layout'))))
   expect((await setupRun($, 'setup tables 9')).text?.startsWith('Unknown tables pick "9".')).toBe(true)
   expect((await setupRun($, 'setup colors')).text?.startsWith('Unknown setup step "colors".')).toBe(true)
-  expect(writes).toHaveLength(16)
-  expect(setupText(setupParts(PRESET_NAMES, 11))).toContain('`tree-bold` or `classic`')
+  expect(writes).toHaveLength(22)
+  expect(setupText(setupParts(PRESET_NAMES, at('tools')))).toContain('`tree-bold` or `classic`')
+})
+
+test('/prismantis setup more in a session with no terminal walks the more styles in the transcript from their first step', async ($, on) => {
+  paneStandIn(on, [], ['desktop'])
+  expect((await setupRun($, 'setup more')).text).toBe(setupText(setupParts(PRESET_NAMES, 7)))
 })
 
 const paneStandIn = (on: Parameters<TestBody>[1], log: string[], surfaces: readonly ('terminal' | 'desktop')[] = ['terminal']) => {
@@ -3117,48 +3255,37 @@ test('/prismantis setup opens a pane in the terminal: arrows move through the st
     return { value: e.value }
   })
   on('ui.focus', () => ({}))
+  const toasts: string[] = []
+  on('ui.toast', (_, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
   const panes: string[] = []
   paneStandIn(on, panes)
   expect((await setupRun($, 'setup')).text).toBe(SETUP_PANE_OPENED)
   expect(panes).toEqual(['open prismantis-setup'])
   const pane = await setupPane($, 'terminal')
-  expect(await pane.find({ type: 'Text', text: /Setup 1\/16: Theme/ })).toBeTruthy()
+  expect(await pane.find({ type: 'Text', text: /Setup 1\/7: Theme/ })).toBeTruthy()
   expect(await pane.find({ type: 'Text', text: new RegExp(SETUP_PANE_KEYS.slice(0, 20)) })).toBeTruthy()
-  expect((await pane.findAll({ type: 'Button' })).map(b => b.props.key)).toHaveLength(PRESET_NAMES.length + 17)
+  expect((await pane.findAll({ type: 'Button' })).map(b => b.props.key)).toHaveLength(PRESET_NAMES.length + setupSteps(PRESET_NAMES).length + 1)
   expect(await pane.find({ type: 'Button', key: 'pick:theme:catppuccin-mocha' })).toMatchObject({ props: { autoFocus: true, variant: 'primary' } })
   expect(await pane.find({ type: 'Text', text: /^\d+\. catppuccin-mocha/ })).toBeTruthy()
   expect(await pane.find({ type: 'Text', text: /^\d+\. nord/ })).toBeUndefined()
   await $.ui.focus({ component: 'Pane', requestId: 'prismantis-setup', element: 'pick:theme:nord', origin: { kind: 'person' } })
   expect(await pane.find({ type: 'Text', text: /^\d+\. nord/ })).toBeTruthy()
   expect(await pane.find({ type: 'Text', text: /^\d+\. catppuccin-mocha/ })).toBeUndefined()
-  for (const [i, [step, value]] of ([['theme', 'nord'], ['tables', 'grid'], ['tasks', 'progress'], ['lists', 'dash'], ['headings', 'uppercase'], ['copy', 'hover'], ['prompts', 'bar'], ['side', 'left'], ['replies', 'solid'], ['labels', 'small'], ['clock', '24h'], ['tools', 'tree-bold'], ['output', 'quiet'], ['diffs', 'bar'], ['code', 'framed'], ['pies', 'bars']] as const).entries()) {
-    await pane.press({ key: `nav:${i}` })
-    expect(await pane.find({ type: 'Text', text: new RegExp(`Setup ${i + 1}/16`) })).toBeTruthy()
+  const names = setupSteps(PRESET_NAMES).map(step => step.name)
+  const heading = (name: string) => new RegExp(names.indexOf(name) < 7 ? `Setup ${names.indexOf(name) + 1}/7: ` : `More styles ${names.indexOf(name) - 6}/19: `)
+  const picks = [['theme', 'nord'], ['prompts', 'bar'], ['side', 'left'], ['replies', 'solid'], ['tables', 'grid'], ['code', 'framed'], ['output', 'quiet'], ['diffs', 'bar'], ['tools', 'tree-bold'], ['headings', 'uppercase'], ['table-layout', 'auto'], ['tasks', 'progress'], ['lists', 'dash'], ['copy', 'hover'], ['labels', 'small'], ['clock', '24h'], ['pies', 'bars'], ['status-matrix', 'color'], ['test-report', 'report'], ['bench-table', 'trend'], ['schema-table', 'full'], ['compare-table', 'full'], ['api-table', 'full'], ['kv-table', 'full'], ['group-table', 'count'], ['desktop', 'match']] as const
+  for (const [step, value] of picks) {
+    await pane.press({ key: `nav:${names.indexOf(step)}` })
+    expect(await pane.find({ type: 'Text', text: heading(step) })).toBeTruthy()
     await pane.press({ key: `pick:${step}:${value}` })
+    expect(await pane.find({ type: 'Text', text: heading(step) })).toBeTruthy()
   }
-  expect(writes.map(w => `${w.key}=${String(w.value)}`)).toEqual(['prismantis.theme=nord', 'prismantis.tableStyle=grid', 'prismantis.taskStyle=progress', 'prismantis.listMarker=dash', 'prismantis.headingStyle=uppercase', 'prismantis.copyButtonStyle=hover', 'prismantis.promptStyle=bar', 'prismantis.promptSide=left', 'prismantis.replyStyle=solid', 'prismantis.bubbleLabels=small', 'prismantis.clock=24h', 'prismantis.toolStyle=tree-bold', 'prismantis.toolOutput=quiet', 'prismantis.diffStyle=bar', 'prismantis.codeStyle=framed', 'prismantis.pieStyle=bars'])
+  expect(writes.map(w => `${w.key}=${String(w.value)}`)).toEqual(['prismantis.theme=nord', 'prismantis.promptStyle=bar', 'prismantis.promptSide=left', 'prismantis.replyStyle=solid', 'prismantis.tableStyle=grid', 'prismantis.codeStyle=framed', 'prismantis.toolOutput=quiet', 'prismantis.diffStyle=bar', 'prismantis.toolStyle=tree-bold', 'prismantis.headingStyle=uppercase', 'prismantis.tableLayout=auto', 'prismantis.taskStyle=progress', 'prismantis.listMarker=dash', 'prismantis.copyButtonStyle=hover', 'prismantis.bubbleLabels=small', 'prismantis.clock=24h', 'prismantis.pieStyle=bars', 'prismantis.statusMatrix=color', 'prismantis.testMatrix=report', 'prismantis.benchTable=trend', 'prismantis.schemaTable=full', 'prismantis.compareTable=full', 'prismantis.apiTable=full', 'prismantis.kvTable=full', 'prismantis.groupTable=count', 'prismantis.desktopColors=match'])
   expect(panes).toEqual(['open prismantis-setup'])
-  await pane.unmount()
-})
-
-test('/prismantis setup in the pane jumps to any page from the list on the left without saving', async ($, on) => {
-  const writes: string[] = []
-  on('config.set', (_, e) => {
-    writes.push(e.key)
-    return { value: e.value }
-  })
-  on('ui.focus', () => ({}))
-  paneStandIn(on, [])
-  await setupRun($, 'setup')
-  const pane = await setupPane($, 'terminal')
-  expect((await pane.findAll({ type: 'Button' })).filter(b => String(b.props.key).startsWith('nav:'))).toHaveLength(16)
-  expect(await pane.find({ type: 'Button', key: 'nav:0' })).toMatchObject({ props: { variant: 'primary' } })
-  await pane.press({ key: 'nav:10' })
-  expect(await pane.find({ type: 'Text', text: /Setup 11\/16: Times/ })).toBeTruthy()
-  expect(await pane.find({ type: 'Button', key: 'nav:10' })).toMatchObject({ props: { variant: 'primary' } })
-  await pane.press({ key: 'nav:2' })
-  expect(await pane.find({ type: 'Text', text: /Setup 3\/16: Tasks/ })).toBeTruthy()
-  expect(writes).toEqual([])
+  expect(toasts.at(-1)).toBe('Desktop app colors set to match.')
   await pane.unmount()
 })
 
@@ -3190,7 +3317,7 @@ test('/prismantis setup in the pane stays on the step and keeps the pane open wh
   await setupRun($, 'setup')
   const pane = await setupPane($, 'terminal')
   await pane.press({ key: 'pick:theme:nord' })
-  expect(await pane.find({ type: 'Text', text: /Setup 1\/16: Theme/ })).toBeTruthy()
+  expect(await pane.find({ type: 'Text', text: /Setup 1\/7: Theme/ })).toBeTruthy()
   expect(await pane.find({ type: 'Button', key: 'pick:theme:nord' })).toMatchObject({ props: { variant: 'primary' } })
   expect(panes).toEqual(['open prismantis-setup'])
   expect(toasts.at(-1)).toBe('Could not switch theme: managed')
@@ -3246,11 +3373,11 @@ test('/prismantis setup in a pane narrower than its list and a 40 column sample 
 test('/prismantis setup in the pane keeps to the rows it is given when the list fits, so the arrows move the ring instead of scrolling', async ($, on) => {
   paneStandIn(on, [])
   await setupRun($, 'setup')
-  const mount = (bodyRows: number) => $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'Pane', requestId: 'prismantis-setup', props: { title: 'prismantis setup', isFocused: true, bodyColumns: 130, placement: 'dock', scroll: { offset: 0, bodyRows }, view: {} }, viewport: { columns: 140, rows: 40 } })
-  const fits = await mount(27)
-  expect((await fits.findAll({ type: 'Box' })).filter(b => b.props.height === 27 && b.props.overflow === 'hidden')).toHaveLength(1)
+  const mount = (bodyRows: number) => $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'Pane', requestId: 'prismantis-setup', props: { title: 'prismantis setup', isFocused: true, bodyColumns: 90, placement: 'dock', scroll: { offset: 0, bodyRows }, view: {} }, viewport: { columns: 100, rows: 40 } })
+  const fits = await mount(40)
+  expect((await fits.findAll({ type: 'Box' })).filter(b => b.props.height === 40 && b.props.overflow === 'hidden')).toHaveLength(1)
   await fits.unmount()
-  const tight = await mount(20)
+  const tight = await mount(25)
   expect((await tight.findAll({ type: 'Box' })).filter(b => b.props.height !== undefined)).toHaveLength(0)
   await tight.unmount()
 })
@@ -3260,35 +3387,13 @@ test('/prismantis setup in a short narrow pane lets the list scroll when the wra
   on('config.set', (_, e) => ({ value: e.value }))
   await setupRun($, 'setup')
   const pane = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'Pane', requestId: 'prismantis-setup', props: { title: 'prismantis setup', isFocused: true, bodyColumns: 56, placement: 'dock', scroll: { offset: 0, bodyRows: 17 }, view: {} }, viewport: { columns: 60, rows: 30 } })
-  await pane.press({ key: 'nav:6' })
-  expect(await pane.find({ type: 'Text', text: /Setup 7\/16: Your prompts/ })).toBeTruthy()
+  await pane.press({ key: 'nav:1' })
+  expect(await pane.find({ type: 'Text', text: /Setup 2\/7: Your prompts/ })).toBeTruthy()
   expect((await pane.findAll({ type: 'Box' })).filter(b => b.props.height !== undefined)).toHaveLength(0)
   await pane.unmount()
 })
 
-test('/prismantis setup in the pane stays on the last step when its save is refused', async ($, on) => {
-  on('config.set', (_, e) => (e.key === 'prismantis.pieStyle' ? { deny: 'managed' } : { value: e.value }))
-  on('ui.focus', () => ({}))
-  const toasts: string[] = []
-  on('ui.toast', (_, e) => {
-    toasts.push(e.text)
-    return { value: undefined }
-  })
-  const panes: string[] = []
-  paneStandIn(on, panes)
-  await setupRun($, 'setup')
-  const pane = await setupPane($, 'terminal')
-  for (const [step, value] of [['theme', 'nord'], ['tables', 'grid'], ['tasks', 'progress'], ['lists', 'dash'], ['headings', 'uppercase'], ['copy', 'hover'], ['prompts', 'bar'], ['side', 'left'], ['replies', 'solid'], ['labels', 'small'], ['clock', '24h'], ['tools', 'tree-bold'], ['output', 'quiet'], ['diffs', 'bar'], ['code', 'framed'], ['pies', 'bars']] as const) {
-    await pane.press({ key: `nav:${['theme', 'tables', 'tasks', 'lists', 'headings', 'copy', 'prompts', 'side', 'replies', 'labels', 'clock', 'tools', 'output', 'diffs', 'code', 'pies'].indexOf(step)}` })
-    await pane.press({ key: `pick:${step}:${value}` })
-  }
-  expect(panes).toEqual(['open prismantis-setup'])
-  expect(await pane.find({ type: 'Text', text: /Setup 16\/16: Pie charts/ })).toBeTruthy()
-  expect(toasts.at(-1)).toBe('Could not save pieStyle: managed')
-  await pane.unmount()
-})
-
-test('/prismantis setup in the pane shows its toast before the save returns, since a save that changes a value reloads the mod', async ($, on) => {
+test('/prismantis setup in the pane shows its toast and keeps the page before the save returns, since a save that changes a value reloads the mod', async ($, on) => {
   on('config.set', () => new Promise(() => undefined))
   on('ui.focus', () => ({}))
   const toasts: string[] = []
@@ -3300,7 +3405,7 @@ test('/prismantis setup in the pane shows its toast before the save returns, sin
   await setupRun($, 'setup')
   const pane = await setupPane($, 'terminal')
   await pane.press({ key: 'pick:theme:dracula' })
-  expect(await pane.find({ type: 'Text', text: /Setup 1\/16: Theme/ })).toBeTruthy()
+  expect(await pane.find({ type: 'Text', text: /Setup 1\/7: Theme/ })).toBeTruthy()
   expect(await pane.find({ type: 'Button', key: 'pick:theme:dracula' })).toMatchObject({ props: { variant: 'primary' } })
   expect(toasts).toEqual(['Theme set to dracula.'])
   await pane.unmount()
@@ -3342,83 +3447,126 @@ test('/prismantis setup marks light themes for a light terminal', () => {
   expect(labels.find(l => l.includes('mono'))).not.toContain('light terminal')
 })
 
+test('the toolOutput setup step offers rows next to full and quiet', () => {
+  expect(setupSteps(PRESET_NAMES).find(s => s.key === 'toolOutput')?.options).toEqual(['full', 'quiet', 'rows'])
+})
+
 test('/prismantis setup draws each sample in its own style', async $ => {
+  const step = (name: string) => setupSteps(PRESET_NAMES).findIndex(s => s.name === name)
   const mount = async (at: number) =>
     $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'CommandOutput', props: { command: 'prismantis', args: 'setup', text: `Tables set to box.\n\n${setupText(setupParts(PRESET_NAMES, at))}`, isErrored: false }, viewport: { columns: 100, rows: 40 } })
-  const themes = await mount(0)
+  const themes = await mount(step('theme'))
   for (const name of ['nord', 'dracula']) {
     const heading = await themes.find({ type: 'Text', text: new RegExp(`${name}$`) })
     expect(heading?.props.color).toBe(PRESETS[name as keyof typeof PRESETS].accent)
   }
   await themes.unmount()
-  const tasks = await mount(2)
+  const layout = await mount(step('table-layout'))
+  expect(await layout.find({ type: 'Text', text: /^┌[─┬]+┐$/ })).toBeDefined()
+  expect(await layout.find({ type: 'Text', text: /^Scroll$/ })).toBeDefined()
+  expect(await layout.find({ type: 'Text', text: /^Checksum$/ })).toBeDefined()
+  await layout.unmount()
+  const status = await mount(step('status-matrix'))
+expect((await status.findAll({ type: 'Text', text: /^✓$/ })).filter(n => n.props.color === PRESETS['catppuccin-mocha'].codeString).length >= 2).toBe(true)
+  expect((await status.findAll({ type: 'Text', text: /^failed$/ }))[0]?.props.color).toBe(PRESETS['catppuccin-mocha'].diffRemoved)
+    await status.unmount()
+  const reports = await mount(step('test-report'))
+  expect((await reports.find({ type: 'Text', text: /^✓ 2$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].codeString)
+  expect(await reports.find({ type: 'Text', text: /^ of 4 \(50%\)$/ })).toBeTruthy()
+  expect(await reports.find({ type: 'Text', text: /^6\.9s total$/ })).toBeTruthy()
+  await reports.unmount()
+  const benchs = await mount(step('bench-table'))
+  expect((await benchs.find({ type: 'Text', text: /^-10%$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].diffAdded)
+  await benchs.unmount()
+  const schema = await mount(step('schema-table'))
+  expect(await schema.find({ type: 'Text', text: /^uuid$/ })).toBeTruthy()
+  expect(await schema.find({ type: 'Text', text: /^PK$/ })).toBeTruthy()
+  await schema.unmount()
+  const compares = await mount(step('compare-table'))
+  expect((await compares.findAll({ type: 'Text', text: /^1$/ })).some(n => n.props.color === PRESETS['catppuccin-mocha'].accent)).toBe(true)
+  expect((await compares.findAll({ type: 'Text', text: /^2$/ })).some(n => n.props.color === PRESETS['catppuccin-mocha'].link)).toBe(true)
+  await compares.unmount()
+  const api = await mount(step('api-table'))
+  expect((await api.find({ type: 'Text', text: /^GET$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].link)
+  expect((await api.find({ type: 'Text', text: /^Bearer$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].accent)
+  await api.unmount()
+  const kv = await mount(step('kv-table'))
+  expect((await kv.find({ type: 'Text', text: /^env$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].link)
+  expect((await kv.find({ type: 'Text', text: /^5$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].accent)
+  await kv.unmount()
+  const groups = await mount(step('group-table'))
+  expect((await groups.find({ type: 'Text', text: /^api \(2\)$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].accent)
+  expect((await groups.findAll({ type: 'Text', text: /^╞[═╪]+╡$/ })).length).toBeGreaterThan(1)
+  await groups.unmount()
+  const tasks = await mount(step('tasks'))
   expect(await tasks.find({ type: 'Text', text: /^✓ $/ })).toBeTruthy()
   expect(await tasks.find({ type: 'Text', text: /\[✓\]/ })).toBeTruthy()
   await tasks.unmount()
-  const lists = await mount(3)
+  const lists = await mount(step('lists'))
   expect(await lists.findAll({ type: 'Text', text: /^◦ $/ })).toHaveLength(1)
   await lists.unmount()
-  const headings = await mount(4)
+  const headings = await mount(step('headings'))
   expect(await headings.findAll({ type: 'Text', text: /^RELEASE NOTES$/ })).toHaveLength(1)
   expect(await headings.findAll({ type: 'Text', text: /^━{5}$/ })).toHaveLength(1)
   expect((await headings.findAll({ type: 'Text', text: /^Fixes$/ })).filter(t => t.props.underline)).toHaveLength(1)
   await headings.unmount()
-  const copy = await mount(5)
+  const copy = await mount(step('copy'))
   expect(await copy.findAll({ type: 'Text', text: /^\[ ⧉ md \]$/ })).toHaveLength(3)
+  expect((await copy.findAll({ type: 'Text', text: /^⧉ md$/ })).map(t => t.props.dimColor)).toEqual([true])
   expect((await copy.findAll({ type: 'Box' })).filter(b => b.props.display === 'none').map(b => b.text)).toEqual(['[ ⧉ md ] [ ⧉ art ]', '[ ⧉ md ] [ ⧉ art ]'])
   expect((await copy.findAll({ type: 'Text', text: /^⧉$/ })).map(t => t.props.dimColor)).toEqual([true, true])
   expect(await copy.findAll({ type: 'Text', text: /^Its buttons show only while the pointer is on its ⧉\.$/ })).toHaveLength(1)
   expect(await copy.findAll({ type: 'Button' })).toHaveLength(0)
   await copy.unmount()
-  const prompts = await mount(6)
+  const prompts = await mount(step('prompts'))
   expect(await prompts.findAll({ type: 'Text', text: /fix the failing test/ })).toHaveLength(6)
   expect((await prompts.findAll({ type: 'Text', text: /^You {2}⬤ $/ })).filter(n => n.props.bold)).toHaveLength(2)
   await prompts.unmount()
-  const side = await mount(7)
-  expect((await side.findAll({ type: 'Text', text: /^⬤ {2}You$/ })).filter(n => n.props.bold)).toHaveLength(1)
-  expect((await side.findAll({ type: 'Text', text: /^You {2}⬤ $/ })).filter(n => n.props.bold)).toHaveLength(1)
-  await side.unmount()
-  const replies = await mount(8)
+  const replies = await mount(step('replies'))
   expect((await replies.findAll({ type: 'Text', text: /^⬤ {2}Claude$/ })).filter(n => n.props.bold)).toHaveLength(4)
   expect(await replies.findAll({ type: 'Text', text: /^●$/ })).toHaveLength(1)
   expect(await replies.findAll({ type: 'Text', text: /^▗▄+▖$/ })).toHaveLength(1)
   expect((await replies.findAll({ type: 'Box' })).filter(b => b.props.borderStyle === 'round')).toHaveLength(3)
   expect(await replies.findAll({ type: 'Text', text: /^retries$/ })).toHaveLength(5)
   await replies.unmount()
-  const labels = await mount(9)
+  const labels = await mount(step('labels'))
   expect(await labels.findAll({ type: 'Text', text: /fix the failing test/ })).toHaveLength(3)
   expect((await labels.findAll({ type: 'Text', text: /^You {2}⬤ $/ })).filter(n => n.props.bold)).toHaveLength(1)
   expect((await labels.findAll({ type: 'Text', text: /^You ● $/ })).filter(n => n.props.bold)).toHaveLength(1)
   expect((await labels.findAll({ type: 'Text', text: /^⬤ {2}Claude$/ })).filter(n => n.props.bold)).toHaveLength(1)
   expect((await labels.findAll({ type: 'Text', text: /^● Claude$/ })).filter(n => n.props.bold)).toHaveLength(1)
   await labels.unmount()
-  const clock = await mount(10)
+  const clock = await mount(step('clock'))
   expect(await clock.findAll({ type: 'Text', text: /^14:32 ?$/ })).toHaveLength(2)
   expect(await clock.findAll({ type: 'Text', text: /^2:32 PM ?$/ })).toHaveLength(2)
   expect(await clock.findAll({ type: 'Text', text: /fix the failing test/ })).toHaveLength(3)
   await clock.unmount()
-  const tools = await mount(11)
+  const tools = await mount(step('tools'))
   expect(await tools.find({ type: 'Text', text: /⎿/ })).toBeTruthy()
   expect(await tools.findAll({ type: 'Text', text: /^Read$/ })).toHaveLength(4)
   await tools.unmount()
-  const output = await mount(12)
-  expect(await output.findAll({ type: 'Text', text: /^Build the app · npm/ })).toHaveLength(1)
+  const output = await mount(step('output'))
+  expect(await output.findAll({ type: 'Text', text: /^Build the app · npm/ })).toHaveLength(2)
+  expect(await output.findAll({ type: 'Text', text: /^Run the tests · npm/ })).toHaveLength(2)
+  expect(await output.findAll({ type: 'Text', text: /^> vitest run$/ })).toHaveLength(1)
+  expect(await output.findAll({ type: 'Text', text: /^ {5}> vitest run$/ })).toHaveLength(1)
+  expect(await output.findAll({ type: 'Text', text: /\+2 lines \(ctrl\+o to expand\)/ })).toHaveLength(1)
   expect(await output.findAll({ type: 'Text', text: /Error: Exit code 2/ })).toHaveLength(1)
   expect(await output.findAll({ type: 'Text', text: /error TS2322/ })).toHaveLength(7)
   expect(await output.findAll({ type: 'Text', text: /\+4 lines \(ctrl\+o to expand\)/ })).toHaveLength(1)
-  expect(await output.findAll({ type: 'Text', text: /Found 10 errors in the same file/ })).toHaveLength(1)
+  expect(await output.findAll({ type: 'Text', text: /Found 10 errors in the same file/ })).toHaveLength(2)
   expect(await output.findAll({ type: 'Text', text: /On branch main/ })).toHaveLength(1)
   expect(await output.findAll({ type: 'Text', text: /Allowed by auto mode classifier/ })).toHaveLength(1)
   expect(await output.findAll({ type: 'Text', text: /\+3 lines \(ctrl\+o to expand\)/ })).toHaveLength(1)
   await output.unmount()
-  const diffs = await mount(13)
+  const diffs = await mount(step('diffs'))
   expect(await diffs.findAll({ type: 'Text', text: /^Edited$/ })).toHaveLength(4)
   expect(await diffs.findAll({ type: 'Text', text: /^ {2}retries: 5,$/ })).toHaveLength(4)
   expect((await diffs.findAll({ type: 'Box' })).filter(b => b.props.borderStyle === 'round')).toHaveLength(1)
   expect((await diffs.findAll({ type: 'Box' })).filter(b => b.props.backgroundColor)).toHaveLength(8)
   expect(await diffs.findAll({ type: 'Text', text: /^▌ $/ })).toHaveLength(4)
   await diffs.unmount()
-  const code = await mount(14)
+  const code = await mount(step('code'))
   expect(await code.findAll({ type: 'Text', text: /const retries = 3/ })).toHaveLength(4)
   expect((await code.findAll({ type: 'Box' })).filter(b => b.props.borderStyle === 'round')).toHaveLength(2)
   expect((await code.findAll({ type: 'Box' })).filter(b => b.props.backgroundColor)).toHaveLength(2)
@@ -3456,6 +3604,29 @@ test('with diagram hints off, the issue hint still goes out alone', { options: {
   })
   await $.prompt.submit({ text: 'hi', wait: false, origin: { kind: 'composer' } })
   expect(seen[0]).toEqual([ISSUE_HINT])
+})
+
+test('the key point hint stays out by default', async ($, on) => {
+  const seen: (readonly string[] | undefined)[] = []
+  mock.env(on, {})
+  on('prompt.submit', (_, e) => {
+    seen.push(e.context)
+    return { text: e.text, context: e.context }
+  })
+  await $.prompt.submit({ text: 'hi', wait: false, origin: { kind: 'composer' } })
+  expect(seen[0]?.includes(KEY_POINT_HINT) ?? false).toBe(false)
+})
+
+test('keyPointHint on adds the key point hint to every prompt, also with diagram hints off', { options: { keyPointHint: true, diagramHints: false } }, async ($, on) => {
+  const seen: (readonly string[] | undefined)[] = []
+  mock.env(on, {})
+  on('prompt.submit', (_, e) => {
+    seen.push(e.context)
+    return { text: e.text, context: e.context }
+  })
+  await $.prompt.submit({ text: 'one', wait: false, origin: { kind: 'composer' } })
+  await $.prompt.submit({ text: 'two', wait: false, origin: { kind: 'composer' } })
+  expect(seen).toEqual([[KEY_POINT_HINT, ISSUE_HINT], [KEY_POINT_HINT]])
 })
 
 test('/prismantis demo adds a section in the language of LANG, and demo ko picks one', async ($, on) => {
@@ -3540,7 +3711,7 @@ test('copyButtonStyle click is hover with no popup, set from the setup page', as
   expect(resolveStyle({ copyButtonStyle: 'hover' })).toMatchObject({ copyButtonStyle: 'hover', copyPopup: true })
 })
 
-test('in the ctrl+o transcript a shell row goes to the engine whole, so its output draws once', async ($, on) => {
+test('in the ctrl+o transcript a shell row keeps its colored command and leaves the output to the engine, so it draws once', async ($, on) => {
   engine(on)
   const row = await $.ui.mount({
     plugin: 'prismantis',
@@ -3548,7 +3719,38 @@ test('in the ctrl+o transcript a shell row goes to the engine whole, so its outp
     component: 'ToolUse',
     props: { ...call('Bash', { command: 'ls -la' }, 'fx-2'), ...{ isExpanded: true }, output: { stdout: 'a\nb', stderr: '', interrupted: false } } as never,
   })
-  expect(await row.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect((await row.find({ type: 'Text', text: /^ls$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].codeCommand)
+  expect((await row.find({ type: 'Text', text: /^-la$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].codeFlag)
   expect(await row.find({ type: 'Text', text: /^a$/ })).toBeUndefined()
+  expect(await row.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  await row.unmount()
+})
+
+test('under --verbose a shell row unfolded from a group keeps its colored command and draws its own output, since the group has no result row', async ($, on) => {
+  engine(on)
+  const shell = call('Bash', { command: 'ls -la' }, 'fx-4')
+  const group = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolGroup', props: { calls: [shell], isActive: false, isExpanded: true } })
+  await group.unmount()
+  const row = await $.ui.mount({
+    plugin: 'prismantis',
+    surface: 'terminal',
+    component: 'ToolUse',
+    props: { ...shell, ...{ isExpanded: true }, output: { stdout: 'a\nb', stderr: '', interrupted: false } } as never,
+  })
+  expect((await row.find({ type: 'Text', text: /^ls$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].codeCommand)
+  expect(await row.findAll({ type: 'Text', text: /^a$/ })).toHaveLength(1)
+  expect(await row.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  await row.unmount()
+})
+
+test('in the ctrl+o transcript a non-shell row still goes to the engine whole', async ($, on) => {
+  engine(on)
+  const row = await $.ui.mount({
+    plugin: 'prismantis',
+    surface: 'terminal',
+    component: 'ToolUse',
+    props: { ...call('Read', { file_path: '/tmp/a.ts' }, 'fx-3'), ...{ isExpanded: true } } as never,
+  })
+  expect(await row.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
   await row.unmount()
 })

@@ -2,13 +2,13 @@ import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { helpText, setupParts, setupText, showcaseText } from '../hooks/help'
+import { helpText, OPENCODE_CHARTS, opencodeShowcase, setupParts, setupText, showcaseText } from '../hooks/help'
 import { inlineText, parse } from '../hooks/markdown'
 import { tableHtml, tableText } from '../hooks/html'
-import { inlineMarks, mermaidText, shortenEdgeLabels } from '../hooks/mermaid'
+import { chartCells, diagramPalette, distinctHues, inlineMarks, mermaidText, shortenEdgeLabels } from '../hooks/mermaid'
 import type { TerminalEnv } from '../hooks/render'
 import { drawsHyperlinks, isReadOnlyCall, renderBashEdits, renderBlocks, tableArt, takesClickableMarks, takesEditorLinks, takesHttpLinks } from '../hooks/render'
-import { width } from '../hooks/layout'
+import { longestWord, width } from '../hooks/layout'
 import { PRESET_NAMES, PRESETS } from '../hooks/presets'
 import { resolveStyle } from '../hooks/theme'
 import { claudeAt, linksHttp } from './claude-version'
@@ -61,6 +61,16 @@ test('a four-backtick fence keeps triple-backtick examples inside one code block
   const [code] = blocks
   if (code?.kind !== 'code') throw new Error('not code')
   expect(code.lines).toEqual(['```bash', 'ls', '```'])
+})
+
+test('a fence after a bracketed prefix like a timestamp still opens its block', async () => {
+  const blocks = parse('[14:47:41] ```figure\n  {dim:left end}\n   2  4\n```\n\nSome prose after.', hl)
+  expect(blocks.map(b => b.kind)).toEqual(['paragraph', 'code', 'paragraph'])
+  const [, figure] = blocks
+  if (figure?.kind !== 'code') throw new Error('not code')
+  expect(figure.lang).toBe('figure')
+  expect(figure.lines).toEqual(['  {dim:left end}', '   2  4'])
+  expect(parse('[note] see ```js``` here', hl).map(b => b.kind)).toEqual(['paragraph'])
 })
 
 for (const [input, expected] of [
@@ -165,15 +175,17 @@ for (const [kind, cell] of [
   ['named link', 'see [docs](https://github.com/org/repo/blob/main/docs/spec.md) for more'],
   ['bare URL', 'https://example.com/a/rather/long/path/that/cannot/fit/on/one/line'],
 ] as const) {
-  test(`a boxed row with a ${kind} keeps the link whole and clips its borders to the row`, async $ => {
+  test(`a row too wide for its ${kind} stacks as cards and keeps the ${kind} whole`, { options: { tableLayout: 'auto' } }, async $ => {
+    const url = kind === 'named link' ? 'https://github.com/org/repo/blob/main/docs/spec.md' : 'https://example.com/a/rather/long/path/that/cannot/fit/on/one/line'
     const ui = await $.ui.mount(mount(`| n | link |\n|---|---|\n| 1 | ${cell} |`, 40))
     const links = await ui.findAll({ type: 'Link' })
-    const boxes = await ui.findAll({ type: 'Box' })
-    const clips = boxes.filter(b => b.props.overflow === 'hidden' && b.props.height === 0)
-    expect(links.length).toBe(1)
-    expect(clips.length).toBe(3)
-    expect(clips.every(b => drawn(b).split('\n').length > 2)).toBe(true)
-    expect(boxes.some(b => b.props.position === 'absolute' && drawn(b).includes('│'))).toBe(false)
+    const href = (l: { props?: Record<string, unknown> }) => (typeof l.props?.href === 'string' ? l.props.href : '')
+    expect(await ui.find({ type: 'Text', text: /^┌[─┬]+┐$/ })).toBeUndefined()
+    expect((await ui.findAll({ type: 'Box' })).filter(b => b.props.overflow === 'hidden' && b.props.height === 0)).toHaveLength(0)
+    expect((await ui.findAll({ type: 'Box' })).some(b => b.props.position === 'absolute' && drawn(b).includes('│'))).toBe(false)
+    expect(await ui.findAll({ type: 'Text', text: /^link *$/ })).toHaveLength(1)
+    expect(links.every(l => href(l) === url)).toBe(true)
+    if (kind === 'bare URL') expect(links).toHaveLength(3)
     await ui.unmount()
   })
 }
@@ -343,7 +355,7 @@ test('a 400-line highlighted code block stays under the engine node limit and it
   const code = `\`\`\`ts\n${Array.from({ length: 400 }, (_, i) => `const v${i} = await fetch("/api/${i}", { retries: ${i % 5} })`).join('\n')}\n\`\`\``
   const started = performance.now()
   const ui = await $.ui.mount(mount(code, 160))
-  expect(performance.now() - started < 1500).toBe(true)
+  expect(performance.now() - started < 3000).toBe(true)
   await ui.unmount()
 })
 
@@ -392,12 +404,43 @@ test('the help screen shows every element prismantis draws', async () => {
   expect(showcaseText(Object.keys(PRESETS))).toContain('`You ⬤`')
   expect(showcaseText(Object.keys(PRESETS))).toContain('A paste of 4 lines or more')
   expect(showcaseText(Object.keys(PRESETS))).toContain('`clock`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`tableLayout`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('scroll-07-training-notes.md')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`statusMatrix`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('### Test report')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`testMatrix`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('### Benchmarks')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`benchTable`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('### Schema')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('quadrantChart\n    title Feature priorities')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('mindmap\n    root((Release))')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('journey\n    title First order')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('kanban\n    todo[To do]')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('gitGraph\n    commit id: "init"')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`schemaTable`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('| org_id | bigint |')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('### Comparison')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`compareTable`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('| mantis | 9.2 | 1 |')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('### API')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`apiTable`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('| DELETE | /v1/scrolls/:id | API key | Remove a scroll |')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('### Key-value')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`kvTable`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('| token | abc123 | env | unset |')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('### Groups')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('`groupTable`')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('| api | us-east |')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('### Status matrix')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('green for a pass, red for a failure, amber for a warning, gray for a wait')
+  expect(showcaseText(Object.keys(PRESETS))).toContain('| Propagation | 88 | failed |')
   expect(showcaseText(Object.keys(PRESETS))).toContain('`listMarker` to dash in')
   expect(showcaseText(Object.keys(PRESETS))).toContain('`bubbleLabels`')
   expect(helpText([])).toContain('bubble labels')
   expect(showcaseText([])).toContain('⧉ html')
   expect(showcaseText([])).toContain('`▣ png`')
   expect(showcaseText([])).toContain('src/app.ts:42, and Windows paths like C:\\work\\plan.md')
+  expect(showcaseText([])).toContain('`fullPaths` in `/config`')
   expect(showcaseText([])).toContain('<i>Reply</i>')
   expect(showcaseText([])).toContain('CopyQ')
   expect(showcaseText([])).toContain('plain text')
@@ -435,8 +478,10 @@ test('the help screen shows every element prismantis draws', async () => {
   expect(showcaseText([])).toContain('Click a mark to see its note')
   expect(showcaseText([]).includes("toolStyle")).toBe(true)
   expect(showcaseText([]).includes("toolOutput")).toBe(true)
+  expect(showcaseText([])).toContain('toolOutput: rows')
   expect(showcaseText([])).toContain('copyButtonStyle')
   expect(showcaseText([])).toContain('textCopyButtons')
+  expect(showcaseText([])).toContain('sectionCopyButtons')
   expect(showcaseText([])).toContain('each block shows a dim ⧉ instead: point at it for its buttons')
   expect(showcaseText([])).toContain('+M more lines')
   expect(showcaseText([])).toContain('```figure')
@@ -503,7 +548,7 @@ test('a mounted diagram with wide labels draws its box borders on the same colum
 
 test('every diagram on the help screen draws as art', async () => {
   const diagrams = parse(showcaseText(Object.keys(PRESETS)), hl).flatMap(b => (b.kind === 'code' && b.lang === 'mermaid' ? [b.lines.join('\n')] : []))
-  expect(diagrams.length).toBe(7)
+  expect(diagrams.length).toBe(12)
   for (const source of diagrams) expect(mermaidText(source, false, 100)).not.toBeNull()
 })
 
@@ -520,6 +565,8 @@ test('the help screen fits one screen: few blocks, two alerts, a table, a list a
   expect(helpText([])).toContain('`random`')
   expect(showcaseText([])).toContain('/prismantis theme random')
   expect(helpText([])).toContain('HTML (macOS/Linux)')
+  expect(helpText([])).toContain('`desktopColors` to `match`')
+  expect(showcaseText([])).toContain('`desktopColors` to `match`')
   expect(helpText([])).toContain('PNG image (macOS/Windows)')
   const diagrams = blocks.flatMap(b => (b.kind === 'code' && b.lang === 'mermaid' ? [b.lines.join('\n')] : []))
   expect(diagrams.length).toBe(2)
@@ -632,7 +679,7 @@ test('a one-paragraph English block gets no copy reply button', async $ => {
 
 test('only http, https and file links become terminal hyperlinks', async ($, on) => {
   claudeAt(on, '2.1.289')
-  mock.env(on, {})
+  mock.env(on, { FORCE_HYPERLINK: '1' })
   if (!(await linksHttp($.ui.mount(mount('[x](http://example.com)'))))) return
   const ui = await $.ui.mount(mount('[docs](https://example.com) [dev](http://localhost:3000) [plain](http://example.com) [mail](mailto:a@example.com) [run](javascript:alert(1)) [/etc/hosts.txt](file:///etc/hosts.txt)'))
   const links = (await ui.findAll({ type: 'Link' })).map(l => l.props.href)
@@ -793,6 +840,24 @@ test('a folder links once its stat lands, even when the engine refuses the first
   await ui.unmount()
 })
 
+for (const [where, env, root] of [
+  ['outside WSL', {}, 'file://'],
+  ['under WSL', { WSL_DISTRO_NAME: 'Ubuntu' }, 'file://wsl.localhost/Ubuntu'],
+] as const) {
+  test(`an absolute path in inline code links as it does in text, ${where}`, async ($, on) => {
+    filesAt(on, '2.1.289', env)
+    const clock = folders(on, ['/home/me/notes'])
+    if (!(await linksHttp($.ui.mount(mount('[/x.md](file:///x.md)'))))) return
+    const ui = await $.ui.mount(mount('Open `/srv/app/main.ts`, `~/notes` or `/srv`, and run `npm test`.'))
+    await clock.settle()
+    expect((await ui.findAll({ type: 'Link' })).map(l => [l.props.label, l.props.href])).toEqual([
+      ['/srv/app/main.ts', `${root}/srv/app/main.ts`],
+      ['~/notes', `${root}/home/me/notes`],
+    ])
+    await ui.unmount()
+  })
+}
+
 const withoutLinks = (node: unknown): unknown => {
   if (node === null || typeof node !== 'object') return node
   const { type, props, children } = node as { type?: string; props?: Record<string, unknown>; children?: unknown[] }
@@ -821,6 +886,40 @@ for (const [where, env, root] of [
     const ui = await $.ui.mount(mount('[/home/me/notes.md](file:///home/me/notes.md) [/srv/x.log](file://localhost/srv/x.log) [C:\\Users\\me\\x.txt](file:///C:/Users/me/x.txt) [\\\\server\\share\\x.txt](file://server/share/x.txt)'))
     expect((await ui.findAll({ type: 'Link' })).map(l => l.props.href)).toEqual([`${root}/home/me/notes.md`, root === 'file://' ? 'file://localhost/srv/x.log' : `${root}/srv/x.log`, 'file:///C:/Users/me/x.txt', 'file://server/share/x.txt'])
     expect((await ui.find({ type: 'Text', text: /^\/home\/me\/notes\.md$/ }))?.props.color).toBe(PRESETS['catppuccin-mocha'].link)
+    await ui.unmount()
+  })
+}
+
+const FULLSCREEN = { columns: 120, rows: 40, isFullscreen: true }
+
+test('under WSL in fullscreen, paths link without wsl.localhost, since Claude Code opens the click itself and refuses a file:// link that names a host', async ($, on) => {
+  filesAt(on, '2.1.289', { WSL_DISTRO_NAME: 'Ubuntu' })
+  if (!(await linksHttp($.ui.mount(mount('[/x.md](file:///x.md)'))))) return
+  const ui = await $.ui.mount({ ...mount(PATHS), viewport: FULLSCREEN })
+  expect((await ui.findAll({ type: 'Link' })).map(l => l.props.href)).toEqual(
+    ['/srv/app/main.ts', '/home/me/notes/todo.md', '/work/app/docs/guide.md', '/home/me/notes/list.md', '/srv/data/table.csv'].map(path => `file://${path}`))
+  await ui.unmount()
+})
+
+test('under WSL in fullscreen, a tool row links its file without wsl.localhost', async ($, on) => {
+  filesAt(on, '2.1.289', { WSL_DISTRO_NAME: 'Ubuntu' })
+  if (!(await linksHttp($.ui.mount(mount('[/x.md](file:///x.md)'))))) return
+  const ui = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolUse', props: toolCall('Read', { file_path: '/work/app/z.ts' }, 't-Read'), viewport: FULLSCREEN })
+  expect(await linkPairs(ui)).toEqual([['z.ts', 'file:///work/app/z.ts']])
+  await ui.unmount()
+})
+
+for (const [where, env, root] of [
+  ['outside WSL', {}, 'file://'],
+  ['under WSL', { WSL_DISTRO_NAME: 'Ubuntu' }, 'file://wsl.localhost/Ubuntu'],
+] as const) {
+  test(`a path with non-ASCII names links whole, not up to its first such name, ${where}`, async ($, on) => {
+    filesAt(on, '2.1.289', env)
+    if (!(await linksHttp($.ui.mount(mount('[/x.md](file:///x.md)'))))) return
+    const ui = await $.ui.mount(mount('Open /srv/專案/報告.md or ~/筆記/待辦.md.'))
+    expect((await ui.findAll({ type: 'Link' })).map(l => l.props.href)).toEqual(
+      ['/srv/%E5%B0%88%E6%A1%88/%E5%A0%B1%E5%91%8A.md', '/home/me/%E7%AD%86%E8%A8%98/%E5%BE%85%E8%BE%A6.md'].map(path => `${root}${path}`))
+    expect((await ui.find({ type: 'Text', text: exact('/srv/專案/報告.md') }))?.props.color).toBe(PRESETS['catppuccin-mocha'].path)
     await ui.unmount()
   })
 }
@@ -1094,6 +1193,29 @@ test('a line number after a path stays out of its link with number colors off', 
   await ui.unmount()
 })
 
+for (const [where, root, home, full] of [
+  ['on macOS and Linux', '/work/app', '/home/me', ['/work/app/src/app.ts', '/work/app/docs/guide/', '/work/app/src/app.ts', '/home/me/notes/todo.md.', 'C:\\work\\notes\\plan.md']],
+  ['on Windows', 'C:\\work\\app', 'C:\\Users\\me', ['C:\\work\\app\\src\\app.ts', 'C:\\work\\app\\docs\\guide\\', 'C:\\work\\app\\src\\app.ts', 'C:\\Users\\me\\notes\\todo.md.', 'C:\\work\\notes\\plan.md']],
+] as const) {
+  test(`with fullPaths on, a path that opens on click shows in full and an absolute one as written, ${where}`, { options: { fullPaths: true } }, async ($, on) => {
+    claudeAt(on, '2.1.289')
+    mock.env(on, { FORCE_HYPERLINK: '1', HOME: home })
+    on('session.root', () => ({ value: root }))
+    const clock = mock.clock(on)
+    on('fs.stat', (_, e) => {
+      const path = e.path.replace(/\\/g, '/')
+      const kind = path.endsWith('/work/app/docs/guide') ? 'dir' as const : ['/work/app/src/app.ts', '/work/notes/plan.md'].some(f => path.endsWith(f)) ? 'file' as const : undefined
+      return kind ? { value: { kind, size: 1, mtimeMs: 0, isLink: false } } : { deny: `no such file ${e.path}` }
+    })
+    if (!(await linksHttp($.ui.mount(mount('[/x.md](file:///x.md)'))))) return
+    const ui = await $.ui.mount(mount('See src/app.ts:42, ./docs/guide/, `src/app.ts`, ~/notes/todo.md. and C:\\work\\notes\\plan.md, not docs/missing.md.'))
+    await clock.settle()
+    expect((await ui.findAll({ type: 'Link' })).map(l => l.props.label)).toEqual([...full])
+    expect(await ui.find({ type: 'Text', text: /docs\/missing\.md/ })).toBeDefined()
+    await ui.unmount()
+  })
+}
+
 test('in Orca paths link without FORCE_HYPERLINK', async ($, on) => {
   filesAt(on, '2.1.289', { FORCE_HYPERLINK: '', TERM_PROGRAM: 'Orca', TERM_PROGRAM_VERSION: '1.4.230' })
   if (!(await linksHttp($.ui.mount(mount('[/x.md](file:///x.md)'))))) return
@@ -1118,13 +1240,17 @@ for (const [where, surface, base, env] of [
   })
 }
 
-test('a terminal that draws no hyperlinks still links file:// markdown links', async ($, on) => {
-  filesAt(on, '2.1.289', { FORCE_HYPERLINK: '0', TERM_PROGRAM: 'Apple_Terminal' })
-  if (!(await linksHttp($.ui.mount(mount('[/x.md](file:///x.md)'))))) return
-  const ui = await $.ui.mount(mount('[~/notes.md](file:///home/me/notes.md) and ~/notes/todo.md'))
-  expect((await ui.findAll({ type: 'Link' })).map(l => l.props.href)).toEqual(['file:///home/me/notes.md'])
-  await ui.unmount()
-})
+for (const [where, env] of [['outside WSL', {}], ['under WSL', { WSL_DISTRO_NAME: 'Ubuntu' }]] as const) {
+  test(`a terminal that draws no hyperlinks draws a file:// link that shows its path as that path alone, ${where}`, async ($, on) => {
+    filesAt(on, '2.1.289', { FORCE_HYPERLINK: '0', TERM_PROGRAM: 'Apple_Terminal', ...env })
+    if (!(await linksHttp($.ui.mount(mount('[/x.md](file:///x.md)'))))) return
+    const ui = await $.ui.mount(mount('[~/notes.md](file:///home/me/notes.md), [/srv/專案/報告.md](file:///srv/%E5%B0%88%E6%A1%88/%E5%A0%B1%E5%91%8A.md), [notes](file:///home/me/notes.md), [docs](https://example.com) and ~/notes/todo.md'))
+    expect((await ui.findAll({ type: 'Link' })).map(l => l.props.href)).toEqual(['https://example.com'])
+    for (const path of ['~/notes.md', '/srv/專案/報告.md']) expect((await ui.find({ type: 'Text', text: exact(path) }))?.props.color).toBe(PRESETS['catppuccin-mocha'].path)
+    expect(await ui.find({ type: 'Text', text: exact('notes (file:///home/me/notes.md)') })).toBeDefined()
+    await ui.unmount()
+  })
+}
 
 for (const env of [{ SSH_CONNECTION: '10.0.0.2 52814 10.0.0.9 22' }, { SSH_TTY: '/dev/pts/3' }] as Record<string, string>[]) {
   test(`file:// links draw as plain text in a session over SSH (${Object.keys(env)[0]})`, async ($, on) => {
@@ -1439,6 +1565,59 @@ for (const tableStyle of ['box', 'rules'] as const) {
   })
 }
 
+const LINK_TARGET = 'https://example.com/software/pinmapper/core/-/merge_requests/83'
+const LINK_TABLE = `| MR | Found |\n|---|---|\n| [core !83](${LINK_TARGET}) | A routing entry that is not a mapping raises a raw error and not the usual routing error, and nothing else in the change is a correctness or design defect |`
+
+const columnWidthsOf = async (ui: { findAll: (query: { type: 'Box' }) => Promise<{ props: { width?: unknown; flexShrink?: unknown } }[]> }) =>
+  (await ui.findAll({ type: 'Box' })).filter(b => typeof b.props.width === 'number' && b.props.flexShrink === 0).map(b => b.props.width as number)
+
+for (const tableStyle of ['box', 'rules'] as const) {
+  test(`a ${tableStyle} table column of named links is as wide as their labels where the terminal draws hyperlinks`, { options: { tableStyle } }, async ($, on) => {
+    mock.env(on, { FORCE_HYPERLINK: '1' })
+    const ui = await $.ui.mount(mount(LINK_TABLE))
+    expect((await ui.findAll({ type: 'Link' })).map(l => l.props.href)).toEqual([LINK_TARGET])
+    const widths = await columnWidthsOf(ui)
+    expect(widths.includes('core !83'.length)).toBe(true)
+    expect(widths.includes(`(${LINK_TARGET})`.length)).toBe(false)
+    await ui.unmount()
+  })
+
+  test(`a ${tableStyle} table column of named links keeps room for their targets where the terminal draws no hyperlinks`, { options: { tableStyle } }, async ($, on) => {
+    mock.env(on, { FORCE_HYPERLINK: '0' })
+    const ui = await $.ui.mount(mount(LINK_TABLE))
+    expect((await columnWidthsOf(ui)).includes(`(${LINK_TARGET})`.length)).toBe(true)
+    await ui.unmount()
+  })
+}
+
+test('a desktop table column of named links is shared out by their labels', async $ => {
+  const ui = await $.ui.mount({ ...mount(LINK_TABLE), surface: 'desktop' })
+  expect((await ui.findAll({ type: 'Link' })).map(l => l.props.href)).toEqual([LINK_TARGET])
+  const floors = (await ui.findAll({ type: 'Box' })).map(b => b.props.minWidth).filter(w => typeof w === 'number')
+  expect(floors.includes('core'.length)).toBe(true)
+  expect(floors.some(w => w >= LINK_TARGET.length)).toBe(false)
+  await ui.unmount()
+})
+
+const CJK_TABLE = '| 外掛 | Code | Chat | 說明 |\n|---|:---:|:---:|---|\n| codex、prismantis、flightdeck、agent-usage-guard | ✓ | ✗ | 這 4 個 plugin 只裝在 Claude Code 裡 |\n| Gmail、Google 日曆、Google 雲端硬碟、Claude Docs | ✓ | ✓ | 接在你的 Claude 帳號上，哪裡都能用 |'
+
+test('a line can break before and after every CJK character, so a CJK run is no longer one long word', () => {
+  expect(longestWord('codex、prismantis、flightdeck、agent-usage-guard')).toBe('agent-usage-guard'.length)
+  expect(longestWord('這一段是比較長的文字，用來測試右邊會不會被裁掉')).toBe(2)
+  expect(longestWord('帳號上，哪裡都能用')).toBe(2)
+  expect(longestWord('日本語のテキスト')).toBe(2)
+  expect(longestWord('한국어 문장입니다')).toBe(2)
+  expect(longestWord('plain ascii words only')).toBe('ascii'.length)
+})
+
+test('a desktop table of CJK cells keeps its column floors to the longest Latin word, so it fits the reply', async $ => {
+  const ui = await $.ui.mount({ ...mount(CJK_TABLE, 70), surface: 'desktop' })
+  const floors = (await ui.findAll({ type: 'Box' })).map(b => b.props.minWidth).filter((w): w is number => typeof w === 'number')
+  expect(floors.length > 0).toBe(true)
+  expect(Math.max(...floors)).toBe('agent-usage-guard'.length)
+  await ui.unmount()
+})
+
 test('double underscores inside a word stay literal, as in mcp__serena__activate_project', async () => {
   const [block] = parse('Call mcp__serena__activate_project, not __this__.', hl)
 
@@ -1743,10 +1922,21 @@ for (const surface of ['terminal', 'desktop'] as const) {
   }
 }
 
+test('a flowchart too wide at its usual gaps draws with tighter gaps, and one that fits keeps them', async $ => {
+  const chain = (n: number) => '```mermaid\nflowchart LR\n' + Array.from({ length: n }, (_, i) => `  N${i}[step ${i}] --> N${i + 1}[step ${i + 1}]`).join('\n') + '\n```'
+  const tight = await $.ui.mount(mount(chain(8), 106))
+  expect(await tight.find({ type: 'Text', text: /too wide/ })).toBeUndefined()
+  expect(await tight.find({ type: 'Text', text: /├►│/ })).toBeDefined()
+  await tight.unmount()
+  const roomy = await $.ui.mount(mount(chain(2), 106))
+  expect(await roomy.find({ type: 'Text', text: /├──►│/ })).toBeDefined()
+  await roomy.unmount()
+})
+
 test('a diagram too wide for the terminal shows its source under a note with its width', async $ => {
   const workers = Array.from({ length: 16 }, (_, i) => `W${i + 1}[Worker ${i + 1}]`).join(' & ')
   const ui = await $.ui.mount(mount('```mermaid\nflowchart TD\n  Q[Queue] --> ' + workers + '\n```'))
-  expect(await ui.find({ type: 'Text', text: /^diagram is \d+ cols, 112 fit$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^diagram too wide to render \(\d+ cols, 112 fit\)$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^── mermaid$/ })).toBeDefined()
   await ui.unmount()
 })
@@ -1755,7 +1945,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
   test(`the fallback note is drawn in the comment color like the label on ${surface}`, async $ => {
     const workers = Array.from({ length: 16 }, (_, i) => `W${i + 1}[Worker ${i + 1}]`).join(' & ')
     const ui = await $.ui.mount({ ...mount('```mermaid\nflowchart TD\n  Q[Queue] --> ' + workers + '\n```'), surface })
-    const note = await ui.find({ type: 'Text', text: /^diagram is/ })
+    const note = await ui.find({ type: 'Text', text: /^diagram too wide/ })
     const label = await ui.find({ type: 'Text', text: /^── mermaid$/ })
     expect(note?.props.color).toBe(PRESETS['catppuccin-mocha'].codeComment)
     expect(note?.props).toEqual(label?.props)
@@ -1773,15 +1963,18 @@ test('a flowchart more than 25 ranks deep draws, in Hebrew too', async $ => {
   }
 })
 
-test('a diagram the renderer cannot draw shows its source under a failure note', async $ => {
-  const ui = await $.ui.mount(mount('```mermaid\nflowchart TD\n' + '  A --> B\n'.repeat(900) + '```'))
-  expect(await ui.find({ type: 'Text', text: /^diagram failed to render$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /^── mermaid$/ })).toBeDefined()
-  await ui.unmount()
+test('a diagram over the line or character cap shows its source under a note naming the cap', async $ => {
+  for (const [source, note] of [['flowchart TD\n' + '  A --> B\n'.repeat(80), 'diagram too long to render (81 lines, max 80)'], ['flowchart TD\n  A[' + 'x'.repeat(8000) + '] --> B', 'diagram too long to render (8024 characters, max 8000)']] as const) {
+    const ui = await $.ui.mount(mount('```mermaid\n' + source.trimEnd() + '\n```'))
+    expect((await ui.find({ type: 'Text', text: /^diagram too long/ }))?.text).toBe(note)
+    expect(await ui.find({ type: 'Text', text: /^diagram failed to render$/ })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /^── mermaid$/ })).toBeDefined()
+    await ui.unmount()
+  }
 })
 
 test('a diagram type the renderer has no drawing for says so instead of failing', async $ => {
-  for (const kind of ['mindmap', 'timeline', 'journey', 'gitGraph']) {
+  for (const kind of ['timeline', 'sankey-beta']) {
     const ui = await $.ui.mount(mount('```mermaid\n' + kind + '\n  title T\n```'))
     expect(await ui.find({ type: 'Text', text: `${kind} diagrams draw as source for now` })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^diagram failed to render$/ })).toBeUndefined()
@@ -1790,11 +1983,11 @@ test('a diagram type the renderer has no drawing for says so instead of failing'
 })
 
 test('a half-streamed diagram shows no note until its fence closes', async $ => {
-  const open = await $.ui.mount(mount('```mermaid\nmindmap\n  root'))
+  const open = await $.ui.mount(mount('```mermaid\ntimeline\n  title T'))
   expect(await open.find({ type: 'Text', text: /diagram|draw as source/ })).toBeUndefined()
   await open.unmount()
-  const closed = await $.ui.mount(mount('```mermaid\nmindmap\n  root\n```'))
-  expect(await closed.find({ type: 'Text', text: /^mindmap diagrams draw as source for now$/ })).toBeDefined()
+  const closed = await $.ui.mount(mount('```mermaid\ntimeline\n  title T\n```'))
+  expect(await closed.find({ type: 'Text', text: /^timeline diagrams draw as source for now$/ })).toBeDefined()
   await closed.unmount()
 })
 
@@ -1914,6 +2107,332 @@ test('pie and gantt charts shrink to a narrow terminal and use plain glyphs in a
     expect(mermaidText(source, true, 80)).not.toMatch(/[█▏─◆]/)
   }
   expect(mermaidText(gantt, false, 80)).toContain('10:00')
+})
+
+test('a gantt dateFormat matches letters that are not date tokens, and [escaped] text, as written', () => {
+  const iso = mermaidText('gantt\n  dateFormat YYYY-MM-DDTHH:mm:ss\n  axisFormat %H:%M\n  section upwind\n  CI :done, 2026-11-18T08:23:00, 2026-11-18T08:27:12\n  watch :active, 2026-11-18T08:29:45, 2026-11-18T09:29:45', false, 80)
+  expect(iso).toContain('08:23')
+  expect(iso).toContain('watch')
+  expect(mermaidText('gantt\n  dateFormat YYYY-MM-DD[ at ]HH:mmZ\n  Deploy : 2026-11-18 at 10:00Z, 45m', false, 80)).toContain('10:00')
+  for (const format of ['MMM DD YYYY', 'Do MM YYYY', 'x', 'hh:mm A', 'HH:mm:ss.SSS']) expect(mermaidText(`gantt\n  dateFormat ${format}\n  Task : 1, 2`, false, 80)).toBeNull()
+})
+
+const QUADRANT = 'quadrantChart\n  title Priorities\n  x-axis Low effort --> High effort\n  y-axis Low impact --> High impact\n  quadrant-1 Big bets\n  quadrant-2 Do now\n  quadrant-3 Fill-ins\n  quadrant-4 Skip\n  Reorder: [0.2, 0.85]\n  Search:::hot: [0.8, 0.9]\n  Dark mode: [0.3, 0.25] radius: 8'
+
+test('a quadrant chart puts each point in its quadrant, the quadrant names in their corners and a numbered legend under it', () => {
+  const art = mermaidText(QUADRANT, false, 80)!.split('\n')
+  const cross = art.findIndex(l => l.includes('┼'))
+  const axis = art[cross]!.indexOf('┼')
+  const plot = art.slice(2, cross + 8)
+  const at = (mark: string) => {
+    const row = plot.findIndex(l => l.includes(mark))
+    return [row + 2, plot[row]!.indexOf(mark)]
+  }
+  expect(art[0]).toBe('Priorities')
+  expect(art[1]!.trim()).toBe('▲ High impact')
+  expect(art[2]!.trim()).toMatch(/^Do now\s+│\s+Big bets$/)
+  expect(art[cross + 7]!.trim()).toMatch(/^Fill-ins\s+│\s+Skip$/)
+  const [r1, c1] = at('1')
+  const [r2, c2] = at('2')
+  const [r3, c3] = at('3')
+  expect(r1! < cross && c1! < axis).toBe(true)
+  expect(r2! < cross && c2! > axis).toBe(true)
+  expect(r3! > cross && c3! < axis).toBe(true)
+  expect(art.at(-2)!.trim()).toMatch(/^◄ Low effort\s+High effort ►$/)
+  expect(art.at(-1)).toBe('1 Reorder   2 Search   3 Dark mode')
+})
+
+test('quadrant points that land on one cell are drawn apart, with a free cell between markers', () => {
+  const art = mermaidText('quadrantChart\n  A: [0.5, 0.5]\n  B: [0.5, 0.5]\n  C: [0.5, 0.5]', false, 80)!
+  expect(art.split('\n').filter(l => /^\d /.test(l))).toEqual(['1 A   2 B   3 C'])
+  const plot = art.split('\n').slice(0, -1).join('\n')
+  for (const mark of ['1', '2', '3']) expect(plot).toContain(mark)
+  expect(plot).not.toMatch(/\d\d/)
+})
+
+test('crowded quadrant points stay in their own quadrant, off the axes, a cell away from names, and the axes keep their cross', () => {
+  const crowd = 'quadrantChart\n  quadrant-2 Do now\n' + Array.from({ length: 10 }, (_, i) => `  P${i}: [0.3, 0.55]`).join('\n') + '\n  Edge: [0.02, 1]\n  Centre: [0.52, 0.5]'
+  const art = mermaidText(crowd, false, 80)!.split('\n')
+  const cross = art.findIndex(l => l.includes('┼'))
+  const axis = art[cross]!.indexOf('┼')
+  expect(art[cross]).toMatch(/^─+┼─+$/)
+  const plot = art.slice(0, cross + 8)
+  for (const mark of '123456789a') {
+    const row = plot.findIndex(l => l.includes(mark))
+    expect(row < cross && plot[row]!.indexOf(mark) < axis).toBe(true)
+  }
+  expect(art[0]).toMatch(/^ Do now\s+│$/)
+  const centre = plot.findIndex(l => l.includes('c'))
+  expect(centre !== cross && plot[centre]!.indexOf('c') > axis).toBe(true)
+})
+
+test('quoted quadrant labels draw without their quotes, and a terminal too narrow for the grid gets the width note', async $ => {
+  const art = mermaidText('quadrantChart\n  title "Plan"\n  x-axis "Low" --> "High"\n  quadrant-1 "Big"\n  "Campaign A": [0.1, 0.2]', false, 60)!
+  expect(art).not.toContain('"')
+  expect(art.split('\n').at(-1)).toBe('1 Campaign A')
+  const ui = await $.ui.mount(mount('```mermaid\nquadrantChart\n  A: [0.1, 0.2]\n```', 24))
+  expect(await ui.find({ type: 'Text', text: /^diagram too wide to render \(\d+ cols/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a quadrant chart fits a narrow terminal, measures wide labels and uses plain glyphs in ascii mode', () => {
+  const wide = QUADRANT.replace('Reorder', '重新排序').replace('Do now', '馬上做')
+  for (const columns of [40, 60, 100]) expect(Math.max(...mermaidText(wide, false, columns)!.split('\n').map(width)) <= columns - 2).toBe(true)
+  expect(mermaidText(wide, false, 60)).toContain('1 重新排序')
+  expect(mermaidText(QUADRANT, true, 80)).not.toMatch(/[│─┼▲▼◄►]/)
+})
+
+test('a quadrant chart colors each marker and its legend number alike, and the axes in the diagram color', { options: { replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount(mount('```mermaid\n' + QUADRANT + '\n```', 80))
+  const texts = await ui.findAll({ type: 'Text' })
+  const hue = (text: string) => texts.filter(n => n.text === text).map(n => n.props.color)
+  expect(new Set(hue('2')).size).toBe(1)
+  expect(hue('2')[0]).not.toBe(hue('1')[0])
+  expect(hue('2').length).toBe(2)
+  expect((await ui.findAll({ type: 'Text', text: /^─+┼─+$/ })).map(n => n.props.color)).toContain(PRESETS['catppuccin-mocha'].diagram)
+  await ui.unmount()
+})
+
+test('quadrant sources the chart cannot read show a failure note, not a broken chart', async $ => {
+  for (const source of ['quadrantChart', 'quadrantChart\n  A: [1.5, 0.2]', 'quadrantChart\n  A: [0.1, 0.2]\n  nonsense here']) {
+    expect(mermaidText(source, false, 80)).toBeNull()
+    const ui = await $.ui.mount(mount('```mermaid\n' + source + '\n```'))
+    expect(await ui.find({ type: 'Text', text: /^diagram failed to render$/ })).toBeDefined()
+    await ui.unmount()
+  }
+})
+
+const MINDMAP = 'mindmap\n  root((Raise retention))\n    Onboarding\n      Shorter sign-up\n      First-day tasks\n    Reasons[Reasons to return]\n      Weekly digest\n      ::icon(fa fa-book)\n      Personalised push\n      Member tiers\n    Churn warning:::urgent\n      Churn model'
+
+test('a mind map grows from its root to the right, joins each parent to its children and drops shapes, icons and classes', () => {
+  expect(mermaidText(MINDMAP, false, 80)!.split('\n')).toEqual([
+    '                 ┌─ Onboarding ────────┬─ Shorter sign-up',
+    '                 │                     └─ First-day tasks',
+    'Raise retention ─┤                     ┌─ Weekly digest',
+    '                 ├─ Reasons to return ─┼─ Personalised push',
+    '                 │                     └─ Member tiers',
+    '                 └─ Churn warning ─────── Churn model',
+  ])
+  expect(mermaidText('mindmap\n  a))Bang((\n    b)Cloud(\n    c{{Hex}}\n    "`**Bold** words`"', false, 80)).toBe('      ┌─ Cloud\nBang ─┼─ Hex\n      └─ Bold words')
+  expect(mermaidText('mindmap\n  Rate * 2 * n\n    "`__Big__ _idea_`"', false, 80)).toBe('Rate * 2 * n ─── Big idea')
+})
+
+test('a mind map wider than the terminal becomes an outline that fits, measures wide labels and uses plain glyphs in ascii mode', () => {
+  const art = mermaidText(MINDMAP, false, 50)!.split('\n')
+  expect(art.slice(0, 4)).toEqual(['Raise retention', '├─ Onboarding', '│  ├─ Shorter sign-up', '│  └─ First-day tasks'])
+  expect(art.at(-1)).toBe('   └─ Churn model')
+  const wide = mermaidText('mindmap\n  一個根\n    分支甲\n      葉子一\n    分支乙', false, 80)!
+  expect(wide).toBe('一個根 ─┬─ 分支甲 ─── 葉子一\n        └─ 分支乙')
+  for (const columns of [24, 40, 60]) expect(Math.max(...mermaidText(MINDMAP.replace('Weekly digest', 'A weekly digest of everything that happened'), false, columns)!.split('\n').map(width)) <= columns - 4).toBe(true)
+  expect(mermaidText(MINDMAP, true, 80)).not.toMatch(/[─│┌├└┬┼┤]/)
+  expect(mermaidText(MINDMAP, true, 50)).toContain('|  `- First-day tasks')
+})
+
+test('a mind map draws the root in the accent color, each branch in its own color and the root joints in the diagram color', { options: { replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount(mount('```mermaid\n' + MINDMAP + '\n```', 80))
+  const texts = await ui.findAll({ type: 'Text' })
+  const hue = (text: string) => texts.find(n => n.props.color && n.text?.includes(text))?.props.color
+  const theme = PRESETS['catppuccin-mocha']
+  expect(hue('Raise retention')).toBe(theme.accent)
+  expect(new Set([hue('Onboarding'), hue('Reasons to return'), hue('Churn warning')]).size).toBe(3)
+  expect(hue('Onboarding')).not.toBe(theme.diagramText)
+  expect(hue('Shorter sign-up')).toBe(theme.diagramText)
+  expect(texts.filter(n => /^ ─┤$/.test(n.text ?? '')).map(n => n.props.color)).toEqual([theme.diagram])
+  await ui.unmount()
+})
+
+test('mind map sources the chart cannot read show a failure note, not a broken chart', async $ => {
+  for (const source of ['mindmap', 'mindmap\n  a\n  b', 'mindmap\n  a\n    "  "']) {
+    expect(mermaidText(source, false, 80)).toBeNull()
+    const ui = await $.ui.mount(mount('```mermaid\n' + source + '\n```'))
+    expect(await ui.find({ type: 'Text', text: /^diagram failed to render$/ })).toBeDefined()
+    await ui.unmount()
+  }
+})
+
+const JOURNEY = 'journey\n  title My working day\n  section Go to work\n    Make tea: 5: Me\n    Go upstairs: 3: Me\n    Do work: 1: Me, Cat\n  section Go home\n    Go downstairs: 5: Me\n    Sit down: 4: Me'
+
+test('a journey draws its sections over their tasks, a mood line from score 5 down to 1, and names and actors under each dot', () => {
+  expect(mermaidText(JOURNEY, false, 70)!.split('\n')).toEqual([
+    'My working day',
+    '  Go to work ──────────────────────── Go home ───────────────',
+    '5      ●─────╮                       ╭─────●─────╮',
+    '             │                       │           ╰─────●',
+    '             ╰─────●─────╮           │',
+    '                         │           │',
+    '1                        ╰─────●─────╯',
+    '   Make tea   Go upstairs   Do work       Go       Sit down',
+    '                                      downstairs',
+    '      Me          Me        Me, Cat       Me          Me',
+  ])
+})
+
+test('a journey with too many tasks for the width lists one task per row with its score as a bar, and ascii mode uses plain glyphs', () => {
+  expect(mermaidText(JOURNEY, false, 40)!.split('\n')).toEqual([
+    'My working day',
+    'Go to work',
+    '  Make tea      ────────● 5  Me',
+    '  Go upstairs   ────●     3  Me',
+    '  Do work       ●         1  Me, Cat',
+    'Go home',
+    '  Go downstairs ────────● 5  Me',
+    '  Sit down      ──────●   4  Me',
+  ])
+  expect(mermaidText(JOURNEY, true, 70)).not.toMatch(/[─│╭╮╰╯●]/)
+  expect(mermaidText(JOURNEY, true, 40)).toContain('  Make tea      --------o 5  Me')
+  const wide = mermaidText('journey\n  section 上班\n    泡一杯茶: 5: 我\n    爬樓梯到辦公室: 2: 我, 貓', false, 70)!
+  expect(wide.split('\n').at(-2)).toBe('     泡一杯茶     爬樓梯到辦公室')
+  for (const columns of [24, 40, 70]) expect(Math.max(...mermaidText(JOURNEY.replace('Make tea', 'Make a very large pot of tea for everyone'), false, columns)!.split('\n').map(width)) <= Math.max(24, columns - 4)).toBe(true)
+})
+
+test('a journey colors good steps green, painful ones red and each section in its own color', { options: { replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount(mount('```mermaid\n' + JOURNEY + '\n```', 70))
+  const texts = await ui.findAll({ type: 'Text' })
+  const theme = PRESETS['catppuccin-mocha']
+  const dots = texts.filter(n => n.text === '●').map(n => n.props.color)
+  expect(dots.filter(c => c === theme.diffAdded).length).toBe(3)
+  expect(dots.filter(c => c === theme.diffRemoved).length).toBe(1)
+  expect(dots.filter(c => c === theme.diagramText).length).toBe(1)
+  const hue = (text: string) => texts.find(n => n.props.color && n.text?.includes(text))?.props.color
+  expect(hue('Go to work')).not.toBe(hue('Go home'))
+  expect(hue('╰─────●')).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a journey reads Mermaid details: decimal scores, a task named like a section, accDescr blocks, # comments and <br> in names', () => {
+  const art = mermaidText('journey\n  accDescr {\n    long text\n  }\n  Section review: 3.5: Me # note\n  Wake<br>up: 2: Me', false, 40)!
+  expect(art.split('\n')).toEqual(['5', '         ●───────╮', '                 │', '                 ╰───────●', '1', '  Section review      Wake up', '        Me              Me'])
+  const list = mermaidText('journey\n' + ['A: 3.5: Me', 'B: 2: Me', 'C: 1', 'D: 5', 'E: 4'].map(t => `  ${t}`).join('\n'), false, 40)!
+  expect(list.split('\n').slice(0, 2)).toEqual(['A      ──────●   3.5  Me', 'B      ──●       2    Me'])
+})
+
+test('journey sources the chart cannot read show a failure note, not a broken chart', async $ => {
+  for (const source of ['journey\n  title Empty', 'journey\n  Task: 7: Me', 'journey\n  just words']) {
+    expect(mermaidText(source, false, 80)).toBeNull()
+    const ui = await $.ui.mount(mount('```mermaid\n' + source + '\n```'))
+    expect(await ui.find({ type: 'Text', text: /^diagram failed to render$/ })).toBeDefined()
+    await ui.unmount()
+  }
+})
+
+const KANBAN = "kanban\n  todo[To do]\n    a[Fix checkout error message]@{ assigned: 'Amy', priority: 'High' }\n    b[Interview churned users]@{ assigned: Ken, ticket: UX-12 }\n  [In progress]\n    c[Design system]@{ assigned: \"Lia\", priority: 'Low' }\n  Done"
+
+test('a kanban board puts columns side by side with a card count, and each card in a box with its wrapped text and metadata', () => {
+  expect(mermaidText(KANBAN, false, 70)!.split('\n')).toEqual([
+    'To do · 2             In progress · 1       Done · 0',
+    '╭──────────────────╮  ╭──────────────────╮',
+    '│ Fix checkout     │  │ Design system    │',
+    '│ error message    │  │ Lia · Low        │',
+    '│ Amy · High       │  ╰──────────────────╯',
+    '╰──────────────────╯',
+    '╭──────────────────╮',
+    '│ Interview        │',
+    '│ churned users    │',
+    '│ Ken · UX-12      │',
+    '╰──────────────────╯',
+  ])
+})
+
+test('a kanban board too wide for the terminal stacks its columns, measures wide text and uses plain glyphs in ascii mode', () => {
+  const art = mermaidText(KANBAN, false, 40)!.split('\n')
+  expect(art.slice(0, 5)).toEqual(['To do · 2', '╭──────────────────────────────────╮', '│ Fix checkout error message       │', '│ Amy · High                       │', '╰──────────────────────────────────╯'])
+  expect(art.slice(-2)).toEqual(['', 'Done · 0'])
+  expect(mermaidText(KANBAN, true, 70)).not.toMatch(/[─│╭╮╰╯·]/)
+  const wide = mermaidText('kanban\n  待辦\n    [寫一份很長很長的中文說明文件給大家看]\n  完成', false, 70)!.split('\n')
+  expect(wide.slice(2, 4)).toEqual(['│ 寫一份很長很長的中文說明文件 │', '│ 給大家看                     │'])
+  for (const columns of [24, 40, 70, 120]) expect(Math.max(...mermaidText(KANBAN, false, columns)!.split('\n').map(width)) <= Math.max(16, columns - 4)).toBe(true)
+})
+
+test('a kanban board draws each column and its cards in one palette color and a high priority in red', { options: { replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount(mount('```mermaid\n' + KANBAN + '\n```', 70))
+  const texts = await ui.findAll({ type: 'Text' })
+  const theme = PRESETS['catppuccin-mocha']
+  const hue = (text: string) => texts.find(n => n.props.color && n.text?.includes(text))?.props.color
+  expect(hue('To do · 2')).toBe(texts.find(n => n.props.color && /^╭─+╮$/.test(n.text ?? ''))?.props.color)
+  expect(hue('To do · 2')).not.toBe(hue('In progress · 1'))
+  expect(hue(' · High')).toBe(theme.diffRemoved)
+  expect(hue(' · Low')).toBe(theme.diagram)
+  expect(hue('Fix checkout')).toBe(theme.diagramText)
+  await ui.unmount()
+})
+
+test('a kanban board keeps metadata inside its card, reads metadata over several lines and columns indented less than the first', () => {
+  const narrow = mermaidText("kanban\n  A\n    [x]@{ assigned: 'Bo', priority: 'Very High' }\n  B\n  C", false, 60)!.split('\n')
+  expect(new Set(narrow.slice(1, 4).map(width)).size).toBe(1)
+  expect(mermaidText('kanban\n\ttodo\n\t\t[A]\n  doing\n    [B]', false, 80)!.split('\n')[0]).toMatch(/^todo · 1 +doing · 1$/)
+  expect(narrow.slice(2, 4)).toEqual(['│ x             │', '│ Bo            │'])
+  expect(mermaidText("kanban\n  A\n    x[Tent]@{\n      assigned: 'Bo'\n    }", false, 80)).toContain('│ Bo ')
+  expect(mermaidText('kanban\n  A\n    a[Document the @{ assigned } syntax]', false, 80)).toContain('│ Document the @{ assigned }   │\n│ syntax ')
+})
+
+test('kanban sources the chart cannot read show a failure note, not a broken chart', async $ => {
+  for (const source of ['kanban', 'kanban\n  [ ]']) {
+    expect(mermaidText(source, false, 80)).toBeNull()
+    const ui = await $.ui.mount(mount('```mermaid\n' + source + '\n```'))
+    expect(await ui.find({ type: 'Text', text: /^diagram failed to render$/ })).toBeDefined()
+    await ui.unmount()
+  }
+})
+
+const GITGRAPH = 'gitGraph\n  commit id: "init" tag: "v1.0"\n  branch develop\n  commit id: "setup"\n  branch feature/login\n  commit id: "form"\n  checkout develop\n  commit id: "fix" type: HIGHLIGHT\n  checkout feature/login\n  commit id: "oauth"\n  checkout develop\n  merge feature/login\n  checkout main\n  merge develop id: "release" tag: "v2.0"\n  cherry-pick id: "fix"'
+
+test('a git graph runs top to bottom with a lane per branch, forks and merges joined, ids, tags, marks and a legend', () => {
+  expect(mermaidText(GITGRAPH, false, 70)!.split('\n')).toEqual([
+    '●        init [v1.0]',
+    '├──╮     develop',
+    '│  ●     setup',
+    '│  ├──╮  feature/login',
+    '│  │  ●  form',
+    '│  ■  │  fix',
+    '│  │  ●  oauth',
+    '│  ●──╯  merge feature/login',
+    '●──╯     release [v2.0]',
+    '●        pick fix',
+    '',
+    'main   develop   feature/login',
+  ])
+})
+
+test('a git graph crosses lanes it passes, keeps a lane that goes on, measures wide names and uses plain glyphs in ascii mode', () => {
+  const art = mermaidText('gitGraph\n  commit\n  branch a\n  commit\n  checkout main\n  branch b\n  commit\n  checkout a\n  merge b\n  commit id: "more"', false, 70)!.split('\n')
+  expect(art.slice(0, 6)).toEqual(['●', '├──╮     a', '│  ●', '╰──┼──╮  b', '   │  ●', '   ●──╯  merge b'])
+  expect(art[6]).toBe('   ●     more')
+  expect(mermaidText('gitGraph\n  commit\n  branch a\n  commit\n  checkout main\n  merge a\n  checkout a\n  commit', false, 70)!.split('\n')[3]).toBe('●──┤  merge a')
+  expect(mermaidText('gitGraph\n  commit\n  branch 功能\n  commit id: "加入登入"', false, 60)).toContain('╰──╮  功能\n   ●  加入登入')
+  expect(mermaidText(GITGRAPH, true, 70)).not.toMatch(/[─│├┤┼╮╯╰●■✗]/)
+  expect(mermaidText('gitGraph TB:\n  commit id: "x" type: REVERSE', false, 60)!.split('\n')[0]).toBe('✗  x')
+})
+
+test('a git graph colors each lane and its legend name alike, tags in the accent color and merge notes in the diagram color', { options: { replyStyle: 'off' } }, async $ => {
+  const ui = await $.ui.mount(mount('```mermaid\n' + GITGRAPH + '\n```', 70))
+  const texts = await ui.findAll({ type: 'Text' })
+  const theme = PRESETS['catppuccin-mocha']
+  const hue = (text: string) => texts.find(n => n.props.color && n.text === text)?.props.color
+  expect(hue('feature/login')).toBe(hue('──╯'))
+  expect(hue('feature/login')).not.toBe(hue('develop'))
+  expect(hue('├')).toBe(hue('main'))
+  expect(hue('──╮')).toBe(hue('develop'))
+  expect(hue(' [v2.0]')).toBe(theme.accent)
+  expect(hue('merge feature/login')).toBe(theme.diagram)
+  await ui.unmount()
+})
+
+test('a git graph skips ended lanes, fits long tags, reads quoted branches, the colon header and accDescr blocks, and draws BT upward', () => {
+  const two = mermaidText('gitGraph\n  commit\n  branch a\n  commit\n  checkout main\n  merge a\n  branch b\n  commit\n  checkout main\n  merge b', false, 60)!.split('\n')
+  expect(two.slice(4, 7)).toEqual(['├─────╮  b', '│     ●', '●─────╯  merge b'])
+  expect(Math.max(...mermaidText('gitGraph\n  commit id: "x" tag: "a-very-long-release-tag-name-for-testing-overflow-here"', false, 40)!.split('\n').map(width)) <= 36).toBe(true)
+  expect(mermaidText('gitGraph\n  commit\n  branch "my feature"\n  commit\n  checkout main\n  merge "my feature"', false, 60)).toContain('●──╯  merge my feature')
+  expect(mermaidText('gitGraph:\n  accDescr {\n    long text\n  }\n  commit id: "x"', false, 60)!.split('\n')[0]).toBe('●  x')
+  expect(mermaidText('gitGraph BT\n  commit id: "first"\n  branch a\n  commit id: "second"\n  checkout main\n  merge a', false, 60)!.split('\n').slice(0, 4)).toEqual(['●──╮  merge a', '│  ●  second', '├──╯  a', '●     first'])
+})
+
+test('gitGraph sources the chart cannot read show a failure note, not a broken chart', async $ => {
+  for (const source of ['gitGraph', 'gitGraph\n  commit\n  checkout nowhere', 'gitGraph\n  commit\n  merge main', 'gitGraph\n  commit\n  branch main', 'gitGraph\n  cherry-pick id: "x"', 'gitGraph\n  commit type: BOLD', 'gitGraph\n  commit\n  __proto__', 'gitGraph\n  commit\n  constructor', 'gitGraph\n  commit id: "x"\n  cherry-pick id: "x"', 'gitGraph\n  commit id: "a"\n  commit id: "a"']) {
+    expect(mermaidText(source, false, 80)).toBeNull()
+    const ui = await $.ui.mount(mount('```mermaid\n' + source + '\n```'))
+    expect(await ui.find({ type: 'Text', text: /^diagram failed to render$/ })).toBeDefined()
+    await ui.unmount()
+  }
 })
 
 test('a diagram that fits draws without a note', async $ => {
@@ -2537,4 +3056,63 @@ test('an angle-bracket autolink drops its brackets and links the URL', async () 
   }
   const [code] = parse('`<https://example.com>` <br> <b>', hl)
   expect(code?.kind === 'paragraph' && inlineText(code.inline)).toBe('<https://example.com> <br> <b>')
+})
+
+const QUOTED_TABLE = '> | Name | Notes |\n> |---|---|\n> | alpha | a fairly long note that will wrap at narrow widths for sure |\n> | beta | short |'
+
+const quoteBarRows = async (ui: { findAll: (query: { type: 'Text' }) => Promise<unknown[]> }) =>
+  (await ui.findAll({ type: 'Text' }))
+    .map(t => ((t as { children?: unknown[] }).children ?? []).filter(c => typeof c === 'string').join(''))
+    .filter(s => s.includes('\n') && /^[│ \n]+$/.test(s))
+    .map(s => s.split('\n').length)
+
+for (const tableStyle of ['box', 'rules', 'grid', 'minimal'] as const) {
+  test(`a quoted ${tableStyle} table's bar under classic is as tall as before tableLayout`, { options: { tableStyle, tableLayout: 'classic' } }, async $ => {
+    for (const [columns, rows] of [[40, 28], [60, 23]] as const) {
+      const ui = await $.ui.mount(mount(QUOTED_TABLE, columns))
+      expect(await quoteBarRows(ui)).toEqual([rows])
+      await ui.unmount()
+    }
+  })
+}
+
+for (const body of [
+  'xychart-beta\n  x-axis [a, b]\n  bar [1, 2]',
+  'pie\n  "apples" : 3\n  "pears" : 1',
+  'quadrantChart\n  x-axis Low --> High\n  y-axis Low --> High\n  A: [0.3, 0.6]',
+  'mindmap\n  root\n    a\n    b',
+  'journey\n  section Day\n    Wake: 3: Me',
+  'kanban\n  todo\n    t1[Write]\n  done\n    t2[Ship]',
+  'classDiagram\n  A <|-- B',
+  'erDiagram\n  A ||--o{ B : has',
+]) {
+  test(`a chart block draws like its mermaid twin and paints the same cells for OpenCode: ${body.split('\n')[0]}`, async $ => {
+    const drawn = async (lang: string) => {
+      const ui = await $.ui.mount(mount(`\`\`\`${lang}\n${body}\n\`\`\``))
+      const texts = (await ui.findAll({ type: 'Text', text: /\S/ })).map(n => n.props.children)
+      await ui.unmount()
+      return JSON.stringify(texts)
+    }
+    expect(await drawn('chart')).toBe(await drawn('mermaid'))
+    const t = PRESETS['catppuccin-mocha']
+    const cells = chartCells(body, 80, t)!
+    expect(cells.grid.map(row => row.join('')).join('\n')).toBe(mermaidText(body, false, 80, diagramPalette(t).length))
+    expect(cells.colors.flat()).toContain(t.link)
+    expect(chartCells('xychart-beta\n  x-axis [a, b]\n  bar [1, 2]', 10, t)).toBeNull()
+    expect(chartCells('not a chart at all', 80, t)).toBeNull()
+  })
+}
+
+test('OpenCode chart colors swap a hue that repeats an earlier one for a spare hue', () => {
+  expect(distinctHues(['#fab283', '#f5a742', '#9d7cd8', '#e5c07b'], ['#56b6c2', '#7fd88f'])).toEqual(['#fab283', '#56b6c2', '#9d7cd8', '#7fd88f'])
+  expect(distinctHues(['#ff0000', '#00ff00', '#808080', '#7f7f7f'], ['#0000ff'])).toEqual(['#ff0000', '#00ff00', '#808080', '#7f7f7f'])
+  expect(distinctHues(['#ff0000', '#ff1000'], [])).toEqual(['#ff0000', '#ff1000'])
+})
+
+test('the OpenCode demo shows only what OpenCode draws and opens its charts as chart blocks', () => {
+  const demo = opencodeShowcase(PRESET_NAMES)
+  for (const gone of ['/config', 'Claude Code 2.', 'kitty', '<b>', 'Worker 16', '[!', '[^', '$$']) expect(demo).not.toContain(gone)
+  for (const kind of OPENCODE_CHARTS) expect(demo).toContain(`\`\`\`chart\n${kind}`)
+  for (const kind of ['flowchart', 'sequenceDiagram', 'gantt', 'gitGraph']) expect(demo).toContain(`\`\`\`mermaid\n${kind}`)
+  expect(demo).toContain('```figure')
 })

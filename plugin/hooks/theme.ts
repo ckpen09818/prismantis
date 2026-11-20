@@ -1,10 +1,19 @@
+import type { BenchTable } from './bench-table'
 import type { PluginOptions, RenderSurface } from 'claude-code'
 
 import type { ClipboardBackend } from './clipboard'
+import type { DesktopColors } from './desktop'
 import type { PresetName } from './presets'
 import { PRESET_BACKGROUNDS, PRESET_NAMES, PRESETS, SYNTAX } from './presets'
+import type { SchemaTable } from './schema-table'
+import type { CompareTable } from './compare-table'
+import type { ApiTable } from './api-table'
+import type { KvTable } from './kv-table'
+import type { GroupTable } from './group-table'
+import type { StatusMatrix } from './status'
 import type { Shape, Terminal } from './rtl'
 import { TERMINALS } from './rtl'
+import type { TestMatrix } from './test-report'
 
 const TOKENS = [
   'accent', 'heading', 'strong', 'emphasis', 'inlineCode', 'codeText', 'codeCommand', 'codeFlag', 'codeString', 'codeComment', 'codeFill', 'codeBorder',
@@ -13,14 +22,26 @@ const TOKENS = [
 
 export type Theme = Partial<Record<(typeof TOKENS)[number], string>>
 
+export type CellLook = { color?: string; bold?: boolean }
+
 export type Clock = 'off' | '24h' | '12h'
 
 export type Style = {
   theme: Theme
   syntax?: Record<string, keyof Theme>
   background?: string
+  desktopColors: DesktopColors
   headingStyle: 'bold' | 'underline' | 'uppercase' | 'banner'
   tableStyle: 'box' | 'rules' | 'grid' | 'minimal'
+  tableLayout: 'classic' | 'auto' | 'compact' | 'stacked'
+  statusMatrix: StatusMatrix
+  testMatrix: TestMatrix
+  benchTable: BenchTable
+  schemaTable: SchemaTable
+  compareTable: CompareTable
+  apiTable: ApiTable
+  kvTable: KvTable
+  groupTable: GroupTable
   taskStyle: 'checks' | 'ticks' | 'box' | 'progress'
   listMarker: 'dots' | 'dash'
   promptStyle: 'bubble' | 'framed' | 'wide' | 'bar' | 'chevron' | 'off'
@@ -31,7 +52,7 @@ export type Style = {
   clock: Clock
   userAvatar: string
   toolStyle: 'chat' | 'tree-dim' | 'tree-bold' | 'classic'
-  toolOutput: 'full' | 'quiet'
+  toolOutput: 'full' | 'quiet' | 'rows'
   runningDot: 'ring' | 'blink'
   dotDark?: boolean
   unreadPrompts: boolean
@@ -46,6 +67,7 @@ export type Style = {
   highlightNumbers: boolean
   surfaces?: RenderSurface[]
   highlightPaths: boolean
+  fullPaths: boolean
   mermaid: boolean
   mermaidAscii: boolean
   copyButtons: boolean
@@ -53,20 +75,24 @@ export type Style = {
   copyButtonStyle: 'dim' | 'inline' | 'hover'
   copyPopup: boolean
   textCopyButtons: boolean
+  sectionCopyButtons: boolean
   htmlCopy: ClipboardBackend | null
   images: boolean
   nativeCode?: boolean
   gridFace?: boolean
   monoFace?: boolean
+  svgArt?: boolean
   smallDot?: boolean
   httpLinks: boolean
   editorLinks: boolean
   obsidianLinks: boolean
   fileLinks: string | null
   pathLinks: boolean
+  hyperlinks: boolean
   found?: ReadonlySet<string>
   diagramHints: boolean
   issueHint: boolean
+  keyPointHint: boolean
   rtl: 'auto' | Terminal | 'off'
   reorder: boolean
   shape: Shape
@@ -111,8 +137,18 @@ export const resolveStyle = (options: PluginOptions): Style => {
     theme: { ...base, ...fromFields },
     syntax: (SYNTAX as Record<string, Record<string, keyof Theme> | undefined>)[String(options.theme)],
     ...(PRESET_BACKGROUNDS[preset] ? { background: PRESET_BACKGROUNDS[preset] } : {}),
+    desktopColors: pick(options.desktopColors, ['off', 'match'] as const, 'off'),
     headingStyle: pick(options.headingStyle, ['bold', 'underline', 'uppercase', 'banner'] as const, 'banner'),
     tableStyle: pick(options.tableStyle, ['box', 'rules', 'grid', 'minimal'] as const, 'box'),
+    tableLayout: pick(options.tableLayout, ['classic', 'auto', 'compact', 'stacked'] as const, 'classic'),
+    statusMatrix: pick(options.statusMatrix, ['off', 'color', 'summary', 'group'] as const, 'off'),
+    testMatrix: pick(options.testMatrix, ['off', 'report'] as const, 'off'),
+    benchTable: pick(options.benchTable, ['trend', 'color', 'off'] as const, 'off'),
+    schemaTable: pick(options.schemaTable, ['full', 'types', 'keys', 'off'] as const, 'off'),
+    compareTable: pick(options.compareTable, ['full', 'rank', 'pick', 'off'] as const, 'off'),
+    apiTable: pick(options.apiTable, ['full', 'verbs', 'auth', 'off'] as const, 'off'),
+    kvTable: pick(options.kvTable, ['full', 'sources', 'overrides', 'off'] as const, 'off'),
+    groupTable: pick(options.groupTable, ['full', 'count', 'merge', 'off'] as const, 'off'),
     taskStyle: pick(options.taskStyle, ['checks', 'ticks', 'box', 'progress'] as const, 'checks'),
     listMarker: pick(options.listMarker, ['dots', 'dash'] as const, 'dots'),
     promptStyle: pick(options.promptStyle, ['bubble', 'framed', 'wide', 'bar', 'chevron', 'off'] as const, 'bubble'),
@@ -123,7 +159,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
     clock: pick(options.clock, ['off', '24h', '12h'] as const, 'off'),
     userAvatar: typeof options.userAvatar === 'string' ? options.userAvatar.trim() : '',
     toolStyle: pick(options.toolStyle, ['chat', 'tree-dim', 'tree-bold', 'classic'] as const, 'chat'),
-    toolOutput: pick(options.toolOutput, ['full', 'quiet'] as const, 'full'),
+    toolOutput: pick(options.toolOutput, ['full', 'quiet', 'rows'] as const, 'full'),
     runningDot: pick(options.runningDot, ['ring', 'blink'] as const, 'ring'),
     unreadPrompts: options.unreadPrompts === true,
     diffStyle: pick(options.diffStyle, ['card', 'full', 'marks', 'bar'] as const, 'card'),
@@ -132,6 +168,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
     highlightNumbers: options.highlightNumbers !== false,
     surfaces: surfacesOf(options.surfaces),
     highlightPaths: options.highlightPaths !== false,
+    fullPaths: options.fullPaths === true,
     mermaid: options.mermaid !== false,
     mermaidAscii: options.mermaidAscii === true,
     copyButtons: options.copyButtons !== false,
@@ -139,6 +176,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
     copyButtonStyle: options.copyButtonStyle === 'click' ? 'hover' : pick(options.copyButtonStyle, ['dim', 'inline', 'hover'] as const, 'dim'),
     copyPopup: options.copyButtonStyle !== 'click' && options.copyPopup !== false,
     textCopyButtons: options.textCopyButtons !== false,
+    sectionCopyButtons: options.sectionCopyButtons === true,
     htmlCopy: null,
     images: false,
     httpLinks: false,
@@ -146,8 +184,10 @@ export const resolveStyle = (options: PluginOptions): Style => {
     obsidianLinks: false,
     fileLinks: null,
     pathLinks: false,
+    hyperlinks: false,
     diagramHints: options.diagramHints !== false && options.mermaid !== false,
     issueHint: options.issueHint !== false,
+    keyPointHint: options.keyPointHint === true,
     rtl,
     reorder: rtl !== 'auto' && rtl !== 'off',
     shape: rtl === 'auto' || rtl === 'off' ? 'visual' : TERMINALS[rtl],

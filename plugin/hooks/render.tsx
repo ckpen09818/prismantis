@@ -3,14 +3,24 @@ import type { ElementTable, RenderElement, RenderNode, RenderSurface, TextHoverP
 import type { Ink } from './clipboard'
 import { figureText, isFigureLang } from './figure'
 import { tableHtml, tableText } from './html'
-import type { Block, Inline, TableAlign } from './markdown'
+import type { Block, Inline, TableAlign, TableCell, TableBlock } from './markdown'
 import { mathOf } from './latex'
-import { CONTROL, displayText, inlineText, isWebLink, nestedBlocks, parseInline, texParses, texText } from './markdown'
+import { CONTROL, displayText, inlineText, isPathSpelling, isWebLink, nestedBlocks, parseInline, texParses, texText } from './markdown'
 import { pictureRow } from './paste'
 import type { PictureDraw } from './paste'
 import type { Flow } from './rtl'
-import { LTR_BLANK, ROW_MARK, ROW_MARK_TEXT, WALL, codeVisual, commentTail, commentVisual, containsRtl, flow, hasRtl, heldCell, listMarker, opensLatin, terminalLine } from './rtl'
+import { LTR_BLANK, ROW_MARK, ROW_MARK_TEXT, WALL, codeVisual, commentTail, commentVisual, containsRtl, engineProse, flow, hasRtl, heldCell, listMarker, opensLatin, terminalLine } from './rtl'
 import type { Style, Theme } from './theme'
+import { statusEdge, statusFooter, statusHeavy, statusLook, statusOf, statusRows } from './status'
+import type { Bucket } from './status'
+import { benchLook, benchOf, benchSpark } from './bench-table'
+import { schemaLook, schemaOf } from './schema-table'
+import { compareLook, compareOf } from './compare-table'
+import { apiLook, apiOf } from './api-table'
+import { kvLook, kvOf } from './kv-table'
+import { groupEdge, groupHeavy, groupLook, groupOf, groupRows } from './group-table'
+import type { Group } from './group-table'
+import { testReport } from './test-report'
 import type { PrismToken } from './vendor/prism.js'
 import { languages, tokenize } from './vendor/prism.js'
 import { DEFAULT_COLUMNS, cells, clusters, columnWidths, graphemes, longestWord, mostLines, textRows, widestLine, width, wrapRanges } from './layout'
@@ -62,6 +72,8 @@ export const takesMonoText = releaseFrom(MONO_TEXT_FROM)
 
 export const fileRoot = (distro?: string): string => (distro ? `file://wsl.localhost/${encodeURIComponent(distro)}` : 'file://')
 
+export const fileLinkRoot = (files: string | null, isFullscreen?: boolean): string | null => (files !== null && isFullscreen === true ? 'file://' : files)
+
 export type TerminalEnv = Partial<Record<'FORCE_HYPERLINK' | 'TERM_PROGRAM' | 'TERM_PROGRAM_VERSION' | 'TERM' | 'WT_SESSION' | 'LC_TERMINAL' | 'VTE_VERSION' | 'TERMINAL_EMULATOR', string>>
 
 const HYPERLINK_TERMINALS = ['ghostty', 'Hyper', 'kitty', 'alacritty', 'iTerm.app', 'iTerm2', 'WarpTerminal', 'Orca']
@@ -94,7 +106,7 @@ export const drawsHyperlinks = (env: TerminalEnv): boolean => {
     || env.TERMINAL_EMULATOR === 'JetBrains-JediTerm'
 }
 
-type Reach = Pick<Style, 'httpLinks' | 'editorLinks' | 'obsidianLinks' | 'fileLinks' | 'pathLinks' | 'cwd' | 'home' | 'found'>
+type Reach = Pick<Style, 'httpLinks' | 'editorLinks' | 'obsidianLinks' | 'fileLinks' | 'pathLinks' | 'fullPaths' | 'hyperlinks' | 'cwd' | 'home' | 'found'>
 
 const LAUNCHERS = new Set([
   'app', 'command', 'tool', 'terminal', 'pkg', 'mpkg', 'mobileconfig', 'prefpane', 'workflow', 'action', 'fileloc', 'inetloc', 'webloc',
@@ -258,14 +270,27 @@ const spoofs = (label: string, href: string): boolean => {
 const drawnLink = (n: Extract<Inline, { kind: 'link' }>, reach: Reach): Inline => {
   const href = reach.fileLinks !== null && /^file:/i.test(n.href) ? fileHref(reach.fileLinks, n.href) : n.href
   if (!isHyperlink(n.href, reach) || encodedLength(href) > LINK_MAX || hidesFile(reach, n, href) || spoofs(n.text, n.href)) return { kind: 'text', text: plainLink(n.text.replace(ZERO_WIDTH, ''), n.href) }
+  if (!reach.hyperlinks && /^file:/i.test(n.href)) return { kind: 'path', text: n.text }
   return href === n.href ? n : { ...n, href }
 }
 
 const linksAsPath = (path: string): boolean => !path.startsWith('/') || /^\/[^/]+\/+[^/]/.test(path.replace(/\.+$/, ''))
 
+const shownPath = (reach: Reach, written: string, href: string): string => {
+  if (!reach.fullPaths || /^([a-z]:)?[\\/]/i.test(written)) return written
+  const tail = /[\\/]$/.test(written) ? '/' : (/(?<=[^/.])\.+$/.exec(written)?.[0] ?? '')
+  const full = `${hrefPath(reach, href)}${tail}`
+  return /^[a-z]:/i.test(reach.cwd) ? full.replace(/\//g, '\\') : full
+}
+
 const drawnPath = (n: Extract<Inline, { kind: 'path' }>, reach: Reach): Inline => {
   const href = reach.pathLinks && linksAsPath(n.text) ? pathHref(reach, n.text) : undefined
-  return href === undefined || !opens(reach, href) ? n : { ...n, href }
+  return href === undefined || !opens(reach, href) ? n : { ...n, text: shownPath(reach, n.text, href), href }
+}
+
+const drawnCode = (n: Extract<Inline, { kind: 'code' }>, reach: Reach): Inline => {
+  const drawn = isPathSpelling(n.text) ? drawnPath({ kind: 'path', text: n.text }, reach) : undefined
+  return drawn?.kind === 'path' && drawn.href !== undefined ? { ...n, text: drawn.text, href: drawn.href } : n
 }
 
 const PART = String.raw`[\p{L}\p{N}_@+-]+`
@@ -296,7 +321,7 @@ const loosePaths = (n: Extract<Inline, { kind: 'text' }>, reach: Reach): Inline[
     const probe = foundProbe(reach, m[0])
     if (!probe) continue
     if (m.index > at) out.push({ kind: 'text', text: n.text.slice(at, m.index) })
-    out.push({ kind: 'path', text: m[0], href: probe.href })
+    out.push({ kind: 'path', text: shownPath(reach, m[0], probe.href), href: probe.href })
     at = m.index + m[0].length
   }
   if (at === 0) return [n]
@@ -306,7 +331,7 @@ const loosePaths = (n: Extract<Inline, { kind: 'text' }>, reach: Reach): Inline[
 
 const looseCode = (n: Extract<Inline, { kind: 'code' }>, reach: Reach): Inline => {
   const probe = isWholePath(n.text) ? foundProbe(reach, n.text) : undefined
-  return probe ? { ...n, href: probe.href } : n
+  return probe ? { ...n, text: shownPath(reach, n.text, probe.href), href: probe.href } : n
 }
 
 const isWholePath = (text: string): boolean => looseSpellings(text).some(m => m[0] === text)
@@ -320,6 +345,7 @@ const linked = (node: Inline, reach: Reach): Inline => {
   const n: Inline = node.kind === 'image' && isWebLink(node.src) ? { kind: 'link', text: node.text, href: node.src } : node
   if (n.kind === 'link') return drawnLink(n, reach)
   if (n.kind === 'path') return drawnPath(n, reach)
+  if (n.kind === 'code') return drawnCode(n, reach)
   return 'children' in n ? { ...n, children: hyperlinks(n.children, reach) } : n
 }
 
@@ -351,9 +377,12 @@ const inlinesOf = (block: Block): Inline[][] => {
 
 const spelled = new WeakMap<Block, string[]>()
 
+const pathKey = (reach: Reach, path: string): string[] => (reach.pathLinks && linksAsPath(path) ? bareKey(reach, pathHref(reach, path)) : [])
+
 const bareKeysIn = (nodes: Inline[], reach: Reach): string[] =>
   nodes.flatMap(n => {
-    if (n.kind === 'path') return reach.pathLinks && linksAsPath(n.text) ? bareKey(reach, pathHref(reach, n.text)) : []
+    if (n.kind === 'path') return pathKey(reach, n.text)
+    if (n.kind === 'code') return isPathSpelling(n.text) ? pathKey(reach, n.text) : []
     if (n.kind === 'link') return /^file:/i.test(n.href) ? bareKey(reach, n.href) : []
     return 'children' in n ? bareKeysIn(n.children, reach) : []
   })
@@ -393,13 +422,13 @@ const hyperlinked = new WeakMap<Block, Record<string, Block>>()
 const drawable = (block: Block, reach: Reach): Block => {
   const cached = hyperlinked.get(block) ?? {}
   hyperlinked.set(block, cached)
-  const key = `${+reach.httpLinks}${+reach.editorLinks}${+reach.obsidianLinks}${reach.fileLinks ?? ''}\0${reach.found?.size ?? 0}${reach.pathLinks ? `\0${reach.home}\0${reach.cwd}` : ''}`
+  const key = `${+reach.httpLinks}${+reach.editorLinks}${+reach.obsidianLinks}${+reach.hyperlinks}${+reach.fullPaths}${reach.fileLinks ?? ''}\0${reach.found?.size ?? 0}${reach.pathLinks ? `\0${reach.home}\0${reach.cwd}` : ''}`
   return (cached[key] ??= hyperlinkBlock(block, reach))
 }
 
-const heightOf = (blocks: Block[], w: number): number => blocks.reduce((sum, block, b) => sum + (b ? 1 : 0) + blockHeight(block, w), 0)
+const heightOf = (blocks: Block[], w: number, style: Style): number => blocks.reduce((sum, block, b) => sum + (b ? 1 : 0) + blockHeight(block, w, style), 0)
 
-const blockHeight = (block: Block, w: number): number => {
+const blockHeight = (block: Block, w: number, style: Style): number => {
   switch (block.kind) {
     case 'heading':
       return 2 * textRows(displayText(block.inline), w - 4) + 2
@@ -408,20 +437,22 @@ const blockHeight = (block: Block, w: number): number => {
     case 'list':
       return block.items.reduce((sum, item) => {
         const pad = item.depth * 2 + item.marker.length + 4
-        return sum + textRows(displayText(item.inline), w - pad) + (item.blocks ? heightOf(item.blocks, w - pad) + 1 : 0)
+        return sum + textRows(displayText(item.inline), w - pad) + (item.blocks ? heightOf(item.blocks, w - pad, style) + 1 : 0)
       }, textRows(`${'━'.repeat(20)} ${block.items.length}/${block.items.length} done`, w))
     case 'code':
       return block.lines.reduce((sum, line) => sum + textRows(line, w - 8), 3)
     case 'table': {
-      const { natural, words } = tableSize(block)
-      const widths = columnWidths(natural, w - 4, 3, words)
-      const tallest = (cells: Inline[][]) => Math.max(1, ...widths.map((cw, c) => textRows(displayText(cells[c]!), cw)))
+      const plan = tablePlan(block, style, w, textsOf(style, block))
+      if (plan.stack) return stackedHeight(block, w)
+      const classic = style.tableLayout === 'classic' && tableSize(block)
+      const widths = classic ? columnWidths(classic.natural, w - 4, 3, classic.words) : plan.widths
+      const tallest = (cells: TableCell[]) => Math.max(1, ...widths.map((cw, c) => textRows(displayText(cells[c]!), cw)))
       return block.rows.reduce((sum, row) => sum + 1 + tallest(row), 4 + tallest(block.header))
     }
     case 'quote':
-      return Math.max(1, heightOf(block.blocks, w - 2))
+      return Math.max(1, heightOf(block.blocks, w - 2, style))
     case 'alert':
-      return 3 + heightOf(block.blocks, w - 4)
+      return 3 + heightOf(block.blocks, w - 4, style)
     case 'rule':
       return 1
     case 'notes':
@@ -462,7 +493,7 @@ const cellFlow = (style: Style, nodes: Inline[], held: boolean, mark: boolean) =
 const noteHover = (style: Style, note: number | undefined) =>
   note === undefined || style.noteKey === undefined ? {} : { hover: { scope: `fn:${style.noteKey}:${note}`, inverse: true } }
 
-const renderInline = (el: ElementTable, style: Style, nodes: Inline[], keyBase: string): RenderElement[] => {
+const renderInline = (el: ElementTable, style: Style, nodes: Inline[], keyBase: string, numberFace: { color?: string } = { color: style.theme.number }): RenderElement[] => {
   const { Text } = el
   const t = style.theme
   return nodes.map((n, i) => {
@@ -485,7 +516,7 @@ const renderInline = (el: ElementTable, style: Style, nodes: Inline[], keyBase: 
       case 'image':
         return <Text key={key} color={t.link}>{n.text}</Text>
       case 'number':
-        return <Text key={key} color={t.number}>{n.text}</Text>
+        return <Text key={key} {...numberFace}>{n.text}</Text>
       case 'path':
         return <Text key={key} color={t.path}>{n.href === undefined ? n.text : <el.Link href={n.href} label={n.text} />}</Text>
       case 'dim':
@@ -699,6 +730,12 @@ const figureFallbackLines = (block: Extract<Block, { kind: 'code' }>): string[] 
 const codeRows = (el: ElementTable, style: Style, lines: string[], shown: number, lang: string, numbered: boolean, room: number, key: string, isOpen?: boolean): RenderElement[] => {
   if (style.nativeCode) return [<el.Code key="code" source={lines.slice(0, shown).join('\n') || ' '} {...(lang ? { language: lang } : {})} {...(numbered ? { startLine: 1 } : {})} />]
   const plain = plainBlock(lang, lines)
+  if (style.shape === 'engine' && !plain && !isShellLang(lang) && Object.keys(grammarFor(lang) ?? {}).length === 0) {
+    return lines.slice(0, shown).map((line, i) => {
+      const text = BOX_DRAWING.test(line) ? null : engineProse(line)
+      return text === null ? <el.Text key={`${key}.ltr${i}`} {...heldLtr(style)}>{codeLine(el, style, line, lang, `${key}.${i}`, room)}</el.Text> : <el.Text key={`${key}.${i}`} color={style.theme.codeText}>{text}</el.Text>
+    })
+  }
   const rows = (isShellLang(lang) ? null : highlightBlock(el, style, lines, lang, key, room, shown, isOpen)) ?? lines.slice(0, shown).map((line, i) => codeLine(el, style, line, lang, `${key}.${i}`, room, plain))
   return style.shape === 'engine' ? rows.map((row, i) => <el.Text key={`${key}.ltr${i}`} {...heldLtr(style)}>{row}</el.Text>) : rows
 }
@@ -782,8 +819,10 @@ const isRtlTable = (style: Style, block: Extract<Block, { kind: 'table' }>): boo
 
 const ART_WIDTH = 100
 
-const tableSize = (block: Extract<Block, { kind: 'table' }>) => {
-  const cells = [block.header, ...block.rows].map(r => block.header.map((_, c) => displayText(r[c]!)))
+const cellText = (style: Style) => (style.hyperlinks ? inlineText : displayText)
+
+const tableSize = (block: Extract<Block, { kind: 'table' }>, shown: (cell: Inline[]) => string = displayText) => {
+  const cells = [block.header, ...block.rows].map(r => block.header.map((_, c) => shown(r[c]!)))
   const column = (measure: (s: string) => number) => block.header.map((_, c) => Math.max(...cells.map(r => measure(r[c]!))))
   return { natural: column(widestLine), words: column(longestWord) }
 }
@@ -791,6 +830,9 @@ const tableSize = (block: Extract<Block, { kind: 'table' }>) => {
 type Face = Exclude<Ink, string | undefined>
 
 const own = (face: Face): Face => Object.fromEntries(Object.entries(face).filter(([, v]) => v !== undefined))
+
+const numberPaint = (face: Face, header: boolean, t: Theme): { color?: string } =>
+  header || face.color === undefined || face.color === t.tableText ? { color: t.number } : {}
 
 const INLINE_FACE: Partial<Record<Inline['kind'], (t: Theme) => Face>> = {
   strong: t => ({ color: t.strong, bold: true }),
@@ -885,6 +927,78 @@ const tableArts = (block: Extract<Block, { kind: 'table' }>, t: Theme, rtl: bool
 const artsOf = (drawn: { art?: string; hues?: () => Hues } | undefined, block: Block, t: Theme, rtl: boolean): { art?: string | (() => string); grid?: string | (() => string); hues?: () => Hues } =>
   drawn?.art !== undefined ? { art: drawn.art, grid: drawn.art, hues: drawn.hues } : block.kind === 'table' ? tableArts(block, t, rtl) : {}
 
+const columnRoom = (box: boolean, columns: number): number => (box ? columns - 4 : columns)
+
+const tableMinimums = (natural: number[], words: number[]): number[] => natural.map((w, c) => Math.min(w, Math.max(1, words[c] ?? 1)))
+
+const textsOf = (style: Style, block: TableBlock): boolean =>
+  style.reorder && style.shape === 'inverse' && !style.gridFace && isRtlTable(style, block)
+
+const tablePlan = (block: TableBlock, style: Style, columns: number, texts: boolean) => {
+  const box = style.tableStyle === 'box'
+  const gap = box ? 0 : style.tableStyle === 'grid' ? 3 : 2
+  const sizingGap = box || style.tableStyle === 'grid' ? 3 : 2
+  const { natural, words } = tableSize(block, cellText(style))
+  const room = columnRoom(box, columns)
+  const minimum = tableMinimums(natural, words)
+  const spread = minimum.reduce((a, b) => a + b, sizingGap * Math.max(0, minimum.length - 1))
+  if (natural.length > 0 && !texts && !style.gridFace && (style.tableLayout === 'stacked' || (style.tableLayout === 'auto' && spread > room))) {
+    return { stack: true, box, gap, natural, words, widths: [] as number[] }
+  }
+  const widths = style.tableLayout === 'compact' && !style.gridFace
+    ? columnWidths(natural, Math.min(room, spread), sizingGap, words)
+    : columnWidths(natural, room, sizingGap, words)
+  return { stack: false, box, gap, natural, words, widths }
+}
+
+const stackedPlan = (header: TableCell[], columns: number) => {
+  const widest = header.reduce((a, cell) => Math.max(a, width(displayText(cell))), 0)
+  const labelW = Math.min(Math.max(widest, 1), Math.max(1, Math.floor(columns / 3)))
+  return { labelW, room: Math.max(1, columns - labelW - 1) }
+}
+
+const stackedHeight = (block: TableBlock, columns: number): number => {
+  const { labelW, room } = stackedPlan(block.header, columns)
+  const pair = (cells: TableCell[]) =>
+    Math.max(1, ...block.header.map((h, c) => Math.max(textRows(displayText(h), labelW), textRows(displayText(cells[c]!), room))))
+  return Math.max(1, block.rows.reduce((sum, r) => sum + pair(r), Math.max(0, block.rows.length - 1)))
+}
+
+const padTo = (runs: Inline[], w: number): Inline[] => [...runs, { kind: 'text' as const, text: ' '.repeat(Math.max(0, w - width(inlineText(runs)))) }]
+
+const stackedTable = (el: ElementTable, style: Style, block: TableBlock, columns: number, key: string, tip?: Tip): RenderElement => {
+  const { Box, Text } = el
+  const t = style.theme
+  const { labelW, room } = stackedPlan(block.header, columns)
+  const separators = style.tableStyle !== 'minimal' && block.rows.length > 0
+  const pairLine = (labels: Inline[][], values: Inline[][], c: number, i: number, k: string): RenderElement => (
+    <Box key={`${k}.${c}.${i}`} flexDirection="row">
+      <Text bold color={t.tableHeader}>
+        {labels[i] ? inlineText(padTo(labels[i]!, labelW)) : ' '.repeat(labelW)}
+      </Text>
+      <Text>
+        {' '}
+        {values[i] ? pressInline(el, style, values[i]!, room, `${k}.${c}.v${i}`, tip) ?? renderInline(el, style, values[i]!, `${k}.${c}.v${i}`) : ''}
+      </Text>
+    </Box>
+  )
+  const record = (cells: TableCell[], i: number): RenderElement[] => {
+    const k = `${key}.r${i}`
+    return block.header.flatMap((h, c) => {
+      const labels = wrapInline(headerRuns(h), labelW)
+      const values = wrapInline(cells[c]!, room)
+      return Array.from({ length: Math.max(1, Math.max(labels.length, values.length)) }, (_, l) => pairLine(labels, values, c, l, k))
+    })
+  }
+  const lines: RenderElement[] = block.rows.flatMap((r, i) => [
+    ...record(r, i),
+    ...(separators && i < block.rows.length - 1
+      ? [<Text key={`${key}.s${i}`} color={t.tableRule} dimColor={!t.tableRule}>{'─'.repeat(columns)}</Text>]
+      : []),
+  ])
+  return <Box key={key} flexDirection="column">{lines}</Box>
+}
+
 const clip = ({ Box }: ElementTable, w: number, drawn: RenderElement, key?: string) => (
   <Box key={key} flexDirection="column" minWidth={w}>
     <Box height={0} flexGrow={1} overflow="hidden">
@@ -927,7 +1041,9 @@ const tableRuleRun = ({ Box, Text }: ElementTable, style: Style, w: number, shar
 
 const tableRoot = (style: Style, flip: boolean) => (flip ? { alignSelf: 'flex-end' as const } : style.gridFace ? { alignSelf: 'flex-start' as const } : {})
 
-const laidRuleSpace = (style: Style) => (style.gridFace ? { marginY: 1 } : {})
+const laidLine = (style: Style) => (style.gridFace ? { flexWrap: 'nowrap' as const } : {})
+
+const laidRuleSpace = (style: Style) => (style.gridFace ? { marginY: 1, ...laidLine(style) } : {})
 
 const laidCell = (style: Style, box: boolean) => (style.gridFace ? { alignItems: 'flex-start' as const, ...(box ? { paddingY: 1 } : {}) } : {})
 
@@ -955,13 +1071,31 @@ const tableEdges = (style: Style, block: Extract<Block, { kind: 'table' }>, rtl:
   }
 }
 
+const heavyBetween = (style: Style, buckets: (Bucket | undefined)[], group: Group | undefined, i: number): boolean =>
+  statusHeavy(style.statusMatrix, buckets, i) || groupHeavy(style.groupTable, group, i)
+
 const renderTable = (el: ElementTable, style: Style, block: Extract<Block, { kind: 'table' }>, columns: number, key: string, rtl: boolean, tip?: Tip) => {
   const { Box, Text } = el
   const t = style.theme
-  const box = style.tableStyle === 'box'
-  const gap = box ? 0 : style.tableStyle === 'grid' ? 3 : 2
-  const { natural, words } = tableSize(block)
-  const widths = box ? columnWidths(natural, columns - 4, 3, words) : columnWidths(natural, columns, gap, words)
+  const group = groupOf(block, style.groupTable, style.statusMatrix === 'group')
+  const drawn = { ...block, rows: groupRows(block, group, style.groupTable) }
+  const texts = textsOf(style, drawn)
+  const plan = tablePlan(drawn, style, columns, texts)
+  const shown = cellText(style)
+  const status = statusOf(block, style.statusMatrix, plan.stack && !texts)
+  const layout = statusRows(drawn, status, style.statusMatrix)
+  const { natural, words, widths, box, gap } = plan
+  if (plan.stack) return stackedTable(el, style, block, columns, key, tip)
+  const test = testReport(el, t, block, style.testMatrix, `${key}.t`)
+  const foot = test ? undefined : statusFooter(el, t, status, style.statusMatrix, `${key}.f`)
+  const bench = benchOf(block, style.benchTable)
+  const spark = benchSpark(el, t, block, bench, style.benchTable, `${key}.s`)
+  const schema = schemaOf(block, style.schemaTable)
+  const api = apiOf(block, style.apiTable)
+  const compare = compareOf(block, style.compareTable)
+  const kv = kvOf(block, style.kvTable)
+  const rowAt = compare || kv || group ? new Map(drawn.rows.map((cells, r) => [cells, r])) : undefined
+  const look = (at: number | undefined) => (c: number, cell: TableCell, plain: { color?: string } = {}) => groupLook(t, group, at, c, statusLook(t, status, c, cell, benchLook(t, bench, c, cell, schemaLook(t, schema, c, cell, compareLook(t, compare, at, c, cell, apiLook(t, api, c, cell, kvLook(t, kv, at, c, cell, plain)))))))
   const shares = percentShares(widths)
   const order = natural.map((_, c) => c)
   const mirror = rtl && mirrored(style)
@@ -1007,8 +1141,8 @@ const renderTable = (el: ElementTable, style: Style, block: Extract<Block, { kin
     return <Text key={k}>{renderInline(el, style, terminalLine(parts), k)}</Text>
   }
 
-  const row = (cells: Inline[][], k: string, isHeader: boolean, border: (k: string, text: string) => RenderElement = bar) => drawsTextRows(style, rtl) ? terminalRow(cells, k, isHeader) : (
-    <Box key={k} flexDirection="row" columnGap={columnGap} alignItems="stretch">
+  const row = (cells: Inline[][], k: string, isHeader: boolean, border: (k: string, text: string) => RenderElement = bar, at?: number) => drawsTextRows(style, rtl) ? terminalRow(cells, k, isHeader) : (
+    <Box key={k} flexDirection="row" columnGap={columnGap} alignItems="stretch" {...laidLine(style)}>
       {!box && lead(k)}
       {box && border(`${k}.l`, wall('│ '))}
       {order.map((c, i) => {
@@ -1017,13 +1151,15 @@ const renderTable = (el: ElementTable, style: Style, block: Extract<Block, { kin
         const content = cell ? cell.lines[0]! : cells[c]!
         const side = mirror ? (block.align[c] === 'center' ? 'center' : 'flex-start') : cell?.base === 'R' && block.align[c] !== 'center' ? 'flex-end' : justify(c)
         const runs = isHeader ? headerRuns(content) : content
+        const face = isHeader ? { bold: true, color: t.tableHeader } : look(at)(c, cells[c]!, own({ color: t.tableText }))
+        const numberFace = numberPaint(face, isHeader, t)
         const cellBox = (
           <Box key={`${k}.${c}`} {...tableColumn(style, w, shares[c]!, words[c]!)} {...laidCell(style, box)} justifyContent={side}>
-            {pressInline(el, style, runs, w, `${k}.${c}.p`, tip, isHeader ? { bold: true, color: t.tableHeader } : own({ color: t.tableText }), { justifyContent: side })
+            {pressInline(el, style, runs, w, `${k}.${c}.p`, tip, face, { justifyContent: side })
               ?? (isHeader
                 ? <Text bold color={t.tableHeader}>{runs.some(n => n.kind === 'footnote') ? renderInline(el, style, runs, `${k}.${c}`) : inlineText(runs)}</Text>
                 : mirror && inlineText(content).trim() === '' ? <Text>{' '.repeat(w)}</Text>
-                : <Text color={t.tableText}>{renderInline(el, style, content, `${k}.${c}`)}</Text>)}
+                : <Text {...face}>{renderInline(el, style, content, `${k}.${c}`, numberFace)}</Text>)}
           </Box>
         )
         return [i > 0 && (box ? border(`${k}.${c}s`, wall(' │ ')) : spacer(`${k}.${c}g`)), cellBox]
@@ -1032,34 +1168,34 @@ const renderTable = (el: ElementTable, style: Style, block: Extract<Block, { kin
     </Box>
   )
 
-  const wrappedRow = (cells: Inline[][], k: string, isHeader: boolean) => {
-    if (style.gridFace) return [row(cells, k, isHeader, laidWall(el, style))]
-    if (!isHeader && cells.some(hasLink)) return [row(cells, k, isHeader, clipped(Math.max(1, ...widths.map((w, c) => mostLines(displayText(cells[c]!), w)))))]
+  const wrappedRow = (cells: Inline[][], k: string, isHeader: boolean, at?: number) => {
+    if (style.gridFace) return [row(cells, k, isHeader, laidWall(el, style), at)]
+    if (!isHeader && cells.some(hasLink)) return [row(cells, k, isHeader, clipped(Math.max(1, ...widths.map((w, c) => mostLines(shown(cells[c]!), w)))), at)]
     const wrapped = widths.map((w, c) => {
       const content = cells[c]!
       if (natural[c]! <= w && !inlineText(content).includes('\n')) return [content]
       return wrapInline(isHeader ? headerRuns(content) : content, w)
     })
     return Array.from({ length: Math.max(...wrapped.map(l => l.length)) }, (_, i) =>
-      row(wrapped.map(l => l[i] ?? []), `${k}.${i}`, isHeader))
+      row(wrapped.map(l => l[i] ?? []), `${k}.${i}`, isHeader, undefined, at))
   }
 
   if (box) {
-    const lines: RenderElement[] = [edge(`${key}.t`, '┌─┬┐'), ...wrappedRow(block.header, `${key}.h`, true), edge(`${key}.hr`, '╞═╪╡')]
-    block.rows.forEach((r, i) => {
-      if (i > 0) lines.push(edge(`${key}.r${i}r`, '├─┼┤'))
-      lines.push(...wrappedRow(r, `${key}.r${i}`, false))
+    const lines: RenderElement[] = [edge(`${key}.t`, '┌─┬┐'), ...wrappedRow(drawn.header, `${key}.h`, true), edge(`${key}.hr`, '╞═╪╡')]
+    layout.rows.forEach((r, i) => {
+      if (i > 0) lines.push(edge(`${key}.r${i}r`, groupEdge(style.groupTable, group, i, statusEdge(style.statusMatrix, layout.buckets, i - 1, '├─┼┤', '╞═╪╡'), '╞═╪╡')))
+      lines.push(...wrappedRow(r, `${key}.r${i}`, false, rowAt?.get(r)))
     })
     lines.push(edge(`${key}.b`, '└─┴┘'))
-    return <Box key={key} flexDirection="column" {...tableRoot(style, flip)}>{lines}</Box>
+    return <Box key={key} flexDirection="column" {...tableRoot(style, flip)}>{lines}{foot}{test}{spark}</Box>
   }
 
-  const body: RenderElement[] = [row(block.header, `${key}.h`, true), rule(`${key}.hr`, true)]
-  block.rows.forEach((r, i) => {
-    body.push(row(r, `${key}.r${i}`, false))
-    if (style.tableStyle !== 'minimal' && i < block.rows.length - 1) body.push(rule(`${key}.r${i}r`, false))
+  const body: RenderElement[] = [row(drawn.header, `${key}.h`, true), rule(`${key}.hr`, true)]
+  layout.rows.forEach((r, i) => {
+    body.push(row(r, `${key}.r${i}`, false, undefined, rowAt?.get(r)))
+    if (style.tableStyle !== 'minimal' && i < layout.rows.length - 1) body.push(rule(`${key}.r${i}r`, heavyBetween(style, layout.buckets, group, i)))
   })
-  return <Box key={key} flexDirection="column" {...tableRoot(style, flip)}>{body}</Box>
+  return <Box key={key} flexDirection="column" {...tableRoot(style, flip)}>{body}{foot}{test}{spark}</Box>
 }
 
 const renderHeading = (el: ElementTable, style: Style, block: Extract<Block, { kind: 'heading' }>, key: string) => {
@@ -1143,7 +1279,7 @@ const renderQuote = (el: ElementTable, style: Style, block: Extract<Block, { kin
   const { Box } = el
   const t = style.theme
   const inner = columns - 2
-  const lines = heightOf(block.blocks, inner)
+  const lines = heightOf(block.blocks, inner, style)
   const body = <Box flexDirection="column" rowGap={1}>{renderNested(el, { ...style, inside: 'quote' }, block.blocks, inner, key, copy, fold, tip)}</Box>
   if (!mirrored(style) && flowOf(style, leadInline(block.blocks), inner)?.base === 'R') {
     return (
@@ -1169,7 +1305,7 @@ const renderAlert = (el: ElementTable, style: Style, block: Extract<Block, { kin
   const label = block.level[0]!.toUpperCase() + block.level.slice(1)
   const body = block.blocks.length ? <Box flexDirection="column" rowGap={1}>{renderNested(el, { ...style, inside: 'alert' }, block.blocks, inner, key, copy, fold, tip)}</Box> : null
   if (hebrew && mirrored(style)) {
-    const lines = 1 + (block.blocks.length ? 1 + heightOf(block.blocks, inner) : 0)
+    const lines = 1 + (block.blocks.length ? 1 + heightOf(block.blocks, inner, style) : 0)
     const edge = (k: string) => <Text key={k} color={color}>{WALL + '─'.repeat(inner + 2) + WALL}</Text>
     return (
       <Box key={key} flexDirection="column" alignSelf="flex-start">
@@ -1199,7 +1335,7 @@ const listSide = (style: Style, block: Extract<Block, { kind: 'list' }>): 'R' | 
   return mostlyRtl(style, block.items.map(item => item.inline)) ? 'R' : 'L'
 }
 
-const laidRow = (style: Style) => (style.gridFace ? { alignItems: 'flex-start' as const } : {})
+const laidRow = (style: Style) => (style.gridFace ? { alignItems: 'flex-start' as const, ...laidLine(style) } : {})
 
 const laidMarker = ({ Box }: ElementTable, style: Style, marker: RenderElement) => (style.gridFace ? <Box flexShrink={0}>{marker}</Box> : marker)
 
@@ -1291,7 +1427,7 @@ const renderList = (el: ElementTable, style: Style, block: Extract<Block, { kind
 
 export type CopyButton = (text: string | (() => string), key: string, label?: string, rich?: (() => string) | 'png', hues?: () => Hues) => RenderElement | null
 export type Hues = Ink[][]
-export type Drawn = Map<number, { element?: RenderElement; art?: string; hues?: () => Hues; note?: string }>
+export type Drawn = Map<number, { element?: RenderElement; art?: string; hues?: () => Hues; note?: string; scales?: boolean }>
 export type FoldLook = { label?: string; face?: (folded: boolean) => RenderElement }
 export type Fold = (id: string, hidden: number, key: string, look?: FoldLook) => { folded: boolean; element: RenderElement; faced: boolean; around?: (rows: RenderElement, hover: TextHoverProps) => RenderElement } | null
 export type Tip = (note: number) => (() => void) | undefined
@@ -1341,6 +1477,22 @@ const copySource = (style: Style, block: Block): string | undefined =>
   : block.kind === 'quote' || block.kind === 'alert' ? unquoted(block).join('\n')
   : undefined
 
+const sectionOf = (blocks: Block[], b: number): Block[] => {
+  const head = blocks[b]
+  if (head?.kind !== 'heading') return []
+  const end = blocks.findIndex((block, i) => i > b && block.kind === 'heading' && block.level <= head.level)
+  return blocks.slice(b + 1, end < 0 ? undefined : end).filter(block => block.kind !== 'notes')
+}
+
+const sectionSource = (style: Style, blocks: Block[], b: number): string | undefined => {
+  if (!style.sectionCopyButtons || style.inside) return undefined
+  const section = sectionOf(blocks, b)
+  if (!section.length || (section.length === 1 && copySource(style, section[0]!) !== undefined)) return undefined
+  return section.map(block => block.raw).join('\n\n')
+}
+
+const blockSource = (style: Style, blocks: Block[], b: number): string | undefined => copySource(style, blocks[b]!) ?? sectionSource(style, blocks, b)
+
 export const drawMath = (el: ElementTable, style: Style, blocks: Block[], drawn: Drawn = new Map()): Drawn => {
   for (const [i, block] of blocks.entries()) {
     const tex = drawn.has(i) ? null : mathOf(block)
@@ -1376,7 +1528,7 @@ export const markerRoom = (style: Style): number => (style.copyButtons && style.
 
 const codeLabel = (block: Extract<Block, { kind: 'code' }>): string => `── ${block.lang || 'code'}`
 
-type Float = { needs: number; marker: RenderElement; element: RenderElement }
+type Float = { needs: number; marker: RenderElement }
 
 const buttonText = (button: RenderElement | null | undefined): string | undefined =>
   button?.type === 'Button' ? `[ ${button.props.label} ]` : button?.type === 'Text' ? (button.children ?? []).filter((c): c is string => typeof c === 'string').join('') : undefined
@@ -1385,11 +1537,10 @@ const keyOf = (button: RenderElement): string => String(('props' in button ? (bu
 
 const markedRow = ({ Box }: ElementTable, key: string, element: RenderElement, float: Float, start: boolean) => (
   <Box key={key} flexDirection="column" {...(start ? { alignItems: 'flex-end' as const } : { alignSelf: 'flex-start' as const })}>
-    <Box flexDirection="row" columnGap={1} minWidth={float.needs} {...(start ? { justifyContent: 'flex-end' as const } : {})}>
+    <Box flexDirection="row" columnGap={1} minWidth={float.needs} justifyContent="space-between">
       {start ? float.marker : null}
       {element}
       {start ? null : float.marker}
-      {float.element}
     </Box>
   </Box>
 )
@@ -1418,15 +1569,17 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
           ) : (
             <Text dimColor>⧉</Text>
           )}
+          {popup(kept[0]!) ? (
+            <Box position="absolute" {...(low ? { bottom: 0 } : { top: 0 })} {...(start ? { left: 0 } : { right: 0 })} display="none" hover={{ scope, display: 'flex' }}>{kept.flatMap((button, i) => (i ? [<Text key={`gap${i}`}> </Text>, button] : [button]))}</Box>
+          ) : null}
         </Box>
       ),
-      element: popup(kept[0]!) ? <Box position="absolute" {...(low ? { bottom: 0 } : { top: 0 })} {...(start ? { left: 0 } : { right: 0 })} display="none" hover={{ scope, display: 'flex' }}>{kept.flatMap((button, i) => (i ? [<Text key={`gap${i}`}> </Text>, button] : [button]))}</Box> : <Box key={`${scope}:none`} display="none" />,
     }
   }
   const shown = blocks.map(block => drawable(block, style))
   const rtlTables = shown.map(block => style.reorder && block.kind === 'table' && isRtlTable(style, block))
   const buttons = blocks.map((block, b) => {
-    const text = hover && holdsOnlyEmptyCode(block) ? undefined : copySource(style, block)
+    const text = hover && holdsOnlyEmptyCode(block) ? undefined : blockSource(style, blocks, b)
     const isPlainCode = block.kind === 'code' && !drawn.get(b)?.element
     const { art, grid, hues } = artsOf(drawn.get(b), block, style.theme, rtlTables[b]!)
     const first = text === undefined || isPlainCode ? null : copy?.(text, `copy${b}`, block.kind === 'table' ? '⧉ md' : art === undefined ? undefined : '⧉ source')
@@ -1476,7 +1629,6 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
             <Box flexDirection="row" justifyContent="space-between" columnGap={head ? 1 : 4}>
               <Text color={t.codeComment}>{label}</Text>
               {head ? head.marker : button}
-              {head?.element}
             </Box>
             {codeBody(el, style, rows, gutter, held, toggle?.element ?? null)}
           </Box>
@@ -1516,7 +1668,7 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
         {png}
       </el.Box>
     ) : first
-    return (block.kind === 'quote' || block.kind === 'alert') && !mirrored(style) ? (
+    return (block.kind === 'quote' || block.kind === 'alert' || block.kind === 'heading') && !mirrored(style) ? (
       <Box key={`c${b}`} flexDirection="row" columnGap={2} {...(rtl ? { justifyContent: 'flex-end' as const } : {})}>
         {element}
         {opensWithCopy(block) ? <Box alignSelf="flex-end">{button}</Box> : button}
@@ -1540,7 +1692,7 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
     while (isFigure(b + 1)) b++
     out.push(
       <Box key={`row${start}`} flexDirection="row" flexWrap="wrap" columnGap={4} rowGap={1}>
-        {copied.slice(start, b + 1).map((figure, i) => <Box key={`f${start + i}`} flexShrink={0}>{figure}</Box>)}
+        {copied.slice(start, b + 1).map((figure, i) => <Box key={`f${start + i}`} flexShrink={style.gridFace && (blocks[start + i]?.kind === 'table' || drawn.get(start + i)?.scales) ? 1 : 0}>{figure}</Box>)}
       </Box>,
     )
   }
@@ -2155,6 +2307,7 @@ const editedIntoBeing = (output: unknown, rows: DiffLine[]): WholeFile | undefin
 }
 
 const written = (output: unknown): WholeFile | undefined => {
+  if (output === null || typeof output !== 'object') return undefined
   const out = output as { type?: unknown; filePath?: unknown; content?: unknown }
   return out.type === 'create' && typeof out.filePath === 'string' && typeof out.content === 'string' ? { kind: 'created', path: out.filePath, lines: lines(out.content) } : undefined
 }
@@ -2455,7 +2608,7 @@ const quietToolRow = (el: ElementTable, style: Style, row: ToolRow, columns: num
 }
 
 export const renderToolRow = (el: ElementTable, style: Style, row: ToolRow, columns = DEFAULT_COLUMNS): RenderElement => {
-  if (style.toolOutput === 'quiet') return quietToolRow(el, style, row, columns)
+  if (style.toolOutput !== 'full') return quietToolRow(el, style, row, columns)
   const { Text } = el
   const t = style.theme
   const isShell = row.tool === 'Bash' || row.tool === 'PowerShell'
@@ -2776,16 +2929,29 @@ const commandLine = (el: ElementTable, style: Style, row: ToolRow, line: string,
   ))
 }
 
-export const renderExpandedShell = (el: ElementTable, style: Style, row: ToolRow & { output?: unknown }, columns?: number): RenderElement => {
+const commandLines = (el: ElementTable, style: Style, row: ToolRow, columns: number | undefined): RenderElement[] => {
+  const command = (field(row.input, 'command') ?? '').split('\n')
+  return command.flatMap((line, i) => commandLine(el, style, row, line, i, i === command.length - 1, columns === undefined ? undefined : columns - COMMAND_LEAD))
+}
+
+const renderShellCommand = (el: ElementTable, style: Style, row: ToolRow, columns?: number): RenderElement => (
+  <el.Box flexDirection="column">{commandLines(el, style, row, columns)}</el.Box>
+)
+
+export const renderExpandedCall = (el: ElementTable, style: Style, row: ToolRow & { output?: unknown }, withOutput: boolean, columns?: number): RenderElement | undefined => {
+  if ((row.tool !== 'Bash' && row.tool !== 'PowerShell') || typeof row.output === 'string') return undefined
+  return withOutput ? renderExpandedShell(el, style, row, columns) : renderShellCommand(el, style, row, columns)
+}
+
+const renderExpandedShell = (el: ElementTable, style: Style, row: ToolRow & { output?: unknown }, columns?: number): RenderElement => {
   const { Box, Text } = el
   const t = style.theme
-  const command = (field(row.input, 'command') ?? '').split('\n')
   const out = row.output !== null && typeof row.output === 'object' ? (row.output as Record<string, unknown>) : {}
   const shown: OutputLine[] = [...lines(out.stdout).map(text => ({ text })), ...lines(out.stderr).map(text => ({ text, color: t.codeFlag }))]
   const { rows, hidden } = outputRows(style, shown, columns === undefined ? undefined : columns - SHELL_FRAME)
   return (
     <Box flexDirection="column">
-      {command.flatMap((line, i) => commandLine(el, style, row, line, i, i === command.length - 1, columns === undefined ? undefined : columns - COMMAND_LEAD))}
+      {commandLines(el, style, row, columns)}
       {row.isRunning ? null : (
         <Box paddingLeft={BOX_INDENT}>
           <Box flexDirection="column" alignSelf="flex-start" borderStyle="round" borderColor={t.codeComment} paddingRight={1}>
@@ -2823,6 +2989,11 @@ export const groupSummary = (calls: readonly { tool: string }[]): string => {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
+const quietResults = (el: ElementTable, style: Style, calls: readonly (ToolRow & { output?: unknown })[]): RenderElement[] => {
+  const isShell = (c: ToolRow) => c.tool === 'Bash' || c.tool === 'PowerShell'
+  return calls.flatMap((c, i) => (c.isErrored || c.output === undefined || !isShell(c) || isReadOnlyCall(c.tool, c.input) ? [] : [<el.Box key={`o${i}`}>{renderShellResult(el, style, c.output)}</el.Box>]))
+}
+
 const quietToolGroup = (el: ElementTable, style: Style, calls: readonly (ToolRow & { output?: unknown })[], isActive: boolean, columns: number): RenderElement => {
   const t = style.theme
   const failed = calls.filter(c => c.isErrored)
@@ -2831,8 +3002,7 @@ const quietToolGroup = (el: ElementTable, style: Style, calls: readonly (ToolRow
   const labels = calls.map(c => callPieces(c, style)).filter((l, i, all) => pieceText(l) !== (i ? pieceText(all[i - 1]!) : undefined))
   const label = labels.map(pieceText).join(' · ')
   const reasons = failed.map((c, i) => renderFailure(el, style, c.output, `r${i}`)).filter((r): r is RenderElement => r !== undefined)
-  const isShell = (c: ToolRow) => c.tool === 'Bash' || c.tool === 'PowerShell'
-  const results = calls.flatMap((c, i) => (c.isErrored || c.output === undefined || !isShell(c) || isReadOnlyCall(c.tool, c.input) ? [] : [<el.Box key={`o${i}`}>{renderShellResult(el, style, c.output)}</el.Box>]))
+  const results = style.toolOutput === 'rows' ? [] : quietResults(el, style, calls)
   const row = toolLayout(el, style, columns, label, dot, running, (
     <el.Text wrap="truncate-end" dimColor={toolDim(style)}>{drawPieces(el, style, labels.flatMap((l, i) => (i ? [{ text: ' · ' }, ...l] : l)))}</el.Text>
   ))
@@ -2847,7 +3017,7 @@ const quietToolGroup = (el: ElementTable, style: Style, calls: readonly (ToolRow
 }
 
 export const renderToolGroup = (el: ElementTable, style: Style, calls: readonly (ToolRow & { output?: unknown })[], isActive: boolean, columns = DEFAULT_COLUMNS): RenderElement => {
-  if (style.toolOutput === 'quiet') return quietToolGroup(el, style, calls, isActive, columns)
+  if (style.toolOutput !== 'full') return quietToolGroup(el, style, calls, isActive, columns)
   const { Text } = el
   const t = style.theme
   const failed = calls.filter(c => c.isErrored).length
@@ -3058,7 +3228,7 @@ const fillOf = (style: Style): string | undefined => {
 
 const inked = (style: Style): Style => {
   const fill = fillOf(style)
-  const ink = fill && HEX.test(fill) && !darkBackground(fill) ? style.theme.codeText : undefined
+  const ink = fill && HEX.test(fill) && (style.gridFace || !darkBackground(fill)) ? style.theme.codeText : undefined
   return ink ? { ...style, ink, theme: { ...style.theme, tableText: style.theme.tableText ?? ink } } : style
 }
 

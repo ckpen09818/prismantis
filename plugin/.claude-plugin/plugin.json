@@ -1,6 +1,6 @@
 {
   "name": "prismantis",
-  "version": "0.45.3",
+  "version": "0.49.2",
   "description": "Colorful, themeable rendering for Claude Code replies: tables, headings, code, numbers, paths and links.",
   "author": {
     "name": "Nahum Litvin",
@@ -54,8 +54,20 @@
         "solarized-dark",
         "solarized-light",
         "neon",
+        "kanagawa-wave",
+        "morning-haze",
         "mono",
         "random"
+      ]
+    },
+    "desktopColors": {
+      "type": "string",
+      "title": "Desktop app colors",
+      "description": "match also paints the Claude Code desktop app (Code tab) in the theme's colors, and switches it to light mode for a light theme. Needs Claude Code 2.1.324 or later; the terminal and VS Code keep their own colors. It replaces any other mod's desktop theme, and turning it back to off restores the app's own look. off leaves the app as it is.",
+      "default": "off",
+      "options": [
+        "off",
+        "match"
       ]
     },
     "headingStyle": {
@@ -81,6 +93,69 @@
         "grid",
         "minimal"
       ]
+    },
+    "tableLayout": {
+      "type": "string",
+      "title": "Table layout",
+      "description": "classic: today's look, columns share the width and shrink to the terminal. auto: the same, and a table too wide to fit even its longest words stacks each row as label and value pairs. compact: every column sits at its longest word, so the table stays narrow and long cells wrap. stacked: every table draws as label and value pairs. In the desktop app the lines of every layout draw as thin colored boxes to a share of the width.",
+      "default": "classic",
+      "options": ["classic", "auto", "compact", "stacked"]
+    },
+    "statusMatrix": {
+      "type": "string",
+      "title": "Status matrix",
+      "description": "How the status cells of a table draw. A status column is the one whose cells are things like ✓, passed, failed or pending. off (the default) keeps tables as written. color: those cells draw in theme colors (green for a pass, red for a failure, amber for a warning, gray for a wait). summary: also draws a count line under the table, like `✓ 2 · ✗ 1 · ⚠ 1`. group: also reorders rows by status and draws a heavy rule where a group changes.",
+      "default": "off",
+      "options": ["color", "summary", "group", "off"]
+    },
+    "testMatrix": {
+      "type": "string",
+      "title": "Test report",
+      "description": "A report line under a table that reads like test results: a status column of things like ✓ or failed next to durations like 120 ms. report draws the share of the run that passed, a count of every other kind of result and the time all of it took, in the theme's status colors; it replaces the statusMatrix count line when both draw. off (the default) keeps tables as written.",
+      "default": "off",
+      "options": ["report", "off"]
+    },
+    "benchTable": {
+      "type": "string",
+      "title": "Benchmarks",
+      "description": "How a table that compares benchmarks draws: a column of changes like -10% or +3%. off (the default) keeps tables as written. color draws each change in the theme's colors, green for an improvement and red for a regression; timings read as lower is better, unless a header speaks of req/s, throughput or a score. trend also draws a sparkline of the runs under the table, each step colored by whether it improved.",
+      "default": "off",
+      "options": ["trend", "color", "off"]
+    },
+    "schemaTable": {
+      "type": "string",
+      "title": "Schema",
+      "description": "How a table that describes a database schema draws: a column of fields beside a column of types. off (the default) keeps tables as written. types draws each type cell in the theme's colors by its family: text types like varchar in the string color, numeric types like int in the number color, booleans in the emphasis color, time types like timestamp in the link color. keys draws the constraint cells: PK in the accent color, FK in the link color, unique and index cells in gray. full does both.",
+      "default": "off",
+      "options": ["full", "types", "keys", "off"]
+    },
+    "compareTable": {
+      "type": "string",
+      "title": "Comparison",
+      "description": "How a table that compares options draws: a column of scores beside a column of ranks. off (the default) keeps tables as written. rank draws the rank cells in the theme's colors: 1 in the accent color, 2 and 3 in the link color. pick draws the score cell of the top score in the theme's improvement color and bold, so it stands out in a theme where that color is also the number color. full does both.",
+      "default": "off",
+      "options": ["full", "rank", "pick", "off"]
+    },
+    "apiTable": {
+      "type": "string",
+      "title": "API reference",
+      "description": "How an API reference table draws: a method column whose cells read like HTTP verbs. off (the default) keeps tables as written. verbs draws each method cell by what the verb does: reads like GET in the link color, writes like POST in the string color, DELETE in the removed color, other verbs in gray. auth draws the scheme cells of an auth column: Bearer, OAuth, API key and JWT in the accent color. full does both.",
+      "default": "off",
+      "options": ["full", "verbs", "auth", "off"]
+    },
+    "kvTable": {
+      "type": "string",
+      "title": "Key-value inspector",
+      "description": "How a table that lists configuration draws: a column of options beside columns of values, sources or defaults. off (the default) keeps tables as written. sources draws each source cell in the theme's colors by where it says the value comes from: env in the link color, config in the string color, default in gray. overrides draws the value cell in the accent color when the row's value differs from its default. full does both.",
+      "default": "off",
+      "options": ["full", "sources", "overrides", "off"]
+    },
+    "groupTable": {
+      "type": "string",
+      "title": "Grouped table",
+      "description": "How a table that groups its rows draws: the first column whose cells repeat in runs, like a column of services or teams. off (the default) keeps tables as written. merge draws each group label once, in the accent color, and blanks the repeats under it. count also adds the group's size to the label, like api (2). full also draws a heavy rule where one group ends and the next begins. A column of numbers never groups, and a table already grouped by statusMatrix keeps its status grouping.",
+      "default": "off",
+      "options": ["full", "count", "merge", "off"]
     },
     "promptStyle": {
       "type": "string",
@@ -159,9 +234,9 @@
     "toolOutput": {
       "type": "string",
       "title": "Tool output",
-      "description": "How much of a tool call shows. full: what Claude Code shows. quiet: rows say in plain words what a call did, reads, searches and listings show only their row, other shell commands show their first lines, edits keep their diff, a failed call shows the last line of its error, and a refused call its full reason. Needs toolRows on.",
+      "description": "How much of a tool call shows. full: what Claude Code shows. quiet: rows say in plain words what a call did, reads, searches and listings show only their row, other shell commands show their first lines, edits keep their diff, a failed call shows the last line of its error, and a refused call its full reason. rows: quiet, but a call that worked shows only its row, shell output included; edits keep their diff and failures their reason. Needs toolRows on.",
       "default": "full",
-      "options": ["full", "quiet"]
+      "options": ["full", "quiet", "rows"]
     },
     "taskStyle": {
       "type": "string",
@@ -212,6 +287,12 @@
       "title": "Highlight paths",
       "description": "Color file paths like ~/src/app.ts or /var/log.",
       "default": true
+    },
+    "fullPaths": {
+      "type": "boolean",
+      "title": "Full paths",
+      "description": "Show a path that opens on click in full: ~/notes.md, ./src/app.ts and src/app.ts draw as their absolute path.",
+      "default": false
     },
     "accentColor": {
       "type": "string",
@@ -494,11 +575,23 @@
       "description": "Put a copy button on lists, quotes and alerts. Off keeps the buttons on code blocks, tables, diagrams and whole replies. Needs copyButtons on.",
       "default": true
     },
+    "sectionCopyButtons": {
+      "type": "boolean",
+      "title": "Copy buttons on headings",
+      "description": "Put a copy button on each heading that copies its section as markdown: every block under it up to the next heading of the same or a higher level. A heading whose section is empty, or is one block that has its own button, gets none. Needs copyButtons on.",
+      "default": false
+    },
     "issueHint": {
       "type": "boolean",
       "title": "Issue hint",
       "description": "On your first prompt and every tenth after it, tell the model it can offer, after asking you, to open a minimal repro issue on prismantis when you say something drew wrong. About 35 tokens each time.",
       "default": true
+    },
+    "keyPointHint": {
+      "type": "boolean",
+      "title": "Key point hint",
+      "description": "Attach a short note, read by the model and never shown, to each prompt you type or another plugin sends, asking for each reply's key points in bold. Set strongColor too if bold looks close to the body text. About 80 tokens per prompt.",
+      "default": false
     },
     "diagramHints": {
       "type": "boolean",

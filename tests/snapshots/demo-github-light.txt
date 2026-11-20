@@ -171,6 +171,1444 @@
   <Text color=#6e7781>
     "└───────────────┴─────────────────────────┴───────────────────────┴───────┘"
 <Box>
+  <Text color=#0550ae bold>
+    <Text>
+      "Attachments"
+  <Text color=#0550ae>
+    "━━━━━━━━━━━"
+<Text>
+  <Text>
+    "Long paths and checksums never split mid-word, so a column cannot shrink below them. When those minimum widths no longer fit the reply, "
+  <Text color=#0550ae>
+    "tableLayout"
+  <Text>
+    " "
+  <Text color=#0550ae>
+    "auto"
+  <Text>
+    " and "
+  <Text color=#0550ae>
+    "stacked"
+  <Text>
+    " draw the table as one card per row, and "
+  <Text color=#0550ae>
+    "compact"
+  <Text>
+    " keeps the columns at their longest word:"
+<Box>
+  <Text color=#6e7781>
+    "┌─────────────────────────────────────────────────┬────────────────────────────────────────────────┐"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text color=#953800 bold>
+        "Scroll"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Checksum"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "╞═════════════════════════════════════════════════╪════════════════════════════════════════════════╡"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text color=#116329>
+          "~/jade-palace/noodle-scrolls/scrolls/scroll-07-"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b82"
+    <Text color=#6e7781>
+      " │"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text color=#116329>
+          "training-notes.md"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "2cd15d6c15b0f00a08"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────────────────────────────────────────────┼────────────────────────────────────────────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text color=#116329>
+          "/srv/dojo/moves.md"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "2c26b46b68ffc68ff99b453c1d30413413422d706483bf"
+    <Text color=#6e7781>
+      " │"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "a0f98a5e886266e7ae"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "└─────────────────────────────────────────────────┴────────────────────────────────────────────────┘"
+<Box>
+  <Text color=#0550ae bold>
+    <Text>
+      "Status matrix"
+  <Text color=#0550ae>
+    "━━━━━━━━━━━━━"
+<Text>
+  <Text>
+    "When a table has a status column — the one whose cells are things like ✓, passed, failed or pending — "
+  <Text color=#0550ae>
+    "statusMatrix"
+  <Text>
+    " "
+  <Text color=#0550ae>
+    "color"
+  <Text>
+    " draws those cells in theme colors: green for a pass, red for a failure, amber for a warning, gray for a wait. "
+  <Text color=#0550ae>
+    "summary"
+  <Text>
+    " adds a count line under the table and "
+  <Text color=#0550ae>
+    "group"
+  <Text>
+    " reorders rows by status with a heavy rule where the status changes. The default "
+  <Text color=#0550ae>
+    "off"
+  <Text>
+    " keeps tables as written:"
+<Box>
+  <Text color=#6e7781>
+    "┌─────────────┬───────┬─────────┐"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text color=#953800 bold>
+        "Suite"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Cases"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Result"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "╞═════════════╪═══════╪═════════╡"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "Unit"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "412"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "✓"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────────┼───────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "Propagation"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "88"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "failed"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────────┼───────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "Smoke"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "24"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "pending"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────────┼───────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "Regression"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "130"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "✓"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "└─────────────┴───────┴─────────┘"
+<Box>
+  <Text color=#0550ae bold>
+    <Text>
+      "Test report"
+  <Text color=#0550ae>
+    "━━━━━━━━━━━"
+<Text>
+  <Text>
+    "When a table draws a run — a status column of things like ✓ or failed next to durations like "
+  <Text color=#0550ae>
+    "120"
+  <Text>
+    " ms — "
+  <Text color=#0550ae>
+    "testMatrix"
+  <Text>
+    " "
+  <Text color=#0550ae>
+    "report"
+  <Text>
+    " adds a line under the table with how much of the run passed, a count of every other kind of result and the time all of it took. The line reuses the status colors and replaces the "
+  <Text color=#0550ae>
+    "statusMatrix"
+  <Text>
+    " count line when both draw. The default "
+  <Text color=#0550ae>
+    "off"
+  <Text>
+    " keeps tables as written:"
+<Box>
+  <Text color=#6e7781>
+    "┌─────────┬────────┬─────────┐"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text color=#953800 bold>
+        "Check"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Time"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Result"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "╞═════════╪════════╪═════════╡"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "parse"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "120"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "✓"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼────────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "draw"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "4"
+        <Text>
+          " s"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "✓"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼────────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "scan"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "130"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "failed"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼────────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "typeset"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "2.6"
+        <Text>
+          " s"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "pending"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "└─────────┴────────┴─────────┘"
+<Box>
+  <Text color=#0550ae bold>
+    <Text>
+      "Benchmarks"
+  <Text color=#0550ae>
+    "━━━━━━━━━━"
+<Text>
+  <Text>
+    "When a table compares benchmarks — a column of changes like "
+  <Text color=#0550ae>
+    "-10%"
+  <Text>
+    " or +"
+  <Text color=#0550ae>
+    "3%"
+  <Text>
+    " beside two columns of runs — "
+  <Text color=#0550ae>
+    "benchTable"
+  <Text>
+    " draws each change in theme colors, green for an improvement and red for a regression; timings read as lower is better unless a header speaks of req/s, throughput or a score. "
+  <Text color=#0550ae>
+    "trend"
+  <Text>
+    " also draws a sparkline of the runs under the table, each step colored by whether it improved. The default "
+  <Text color=#0550ae>
+    "off"
+  <Text>
+    " keeps tables as written:"
+<Box>
+  <Text color=#6e7781>
+    "┌───────────┬─────────┬─────────┬────────┐"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text color=#953800 bold>
+        "Benchmark"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Before"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "After"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Change"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "╞═══════════╪═════════╪═════════╪════════╡"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "parse"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "12.4"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "11.1"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "-10%"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├───────────┼─────────┼─────────┼────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "layout"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "19.6"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "22.4"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "+"
+        <Text color=#0550ae>
+          "14%"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├───────────┼─────────┼─────────┼────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "paint"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "2.1"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "0.8"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "-62%"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "└───────────┴─────────┴─────────┴────────┘"
+<Box>
+  <Text color=#0550ae bold>
+    <Text>
+      "Schema"
+  <Text color=#0550ae>
+    "━━━━━━"
+<Text>
+  <Text>
+    "When a table describes a database schema — a column of fields beside a column of types — "
+  <Text color=#0550ae>
+    "schemaTable"
+  <Text>
+    " draws the type cells by their family: text types like varchar in the string color, numeric types like int in the number color, booleans in the emphasis color, time types like timestamp in the link color. "
+  <Text color=#0550ae>
+    "keys"
+  <Text>
+    " draws the constraint cells — PK in the accent color, FK in the link color, unique and index cells in gray — and "
+  <Text color=#0550ae>
+    "full"
+  <Text>
+    " does both. The default "
+  <Text color=#0550ae>
+    "off"
+  <Text>
+    " keeps tables as written:"
+<Box>
+  <Text color=#6e7781>
+    "┌────────────┬──────────────┬──────────────┬─────────┐"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text color=#953800 bold>
+        "Column"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Type"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Key"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Default"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "╞════════════╪══════════════╪══════════════╪═════════╡"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "id"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "uuid"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "PK"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├────────────┼──────────────┼──────────────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "email"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "varchar("
+        <Text color=#0550ae>
+          "255"
+        <Text>
+          ")"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "UNIQUE"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├────────────┼──────────────┼──────────────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "org_id"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "bigint"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "FK → orgs.id"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├────────────┼──────────────┼──────────────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "created_at"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "timestamp"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "now()"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "└────────────┴──────────────┴──────────────┴─────────┘"
+<Box>
+  <Text color=#0550ae bold>
+    <Text>
+      "Comparison"
+  <Text color=#0550ae>
+    "━━━━━━━━━━"
+<Text>
+  <Text>
+    "When a table compares options — a column of scores beside a column of ranks — "
+  <Text color=#0550ae>
+    "compareTable"
+  <Text>
+    " draws the rank cells as a medal: "
+  <Text color=#0550ae>
+    "1"
+  <Text>
+    " in the accent color, "
+  <Text color=#0550ae>
+    "2"
+  <Text>
+    " and "
+  <Text color=#0550ae>
+    "3"
+  <Text>
+    " in the link color, the same pairing the schema table's PK and FK use. "
+  <Text color=#0550ae>
+    "pick"
+  <Text>
+    " draws the score cell of the top score in the improvement green, the hue "
+  <Text color=#0550ae>
+    "benchTable"
+  <Text>
+    " gives an improvement, and bolds it so it stands out even in a theme where that green is also the number color, and "
+  <Text color=#0550ae>
+    "full"
+  <Text>
+    " does both. The default "
+  <Text color=#0550ae>
+    "off"
+  <Text>
+    " keeps tables as written:"
+<Box>
+  <Text color=#6e7781>
+    "┌─────────┬───────┬──────┐"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text color=#953800 bold>
+        "Option"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Score"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Rank"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "╞═════════╪═══════╪══════╡"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "mantis"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "9.2"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "1"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼───────┼──────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "origami"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "7.8"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "2"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼───────┼──────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "noodle"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "6.1"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "3"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼───────┼──────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "tofu"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "4.4"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "4"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "└─────────┴───────┴──────┘"
+<Box>
+  <Text color=#0550ae bold>
+    <Text>
+      "API reference"
+  <Text color=#0550ae>
+    "━━━━━━━━━━━━━"
+<Text>
+  <Text>
+    "When a table documents an API — a method column whose cells read like HTTP verbs — "
+  <Text color=#0550ae>
+    "apiTable"
+  <Text>
+    " draws the method cells by what the verb does: reads like GET in the link color, writes like POST in the string color, DELETE in the removed color, other verbs in gray. "
+  <Text color=#0550ae>
+    "auth"
+  <Text>
+    " draws the scheme cells of an auth column — Bearer, OAuth, API key, JWT — in the accent color, and "
+  <Text color=#0550ae>
+    "full"
+  <Text>
+    " does both. The default "
+  <Text color=#0550ae>
+    "off"
+  <Text>
+    " keeps tables as written:"
+<Box>
+  <Text color=#6e7781>
+    "┌────────┬─────────────────┬─────────┬──────────────────┐"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text color=#953800 bold>
+        "Method"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Endpoint"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Auth"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Description"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "╞════════╪═════════════════╪═════════╪══════════════════╡"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "GET"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#116329>
+          "/v1/scrolls"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "Bearer"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "List the scrolls"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├────────┼─────────────────┼─────────┼──────────────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "POST"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#116329>
+          "/v1/scrolls"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "Bearer"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "Add a scroll"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├────────┼─────────────────┼─────────┼──────────────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "DELETE"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#116329>
+          "/v1/scrolls/"
+        <Text>
+          ":id"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "API key"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "Remove a scroll"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├────────┼─────────────────┼─────────┼──────────────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "GET"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#116329>
+          "/v1/health"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "none"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "Liveness check"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "└────────┴─────────────────┴─────────┴──────────────────┘"
+<Box>
+  <Text color=#0550ae bold>
+    <Text>
+      "Key-value"
+  <Text color=#0550ae>
+    "━━━━━━━━━"
+<Text>
+  <Text>
+    "When a table lists configuration — a column of options beside columns of values, sources and defaults — "
+  <Text color=#0550ae>
+    "kvTable"
+  <Text>
+    " draws the source cells by where it says the value comes from: env in the link color, config in the string color, default in gray. "
+  <Text color=#0550ae>
+    "overrides"
+  <Text>
+    " draws the value cell in the accent color when the row's value differs from its default, and "
+  <Text color=#0550ae>
+    "full"
+  <Text>
+    " does both. The default "
+  <Text color=#0550ae>
+    "off"
+  <Text>
+    " keeps tables as written:"
+<Box>
+  <Text color=#6e7781>
+    "┌─────────┬────────┬─────────┬─────────┐"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text color=#953800 bold>
+        "Option"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Value"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Source"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Default"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "╞═════════╪════════╪═════════╪═════════╡"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "retries"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "5"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "env"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "3"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼────────┼─────────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "format"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "json"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "config"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "json"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼────────┼─────────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "timeout"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "30s"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "default"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "30s"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼────────┼─────────┼─────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "token"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "abc123"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "env"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "unset"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "└─────────┴────────┴─────────┴─────────┘"
+<Box>
+  <Text color=#0550ae bold>
+    <Text>
+      "Groups"
+  <Text color=#0550ae>
+    "━━━━━━"
+<Text>
+  <Text>
+    "When a table groups its rows — the first column whose cells repeat in runs, like a column of services or teams — "
+  <Text color=#0550ae>
+    "groupTable"
+  <Text>
+    " draws each group once: "
+  <Text color=#0550ae>
+    "merge"
+  <Text>
+    " labels the group in the accent color and blanks the repeats under it, "
+  <Text color=#0550ae>
+    "count"
+  <Text>
+    " also adds the group's size to its label, and "
+  <Text color=#0550ae>
+    "full"
+  <Text>
+    " also draws a heavy rule where one group ends and the next begins. A column of numbers never groups, and a table already grouped by status keeps its status grouping. The default "
+  <Text color=#0550ae>
+    "off"
+  <Text>
+    " keeps tables as written:"
+<Box>
+  <Text color=#6e7781>
+    "┌─────────┬─────────┬──────────┬────────┐"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text color=#953800 bold>
+        "Service"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Region"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "Requests"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text color=#953800 bold>
+        "p99"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "╞═════════╪═════════╪══════════╪════════╡"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "api"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "us-east"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "1"
+        <Text>
+          ".2M"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "84"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼─────────┼──────────┼────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "api"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "us-west"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "900k"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "91"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼─────────┼──────────┼────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "worker"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "us-east"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "2"
+        <Text>
+          ".4M"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "120"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼─────────┼──────────┼────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "worker"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "us-west"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "1"
+        <Text>
+          ".8M"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "132"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "├─────────┼─────────┼──────────┼────────┤"
+  <Box row>
+    <Text color=#6e7781>
+      "│ "
+    <Box>
+      <Text>
+        <Text>
+          "cron"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "us-east"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text>
+          "96k"
+    <Text color=#6e7781>
+      " │ "
+    <Box>
+      <Text>
+        <Text color=#0550ae>
+          "40"
+        <Text>
+          " ms"
+    <Text color=#6e7781>
+      " │"
+  <Text color=#6e7781>
+    "└─────────┴─────────┴──────────┴────────┘"
+<Box>
   <Box row>
     <Text color=#cf222e>
       "1. "
@@ -736,6 +2174,437 @@
   <Box>
     <Box>
       <Text>
+        <Text color=#1f2328>
+          "Training plan"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#8250df>
+          "▲"
+        <Text color=#1f2328>
+          " Fun"
+      <Text>
+        <Text color=#1f2328>
+          " Warm-ups                       "
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "                   Boss fights"
+      <Text>
+        <Text color=#1f2328>
+          "         "
+        <Text color=#0969da>
+          "1"
+        <Text color=#1f2328>
+          "                      "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "           "
+        <Text color=#0550ae>
+          "2"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#0969da>
+          "────────────────────────────────┼───────────────────────────────"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "                 "
+        <Text color=#8250df>
+          "3"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#1f2328>
+          " Chores                         "
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "                         Grind"
+      <Text>
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#8250df>
+          "▼"
+        <Text color=#1f2328>
+          " Dull"
+      <Text>
+        <Text color=#8250df>
+          "◄"
+        <Text color=#1f2328>
+          " Easy                                                    Hard "
+        <Text color=#8250df>
+          "►"
+      <Text>
+        <Text color=#0969da>
+          "1"
+        <Text color=#1f2328>
+          " Dumplings   "
+        <Text color=#0550ae>
+          "2"
+        <Text color=#1f2328>
+          " Kicks   "
+        <Text color=#8250df>
+          "3"
+        <Text color=#1f2328>
+          " Stairs"
+  <Box>
+    <Box>
+      <Text>
+        <Text color=#1f2328>
+          "      "
+        <Text color=#0969da>
+          "┌─ Clothes ────┬─ "
+        <Text color=#1f2328>
+          "Jacket"
+      <Text>
+        <Text color=#1f2328>
+          "      "
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "              "
+        <Text color=#0969da>
+          "└─ "
+        <Text color=#1f2328>
+          "Boots"
+      <Text>
+        <Text color=#8250df>
+          "Trip"
+        <Text color=#0969da>
+          " ─┼"
+        <Text color=#0550ae>
+          "─ Food ───────┬─ "
+        <Text color=#1f2328>
+          "Snacks"
+      <Text>
+        <Text color=#1f2328>
+          "      "
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "              "
+        <Text color=#0550ae>
+          "└─ "
+        <Text color=#1f2328>
+          "Water"
+      <Text>
+        <Text color=#1f2328>
+          "      "
+        <Text color=#0969da>
+          "└"
+        <Text color=#8250df>
+          "─ Night gear ─┬─ "
+        <Text color=#1f2328>
+          "Map"
+      <Text>
+        <Text color=#1f2328>
+          "                     "
+        <Text color=#8250df>
+          "└─ "
+        <Text color=#1f2328>
+          "Torch"
+  <Box>
+    <Box>
+      <Text>
+        <Text color=#1f2328>
+          "Morning run"
+      <Text>
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0969da>
+          "Start ───────────────────────── "
+        <Text color=#0550ae>
+          "Run ───────────────────────────"
+      <Text>
+        <Text color=#0969da>
+          "5"
+        <Text color=#1f2328>
+          "                                "
+        <Text color=#0969da>
+          "╭───────"
+        <Text color=#1a7f37>
+          "●"
+        <Text color=#0969da>
+          "───────╮"
+      <Text>
+        <Text color=#1f2328>
+          "                                 "
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "               "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#1f2328>
+          "                 "
+        <Text color=#0969da>
+          "╭───────"
+        <Text color=#1f2328>
+          "●"
+        <Text color=#0969da>
+          "───────╯"
+        <Text color=#1f2328>
+          "               "
+        <Text color=#0969da>
+          "│"
+      <Text>
+        <Text color=#1f2328>
+          "                 "
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "                               "
+        <Text color=#0969da>
+          "╰───────"
+        <Text color=#cf222e>
+          "●"
+      <Text>
+        <Text color=#0969da>
+          "1"
+        <Text color=#1f2328>
+          "        "
+        <Text color=#cf222e>
+          "●"
+        <Text color=#0969da>
+          "───────╯"
+      <Text>
+        <Text color=#1f2328>
+          "       Alarm          Stretch        Park loop         Hill"
+      <Text>
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0969da>
+          "      Me              Me            Me, Dog           Me"
+  <Box>
+    <Box>
+      <Text>
+        <Text color=#0969da>
+          "To pack · 2"
+        <Text color=#1f2328>
+          "                     "
+        <Text color=#0550ae>
+          "Packing · 1"
+        <Text color=#1f2328>
+          "                     "
+        <Text color=#8250df>
+          "Packed · 0"
+      <Text>
+        <Text color=#0969da>
+          "╭────────────────────────────╮"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0550ae>
+          "╭────────────────────────────╮"
+      <Text>
+        <Text color=#0969da>
+          "│ "
+        <Text color=#1f2328>
+          "Tent poles"
+        <Text color=#0969da>
+          "                 │"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0550ae>
+          "│ "
+        <Text color=#1f2328>
+          "First aid kit"
+        <Text color=#0550ae>
+          "              │"
+      <Text>
+        <Text color=#0969da>
+          "│ Bo"
+        <Text color=#cf222e>
+          " · Very High"
+        <Text color=#0969da>
+          "             │"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0550ae>
+          "│ "
+        <Text color=#0969da>
+          "Mei"
+        <Text color=#0550ae>
+          "                        │"
+      <Text>
+        <Text color=#0969da>
+          "╰────────────────────────────╯"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0550ae>
+          "╰────────────────────────────╯"
+      <Text>
+        <Text color=#0969da>
+          "╭────────────────────────────╮"
+      <Text>
+        <Text color=#0969da>
+          "│ "
+        <Text color=#1f2328>
+          "Stove fuel"
+        <Text color=#0969da>
+          "                 │"
+      <Text>
+        <Text color=#0969da>
+          "│ CAMP-3                     │"
+      <Text>
+        <Text color=#0969da>
+          "╰────────────────────────────╯"
+  <Box>
+    <Box>
+      <Text>
+        <Text color=#0969da>
+          "●"
+        <Text color=#1f2328>
+          "        draft"
+        <Text color=#8250df>
+          " [v0.1]"
+      <Text>
+        <Text color=#0969da>
+          "├"
+        <Text color=#0550ae>
+          "──╮"
+        <Text color=#1f2328>
+          "     "
+        <Text color=#0550ae>
+          "edits"
+      <Text>
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0550ae>
+          "●"
+        <Text color=#1f2328>
+          "     trim"
+      <Text>
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0550ae>
+          "├"
+        <Text color=#8250df>
+          "──╮"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#8250df>
+          "art"
+      <Text>
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0550ae>
+          "│"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#8250df>
+          "●"
+        <Text color=#1f2328>
+          "  cover"
+      <Text>
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0550ae>
+          "■"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#8250df>
+          "│"
+        <Text color=#1f2328>
+          "  typos"
+      <Text>
+        <Text color=#0969da>
+          "│"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0550ae>
+          "●"
+        <Text color=#8250df>
+          "──╯"
+        <Text color=#1f2328>
+          "  "
+        <Text color=#0969da>
+          "merge art"
+      <Text>
+        <Text color=#0969da>
+          "●"
+        <Text color=#0550ae>
+          "──╯"
+        <Text color=#1f2328>
+          "     print"
+        <Text color=#8250df>
+          " [v1.0]"
+      <Text>
+        " "
+      <Text>
+        <Text color=#0969da>
+          "main"
+        <Text color=#1f2328>
+          "   "
+        <Text color=#0550ae>
+          "edits"
+        <Text color=#1f2328>
+          "   "
+        <Text color=#8250df>
+          "art"
+  <Box>
+    <Box>
+      <Text>
         <Text color=#0969da>
           "┌───────┐"
         <Text color=#1f2328>
@@ -774,7 +2643,7 @@
           "└──────┘"
 <Box>
   <Text color=#6e7781>
-    "diagram is 180 cols, 98 fit"
+    "diagram too wide to render (158 cols, 98 fit)"
   <Box row>
     <Text color=#6e7781>
       "── mermaid"
@@ -974,7 +2843,7 @@
       <Text color=#0a3069>
         ""skadoosh""
 <Box border=round>
-  <Text color=green bold>
+  <Text color=#1a7f37 bold>
     "Tip"
   <Box>
     <Text>
