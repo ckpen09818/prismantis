@@ -53,7 +53,7 @@ claude plugin validate . && claude plugin test .
 ## 各功能的合併注意事項
 
 - **功能 10（點 `⧉`）**：複製按鈕的 `onPress` 閉包不在元素 props 上，所以靠 `copy()` 建立按鈕時用 `rememberPress` 登記、標記用 `markPress` 取回。若上游改了 `copy()` 的簽章或 `floating()` 的標記結構，要同步調整；若 `markPress` 取不到處理函式，標記會退回純文字（不會報錯），要靠上面那則測試才抓得到。
-- **功能 3（setup）**：上游新增 setup 步驟時，測試裡的頁數與按鈕數必須等於 `plugin/hooks/help.ts` 的 `setupSteps`（0.45.3 為 16 頁：上游 15，含 `bubbleLabels` 與 `codeStyle`，加上 `promptSide`；選一個選項後留在原頁，不像上游會跳下一頁）。測試裡的範例編號（`mount(n)`、`setupParts(…, n)`）也要跟著位移。
+- **功能 3（setup）**：上游新增 setup 步驟時，測試裡的頁數與按鈕數必須等於 `plugin/hooks/help.ts` 的 `setupSteps`（0.49.2 為 26 頁：上游 25，加上 `promptSide`；上游把設定分成必要步驟與 `setup more`，`ESSENTIAL_STEPS` 因個人的 `promptSide` 頁排在 `prompts` 後面而是 7，不是上游的 6；面板裡選一個選項後留在原頁、不關面板，不像上游會跳下一頁或在必要步驟結束時關閉；相關測試用步驟名稱而不是固定編號）。測試裡的範例編號（`mount(n)`、`setupParts(…, n)`）也要跟著位移。
 - **功能 2、4、5（標頭）與上游 `bubbleLabels`**：標頭文字由上游的 `youHead`、`claudeHead`、`headDot` 產生，你的靠左版本是 `youHeadLeft`，agent 名稱走 `replyHead(style)`。`bubbleLabels: off` 時整列（含時間與頭像）一起隱藏。Claude 標頭與框線顏色是 `replyBorder ?? accent`：上游預設會退回橘色 `claude`，你要保留 accent，不要採用上游那一行。
 - **功能 6**：`locateOnce` 只用在 `UserMessage`／`AssistantMessage`；工具列刻意保留 `locate`，因為上游測試要求工具列路徑跟隨 worktree 移動。
 - **功能 11（送出後縮圖）**：`renderUserPrompt` 多了第 8 個參數 `pictures`，只有圖片標籤那一列會走新分支；若上游改了它的簽章或 `rows.map` 的結構，要同步調整。`zoomed` 從字串改成 `Pasted` 物件，放大面板（`renderZoom`）收到的是圖片本身。`$.prompt.media` 這條路徑無法在測試裡模擬（`attachments` 由引擎設定），改動後要實際貼一張圖確認。只畫 PNG（至多約 2 MB），其他格式與大圖退回文字標籤。
